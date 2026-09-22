@@ -1,0 +1,41 @@
+# Build artifacts
+**/target/
+**/build/
+**/bin/
+**/out/
+*.class
+*.jar
+*.war
+*.ear
+
+# IDE / editor files
+**/.idea/
+**/.vscode/
+**/.settings/
+**/.classpath
+**/.project
+**/.factorypath
+**/*.iml
+**/*.ipr
+**/*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# Maven Wrapper / local metadata (if ever generated)
+.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
