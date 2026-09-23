@@ -1,0 +1,49 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cloud:
+    gateway:
+      routes:
+        - id: registration-service
+          uri: http://registration-service:8081
+          predicates:
+            - Path=/api/auth/register/**
+        - id: login-service
+          uri: http://login-service:8082
+          predicates:
+            - Path=/api/auth/login/**,/api/auth/logout/**
+        - id: accounts-service
+          uri: http://accounts-service:8083
+          predicates:
+            - Path=/api/accounts/**
+          filters:
+            - JwtAuthentication
+        - id: transaction-service
+          uri: http://transaction-service:8084
+          predicates:
+            - Path=/api/transactions/**
+          filters:
+            - JwtAuthentication
+
+jwt:
+  secret: ${JWT_SECRET:CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO

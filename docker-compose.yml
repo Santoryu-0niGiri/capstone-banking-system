@@ -1,0 +1,223 @@
+networks:
+  banking-net:
+    driver: bridge
+
+volumes:
+  oracle-data:
+  postgres-data:
+
+services:
+  oracle-db:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle-db
+    environment:
+      ORACLE_PASSWORD: OraclePass123
+      APP_USER: ledger_app
+      APP_USER_PASSWORD: LedgerAppPass123
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      - ./sql/oracle:/container-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+    networks:
+      - banking-net
+
+  postgres-db:
+    image: postgres:15
+    container_name: postgres-db
+    environment:
+      POSTGRES_DB: ledger_audit
+      POSTGRES_USER: ledger_audit
+      POSTGRES_PASSWORD: LedgerAuditPass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/postgres:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledger_audit -d ledger_audit"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - banking-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - banking-net
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - banking-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - banking-net
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      registration-service:
+        condition: service_started
+      login-service:
+        condition: service_started
+      accounts-service:
+        condition: service_started
+      transaction-service:
+        condition: service_started
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+    networks:
+      - banking-net
+
+  registration-service:
+    build:
+      context: .
+      dockerfile: registration-service/Dockerfile
+    container_name: registration-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+    environment:
+      ORACLE_URL: jdbc:oracle:thin:@oracle-db:1521/XEPDB1
+      ORACLE_USERNAME: ledger_app
+      ORACLE_PASSWORD: LedgerAppPass123
+      JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+    networks:
+      - banking-net
+
+  login-service:
+    build:
+      context: .
+      dockerfile: login-service/Dockerfile
+    container_name: login-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ORACLE_URL: jdbc:oracle:thin:@oracle-db:1521/XEPDB1
+      ORACLE_USERNAME: ledger_app
+      ORACLE_PASSWORD: LedgerAppPass123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+    networks:
+      - banking-net
+
+  accounts-service:
+    build:
+      context: .
+      dockerfile: accounts-service/Dockerfile
+    container_name: accounts-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ORACLE_URL: jdbc:oracle:thin:@oracle-db:1521/XEPDB1
+      ORACLE_USERNAME: ledger_app
+      ORACLE_PASSWORD: LedgerAppPass123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+    networks:
+      - banking-net
+
+  transaction-service:
+    build:
+      context: .
+      dockerfile: transaction-service/Dockerfile
+    container_name: transaction-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+      postgres-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      ORACLE_URL: jdbc:oracle:thin:@oracle-db:1521/XEPDB1
+      ORACLE_USERNAME: ledger_app
+      ORACLE_PASSWORD: LedgerAppPass123
+      POSTGRES_URL: jdbc:postgresql://postgres-db:5432/ledger_audit
+      POSTGRES_USERNAME: ledger_audit
+      POSTGRES_PASSWORD: LedgerAuditPass123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+    networks:
+      - banking-net
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    container_name: notification-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      kafka:
+        condition: service_started
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+    networks:
+      - banking-net
