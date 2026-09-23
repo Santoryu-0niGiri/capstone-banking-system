@@ -1,3 +1,4 @@
+
 package com.capstone.notification.kafka;
 
 import com.capstone.common.constants.KafkaTopics;
@@ -30,7 +31,15 @@ public class TransactionEventConsumer {
 
     @KafkaListener(topics = KafkaTopics.TRANSACTION_EVENTS, containerFactory = "kafkaListenerContainerFactory")
     public void onMessage(Object payload) {
+        if (payload == null) {
+            log.warn("Received null payload on transaction-events topic; skipping");
+            return;
+        }
         Map<?, ?> asMap = objectMapper.convertValue(payload, LinkedHashMap.class);
+        if (asMap == null) {
+            log.warn("Payload could not be converted to a map: {}; skipping", payload);
+            return;
+        }
         try {
             if (asMap.containsKey("reason")) {
                 notificationService.notifyFailed(objectMapper.convertValue(asMap, TransactionFailedEvent.class));
@@ -44,3 +53,4 @@ public class TransactionEventConsumer {
         }
     }
 }
+

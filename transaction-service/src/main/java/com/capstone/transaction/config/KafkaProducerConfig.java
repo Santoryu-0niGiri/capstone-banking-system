@@ -1,3 +1,4 @@
+
 package com.capstone.transaction.config;
 
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -16,8 +17,11 @@ import java.util.Map;
 @Configuration
 public class KafkaProducerConfig {
 
-    @Value("${spring.kafka.bootstrap-servers}")
-    private String bootstrapServers;
+    private final String bootstrapServers;
+
+    public KafkaProducerConfig(@Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
+        this.bootstrapServers = bootstrapServers;
+    }
 
     @Bean
     public ProducerFactory<String, Object> producerFactory() {
@@ -36,3 +40,4 @@ public class KafkaProducerConfig {
         return new KafkaTemplate<>(producerFactory());
     }
 }
+

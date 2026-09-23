@@ -1,6 +1,7 @@
+
 package com.capstone.transaction.repository.oracle;
 
-import com.capstone.transaction.entity.oracle.Account;
+import com.capstone.transaction.entity.oracle.CustomerBalanceMaster;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,16 +12,21 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
-public interface AccountRepository extends JpaRepository<Account, Long> {
+/**
+ * Targets CUSTOMER_BALANCE_MASTER via the Oracle primary DataSource.
+ * String PK: account_id (VARCHAR2 36 UUID).
+ */
+public interface AccountRepository extends JpaRepository<CustomerBalanceMaster, String> {
 
     /**
-     * Acquires a `SELECT ... FOR UPDATE` row lock (PESSIMISTIC_WRITE) on the
-     * account row so concurrent debit/credit/transfer requests against the
-     * same account serialize instead of racing on the balance column. A
-     * 5-second lock-acquisition timeout prevents indefinite blocking.
+     * Issues SELECT … FOR UPDATE (PESSIMISTIC_WRITE) with a 5-second
+     * acquisition timeout. All balance-mutation callers MUST use this
+     * method — never findById — to prevent concurrent updates racing on
+     * balance_amount and producing negative balances.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @QueryHints({@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000")})
-    @Query("select a from Account a where a.acctNo = :acctNo")
-    Optional<Account> findByIdForUpdate(@Param("acctNo") Long acctNo);
+    @Query("SELECT b FROM CustomerBalanceMaster b WHERE b.accountId = :accountId")
+    Optional<CustomerBalanceMaster> findByIdForUpdate(@Param("accountId") String accountId);
 }
+

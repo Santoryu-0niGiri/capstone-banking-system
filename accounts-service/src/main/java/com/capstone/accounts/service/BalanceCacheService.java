@@ -1,3 +1,4 @@
+
 package com.capstone.accounts.service;
 
 import com.capstone.common.constants.RedisKeys;
@@ -10,11 +11,10 @@ import java.time.Duration;
 import java.util.Optional;
 
 /**
- * Cache-aside wrapper around Redis for the balance:{acctNo} key. Read paths
- * consult the cache first and fall through to Oracle on a miss; write paths
- * (invoked by accounts-service after any update, and by transaction-service
- * after a successful mutation) refresh or evict the entry so cached reads
- * never serve stale balances for long.
+ * Cache-aside wrapper for balance:{accountId} in Redis.
+ * accountId is a String UUID matching CUSTOMER_BALANCE_MASTER.account_id.
+ * TTL is 5 minutes; transaction-service evicts the entry on every successful
+ * mutation so reads never serve stale balances beyond the TTL window.
  */
 @Service
 @RequiredArgsConstructor
@@ -24,16 +24,17 @@ public class BalanceCacheService {
 
     private final StringRedisTemplate redisTemplate;
 
-    public Optional<BigDecimal> get(Long acctNo) {
-        String value = redisTemplate.opsForValue().get(RedisKeys.balanceKey(acctNo));
+    public Optional<BigDecimal> get(String accountId) {
+        String value = redisTemplate.opsForValue().get(RedisKeys.balanceKey(accountId));
         return Optional.ofNullable(value).map(BigDecimal::new);
     }
 
-    public void put(Long acctNo, BigDecimal balance) {
-        redisTemplate.opsForValue().set(RedisKeys.balanceKey(acctNo), balance.toPlainString(), TTL);
+    public void put(String accountId, BigDecimal balance) {
+        redisTemplate.opsForValue().set(RedisKeys.balanceKey(accountId), balance.toPlainString(), TTL);
     }
 
-    public void evict(Long acctNo) {
-        redisTemplate.delete(RedisKeys.balanceKey(acctNo));
+    public void evict(String accountId) {
+        redisTemplate.delete(RedisKeys.balanceKey(accountId));
     }
 }
+

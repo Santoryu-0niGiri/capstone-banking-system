@@ -1,8 +1,10 @@
+
 package com.capstone.login.controller;
 
 import com.capstone.common.dto.ApiResponse;
 import com.capstone.common.dto.LoginRequest;
 import com.capstone.common.dto.LoginResponse;
+import com.capstone.common.exception.InvalidTokenException;
 import com.capstone.login.service.LoginService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +30,12 @@ public class LoginController {
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(@RequestHeader("Authorization") String authorizationHeader) {
-        String token = authorizationHeader.replaceFirst("^Bearer ", "");
+        if (!authorizationHeader.startsWith("Bearer ")) {
+            throw new InvalidTokenException("Authorization header must start with 'Bearer '");
+        }
+        String token = authorizationHeader.substring(7);
         loginService.logout(token);
         return ResponseEntity.ok(ApiResponse.ok("Logout successful", null));
     }
 }
+

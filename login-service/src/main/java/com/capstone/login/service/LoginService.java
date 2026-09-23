@@ -1,11 +1,12 @@
+
 package com.capstone.login.service;
 
 import com.capstone.common.dto.LoginRequest;
 import com.capstone.common.dto.LoginResponse;
 import com.capstone.common.exception.InvalidCredentialsException;
 import com.capstone.common.security.JwtTokenProvider;
-import com.capstone.login.entity.Customer;
-import com.capstone.login.repository.CustomerRepository;
+import com.capstone.login.entity.AppUser;
+import com.capstone.login.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,28 +18,44 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LoginService {
 
-    private final CustomerRepository customerRepository;
+    private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
 
+    /**
+     * Authenticates against APP_USER_MASTER:
+     * 1. Lookup by username (== email set at registration).
+     * 2. Verify active_status is ACTIVE — suspended/locked/disabled accounts rejected.
+     * 3. BCrypt password match against password_hash.
+     * 4. Issue JWT with customerId (String UUID) as subject.
+     */
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
-        Customer customer = customerRepository.findByEmail(request.email())
+        AppUser appUser = appUserRepository.findByUsername(request.email())
                 .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
 
-        if (!passwordEncoder.matches(request.password(), customer.getPasswordHash())) {
+        if (!"ACTIVE".equals(appUser.getActiveStatus())) {
+            throw new InvalidCredentialsException(
+                    "Account is not active (status=" + appUser.getActiveStatus() + ")");
+        }
+
+        if (!passwordEncoder.matches(request.password(), appUser.getPasswordHash())) {
             throw new InvalidCredentialsException("Invalid email or password");
         }
 
-        String token = tokenProvider.generateToken(customer.getCustId(), customer.getEmail(), List.of("ROLE_CUSTOMER"));
+        // customerId (String UUID) becomes the JWT subject — matches CUSTOMER_MASTER.customer_id
+        String token = tokenProvider.generateToken(
+                appUser.getCustomerId(), request.email(), List.of("ROLE_CUSTOMER"));
         long expirySeconds = tokenProvider.getExpirationSeconds();
+
         tokenBlacklistService.registerActiveToken(token, expirySeconds);
 
-        return LoginResponse.of(token, expirySeconds, customer.getCustId(), customer.getEmail());
+        return LoginResponse.of(token, expirySeconds, appUser.getCustomerId(), request.email());
     }
 
     public void logout(String token) {
         tokenBlacklistService.blacklist(token);
     }
 }
+

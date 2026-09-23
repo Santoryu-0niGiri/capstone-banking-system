@@ -1,3 +1,4 @@
+
 package com.capstone.login.service;
 
 import com.capstone.common.constants.RedisKeys;
@@ -37,3 +38,4 @@ public class TokenBlacklistService {
         redisTemplate.opsForValue().set(RedisKeys.tokenKey(token), "BLACKLISTED", Duration.ofSeconds(remainingSeconds));
     }
 }
+

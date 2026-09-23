@@ -1,3 +1,4 @@
+
 package com.capstone.common.dto;
 
 import jakarta.validation.constraints.Email;
@@ -13,3 +14,4 @@ public record LoginRequest(
         String password
 ) {
 }
+

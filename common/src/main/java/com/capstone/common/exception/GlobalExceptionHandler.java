@@ -1,3 +1,4 @@
+
 package com.capstone.common.exception;
 
 import jakarta.validation.ConstraintViolationException;
@@ -138,3 +139,4 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.badRequest().body(pd);
     }
 }
+

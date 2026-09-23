@@ -1,3 +1,4 @@
+
 server:
   port: 8084
 
@@ -37,3 +38,4 @@ management:
 logging:
   level:
     com.capstone: INFO
+

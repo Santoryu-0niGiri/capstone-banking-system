@@ -1,3 +1,4 @@
+
 package com.capstone.notification;
 
 import org.springframework.boot.SpringApplication;
@@ -12,3 +13,4 @@ public class NotificationServiceApplication {
         SpringApplication.run(NotificationServiceApplication.class, args);
     }
 }
+

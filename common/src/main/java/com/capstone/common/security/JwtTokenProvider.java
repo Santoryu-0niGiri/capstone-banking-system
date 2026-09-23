@@ -1,3 +1,4 @@
+
 package com.capstone.common.security;
 
 import io.jsonwebtoken.Claims;
@@ -14,8 +15,10 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * Central JWT issuing/parsing utility shared by login-service (issuer),
- * api-gateway (edge validator) and every resource service (local validator).
+ * Shared JWT utility used by login-service (issuer), api-gateway (edge validator),
+ * and every resource service (local validator).
+ *
+ * Subject is customerId (String UUID) matching APP_USER_MASTER.customer_id.
  */
 @Component
 public class JwtTokenProvider {
@@ -29,11 +32,14 @@ public class JwtTokenProvider {
         this.expirationMillis = expirationMillis;
     }
 
-    public String generateToken(Long custId, String email, List<String> roles) {
+    /**
+     * @param customerId String UUID from APP_USER_MASTER / CUSTOMER_MASTER
+     */
+    public String generateToken(String customerId, String email, List<String> roles) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMillis);
         return Jwts.builder()
-                .subject(String.valueOf(custId))
+                .subject(customerId)
                 .claim("email", email)
                 .claim("roles", roles)
                 .issuedAt(now)
@@ -67,8 +73,9 @@ public class JwtTokenProvider {
         }
     }
 
-    public Long getCustId(String token) {
-        return Long.valueOf(parseClaims(token).getSubject());
+    /** Returns the String UUID stored as the JWT subject. */
+    public String getCustomerId(String token) {
+        return parseClaims(token).getSubject();
     }
 
     public String getEmail(String token) {
@@ -80,3 +87,4 @@ public class JwtTokenProvider {
         return (List<String>) parseClaims(token).get("roles", List.class);
     }
 }
+

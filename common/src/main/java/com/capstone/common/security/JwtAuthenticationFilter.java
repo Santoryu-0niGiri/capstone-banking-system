@@ -1,3 +1,4 @@
+
 package com.capstone.common.security;
 
 import jakarta.servlet.FilterChain;
@@ -16,10 +17,9 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Stateless JWT bearer-token filter used by every WebMVC resource service
- * (accounts-service, transaction-service). Validates the token signature
- * and expiry, and rejects tokens present in the Redis blacklist
- * (token:{jwt}) that login-service populates on logout.
+ * Stateless JWT bearer-token filter used by every WebMVC resource service.
+ * Principal is now a String UUID (customer_id from APP_USER_MASTER).
+ * Rejects tokens blacklisted in Redis via token:{jwt} key set by login-service on logout.
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -37,24 +37,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                      @NonNull FilterChain filterChain) throws ServletException, IOException {
         String token = resolveToken(request);
         if (StringUtils.hasText(token) && tokenProvider.isValid(token) && !isBlacklisted(token)) {
-            Long custId = tokenProvider.getCustId(token);
+            // Principal is String UUID — downstream services cast SecurityContext.principal to String
+            String customerId = tokenProvider.getCustomerId(token);
             List<String> roles = tokenProvider.getRoles(token);
             List<SimpleGrantedAuthority> authorities = roles == null ? List.of()
                     : roles.stream().map(SimpleGrantedAuthority::new).toList();
 
             UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(custId, null, authorities);
+                    new UsernamePasswordAuthenticationToken(customerId, null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
         filterChain.doFilter(request, response);
     }
 
     private boolean isBlacklisted(String token) {
-        if (redisTemplate == null) {
+        if (redisTemplate == null) return false;
+        try {
+            String value = redisTemplate.opsForValue().get("token:" + token);
+            return "BLACKLISTED".equals(value);
+        } catch (Exception e) {
             return false;
         }
-        Boolean blacklisted = redisTemplate.hasKey("token:" + token);
-        return Boolean.TRUE.equals(blacklisted);
     }
 
     private String resolveToken(HttpServletRequest request) {
@@ -65,3 +68,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 }
+

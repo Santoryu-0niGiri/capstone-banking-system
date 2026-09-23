@@ -1,3 +1,4 @@
+
 package com.capstone.gateway;
 
 import org.springframework.boot.SpringApplication;
@@ -10,3 +11,4 @@ public class GatewayApplication {
         SpringApplication.run(GatewayApplication.class, args);
     }
 }
+

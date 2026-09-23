@@ -1,3 +1,4 @@
+
 server:
   port: 8083
 
@@ -19,6 +20,9 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
 jwt:
   secret: ${JWT_SECRET:CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
 
@@ -31,3 +35,4 @@ management:
 logging:
   level:
     com.capstone: INFO
+

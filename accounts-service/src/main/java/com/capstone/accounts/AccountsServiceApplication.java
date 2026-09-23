@@ -1,3 +1,4 @@
+
 package com.capstone.accounts;
 
 import org.springframework.boot.SpringApplication;
@@ -12,3 +13,4 @@ public class AccountsServiceApplication {
         SpringApplication.run(AccountsServiceApplication.class, args);
     }
 }
+

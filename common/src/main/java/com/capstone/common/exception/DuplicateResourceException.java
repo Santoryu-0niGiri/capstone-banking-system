@@ -1,3 +1,4 @@
+
 package com.capstone.common.exception;
 
 public class DuplicateResourceException extends RuntimeException {
@@ -6,3 +7,4 @@ public class DuplicateResourceException extends RuntimeException {
         super(message);
     }
 }
+

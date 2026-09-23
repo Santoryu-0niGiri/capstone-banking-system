@@ -1,3 +1,4 @@
+
 package com.capstone.registration;
 
 import org.springframework.boot.SpringApplication;
@@ -12,3 +13,4 @@ public class RegistrationServiceApplication {
         SpringApplication.run(RegistrationServiceApplication.class, args);
     }
 }
+

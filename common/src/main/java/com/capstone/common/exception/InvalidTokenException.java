@@ -1,3 +1,4 @@
+
 package com.capstone.common.exception;
 
 public class InvalidTokenException extends RuntimeException {
@@ -6,3 +7,4 @@ public class InvalidTokenException extends RuntimeException {
         super(message);
     }
 }
+

@@ -1,3 +1,4 @@
+
 package com.capstone.accounts.config;
 
 import com.capstone.common.security.JwtAuthenticationFilter;
@@ -33,3 +34,4 @@ public class SecurityConfig {
         return http.build();
     }
 }
+

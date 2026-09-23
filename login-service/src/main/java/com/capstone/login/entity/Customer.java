@@ -1,3 +1,4 @@
+
 package com.capstone.login.entity;
 
 import jakarta.persistence.Column;
@@ -9,30 +10,28 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Read-only mapping of the customer table for credential verification.
- * Ownership of customer creation lives in registration-service; this
- * service only authenticates against the existing row.
+ * Read-only mapping of CUSTOMER_MASTER.
+ * Used only to expose customer metadata in LoginResponse (email lookup).
+ * Write ownership lives in registration-service.
  */
 @Entity
-@Table(name = "customer")
+@Table(name = "customer_master")
 @Getter
 @Setter
 @NoArgsConstructor
 public class Customer {
 
     @Id
-    @Column(name = "cust_id")
-    private Long custId;
+    @Column(name = "customer_id", length = 36)
+    private String customerId;
 
-    @Column(name = "f_name")
+    @Column(name = "first_name", length = 100)
     private String firstName;
 
-    @Column(name = "l_name")
+    @Column(name = "last_name", length = 100)
     private String lastName;
 
-    @Column(name = "email")
+    @Column(name = "email", length = 255)
     private String email;
-
-    @Column(name = "password_hash")
-    private String passwordHash;
 }
+

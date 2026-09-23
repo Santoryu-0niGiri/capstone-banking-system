@@ -1,3 +1,4 @@
+
 package com.capstone.common.exception;
 
 public class InvalidCredentialsException extends RuntimeException {
@@ -6,3 +7,4 @@ public class InvalidCredentialsException extends RuntimeException {
         super(message);
     }
 }
+

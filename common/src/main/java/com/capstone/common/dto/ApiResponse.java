@@ -1,3 +1,4 @@
+
 package com.capstone.common.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -19,3 +20,4 @@ public record ApiResponse<T>(boolean success, String message, T data, Instant ti
         return new ApiResponse<>(false, message, null, Instant.now());
     }
 }
+

@@ -1,9 +1,8 @@
+
 package com.capstone.registration.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -11,13 +10,16 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * Maps to CUSTOMER_MASTER (Oracle XE 21c).
+ * customer_id is a client-assigned VARCHAR2(36) UUID — no IDENTITY column.
+ */
 @Entity
-@Table(name = "customer")
+@Table(name = "customer_master")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -26,29 +28,36 @@ import java.time.LocalDateTime;
 public class Customer {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "cust_id")
-    private Long custId;
+    @Column(name = "customer_id", length = 36, updatable = false, nullable = false)
+    private String customerId;
 
-    @Column(name = "f_name", nullable = false, length = 100)
+    @Column(name = "first_name", nullable = false, length = 100)
     private String firstName;
 
-    @Column(name = "l_name", nullable = false, length = 100)
+    @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
     @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(name = "phone_number", nullable = false, length = 20)
-    private String phoneNumber;
+    // nullable per DDL — contact_no VARCHAR2(20)
+    @Column(name = "contact_no", length = 20)
+    private String contactNo;
 
-    @Column(name = "birthday", nullable = false)
-    private LocalDate birthday;
+    // nullable per DDL — birth_date DATE
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
 
-    @Column(name = "password_hash", nullable = false, length = 255)
-    private String passwordHash;
-
-    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "created_by", nullable = false, length = 50)
+    private String createdBy;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @Column(name = "updated_by", length = 50)
+    private String updatedBy;
 }
+

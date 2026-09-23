@@ -1,3 +1,4 @@
+
 package com.capstone.common.exception;
 
 /**
@@ -16,3 +17,4 @@ public class LedgerPersistenceException extends RuntimeException {
         super(message, cause);
     }
 }
+

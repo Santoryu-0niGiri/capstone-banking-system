@@ -1,3 +1,4 @@
+
 package com.capstone.transaction.service;
 
 import com.capstone.common.constants.RedisKeys;
@@ -12,28 +13,25 @@ import java.time.Duration;
 import java.util.Optional;
 
 /**
- * Redis-backed idempotency guard for transaction mutation endpoints. Keys:
- * idempotency:{key} with a 24h TTL as required by the spec. A value of
- * "PROCESSING" marks an in-flight request (guards against concurrent
- * duplicate submission); once the transaction completes the value is
- * replaced with the serialized TransactionResponse so retried requests
- * receive the original result instead of re-executing the mutation.
+ * Redis-backed idempotency guard.  Keys: idempotency:{key}, TTL 24 h.
+ *
+ * "PROCESSING" is a sentinel written atomically via SET … NX to gate
+ * concurrent duplicate submissions; on completion it is replaced with the
+ * serialised TransactionResponse so retries receive the original result.
  */
 @Service
 @RequiredArgsConstructor
 public class IdempotencyService {
 
-    private static final Duration TTL = Duration.ofHours(24);
-    private static final String PROCESSING_MARKER = "PROCESSING";
+    private static final Duration TTL               = Duration.ofHours(24);
+    private static final String   PROCESSING_MARKER = "PROCESSING";
 
     private final StringRedisTemplate redisTemplate;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper        objectMapper;
 
     public Optional<TransactionResponse> getCached(String idempotencyKey) {
         String json = redisTemplate.opsForValue().get(RedisKeys.idempotencyKey(idempotencyKey));
-        if (json == null || PROCESSING_MARKER.equals(json)) {
-            return Optional.empty();
-        }
+        if (json == null || PROCESSING_MARKER.equals(json)) return Optional.empty();
         try {
             return Optional.of(objectMapper.readValue(json, TransactionResponse.class));
         } catch (JsonProcessingException e) {
@@ -41,6 +39,7 @@ public class IdempotencyService {
         }
     }
 
+    /** @return true if the lock was acquired (first caller), false if already in-flight */
     public boolean tryLock(String idempotencyKey) {
         Boolean acquired = redisTemplate.opsForValue()
                 .setIfAbsent(RedisKeys.idempotencyKey(idempotencyKey), PROCESSING_MARKER, TTL);
@@ -56,7 +55,9 @@ public class IdempotencyService {
         }
     }
 
+    /** Called on any exception path so the key does not permanently block retries */
     public void release(String idempotencyKey) {
         redisTemplate.delete(RedisKeys.idempotencyKey(idempotencyKey));
     }
 }
+

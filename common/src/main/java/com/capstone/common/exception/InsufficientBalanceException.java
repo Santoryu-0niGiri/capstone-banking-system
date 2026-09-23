@@ -1,3 +1,4 @@
+
 package com.capstone.common.exception;
 
 public class InsufficientBalanceException extends RuntimeException {
@@ -6,3 +7,4 @@ public class InsufficientBalanceException extends RuntimeException {
         super(message);
     }
 }
+

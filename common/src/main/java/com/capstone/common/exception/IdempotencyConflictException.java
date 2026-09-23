@@ -1,3 +1,4 @@
+
 package com.capstone.common.exception;
 
 /**
@@ -10,3 +11,4 @@ public class IdempotencyConflictException extends RuntimeException {
         super(message);
     }
 }
+

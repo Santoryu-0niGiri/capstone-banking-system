@@ -1,3 +1,4 @@
+
 package com.capstone.notification.service;
 
 import com.capstone.common.event.TransactionCompletedEvent;
@@ -7,26 +8,29 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Simulates a notification dispatch (email/SMS/push). In this reference
- * implementation it logs a formatted message; swap the log calls for a
- * real provider (SES, Twilio, FCM, ...) to go to production.
+ * Simulates notification dispatch (email/SMS/push).
+ * Swap log calls for a real provider (SES, Twilio, FCM …) for production.
+ * accountId is now a String UUID matching CUSTOMER_BALANCE_MASTER.account_id.
  */
 @Service
 @Slf4j
 public class NotificationService {
 
     public void notifyCreated(TransactionCreatedEvent event) {
-        log.info("[NOTIFY] Transaction {} ({}) of {} initiated on account {}",
-                event.txnId(), event.txnType(), event.amount(), event.acctNo());
+        log.info("[NOTIFY] txn={} type={} amount={} account={}",
+                event.txnId(), event.txnType(), event.amount(), event.accountId());
     }
 
     public void notifyCompleted(TransactionCompletedEvent event) {
-        log.info("[NOTIFY] Transaction {} ({}) of {} completed on account {} -- new balance {}",
-                event.txnId(), event.txnType(), event.amount(), event.acctNo(), event.balanceAfter());
+        log.info("[NOTIFY] txn={} type={} amount={} account={} newBalance={}",
+                event.txnId(), event.txnType(), event.amount(),
+                event.accountId(), event.balanceAfter());
     }
 
     public void notifyFailed(TransactionFailedEvent event) {
-        log.warn("[NOTIFY] Transaction {} ({}) of {} FAILED on account {} -- reason: {}",
-                event.txnId(), event.txnType(), event.amount(), event.acctNo(), event.reason());
+        log.warn("[NOTIFY] txn={} type={} amount={} account={} FAILED reason={}",
+                event.txnId(), event.txnType(), event.amount(),
+                event.accountId(), event.reason());
     }
 }
+

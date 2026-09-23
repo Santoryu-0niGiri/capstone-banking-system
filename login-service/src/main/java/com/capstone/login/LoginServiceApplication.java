@@ -1,3 +1,4 @@
+
 package com.capstone.login;
 
 import org.springframework.boot.SpringApplication;
@@ -12,3 +13,4 @@ public class LoginServiceApplication {
         SpringApplication.run(LoginServiceApplication.class, args);
     }
 }
+

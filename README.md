@@ -1,4 +1,4 @@
-# Capstone Banking System
+﻿# Capstone Banking System
 
 This project is a multi-service banking platform built with Java 21, Spring Boot 3, Spring Cloud Gateway, Oracle, PostgreSQL, Redis, and Kafka.
 
@@ -111,79 +111,92 @@ docker compose down -v
 
 ## API entry point
 
-All tests should go through the gateway, not directly to each service:
+All tests go through the gateway. Never call service ports directly.
 
-```text
+```
 http://localhost:8080
 ```
 
-Gateway routes:
+| Operation              | Method | Path                                        | Auth |
+|------------------------|--------|---------------------------------------------|------|
+| Register customer      | POST   | `/api/auth/register`                        | No   |
+| Login                  | POST   | `/api/auth/login`                           | No   |
+| Logout                 | POST   | `/api/auth/logout`                          | Yes  |
+| Create account         | POST   | `/api/accounts`                             | Yes  |
+| Get account details    | GET    | `/api/accounts/{accountId}`                 | Yes  |
+| Get balance            | GET    | `/api/accounts/{accountId}/balance`         | Yes  |
+| Get accounts by customer | GET  | `/api/accounts/customer/{customerId}`       | Yes  |
+| Mutate balance         | POST   | `/api/v1/ledger/mutate`                     | Yes  |
+| Get audit record       | GET    | `/api/v1/ledger/audit/{txnId}`              | Yes  |
 
-- Registration: `http://localhost:8080/api/auth/register`
-- Login: `http://localhost:8080/api/auth/login`
-- Logout: `http://localhost:8080/api/auth/logout`
-- Accounts: `http://localhost:8080/api/accounts`
-- Transactions: `http://localhost:8080/api/transactions`
-
-Important: account and transaction endpoints require a valid JWT in the Authorization header.
+> All `accountId`, `customerId`, and `txnId` values are **UUID strings** — not numbers.
 
 ---
 
 ## Postman testing flow
 
-### Step 1: Register a customer
+Work through each step in order. Values from earlier steps feed into later ones.
 
-Method: POST
+---
 
-URL:
+### Step 1 — Register a customer
 
-```text
-http://localhost:8080/api/auth/register
+**Method:** `POST`
+**URL:** `http://localhost:8080/api/auth/register`
+
+**Headers:**
 ```
-
-Headers:
-
-```http
 Content-Type: application/json
 ```
 
-Body JSON:
-
+**Body:**
 ```json
 {
   "firstName": "John",
   "lastName": "Doe",
   "email": "john.doe@example.com",
-  "phoneNumber": "+1-555-0133",
-  "birthday": "1995-07-10",
+  "contactNo": "+63-917-555-0100",
+  "birthDate": "1995-07-10",
   "password": "Password123!"
 }
 ```
 
-Expected result: status 201 Created.
+**Expected:** `201 Created`
 
-The response contains a customer id, which you will use for account creation.
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Customer registered successfully",
+  "data": {
+    "customerId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe@example.com"
+  }
+}
+```
+
+Save `data.customerId`. You need it when creating accounts.
+
+Field notes:
+- `contactNo` — optional, nullable
+- `birthDate` — format `YYYY-MM-DD`, must be in the past
+- `password` — minimum 8 characters
 
 ---
 
-### Step 2: Login and get JWT token
+### Step 2 — Login and get the JWT
 
-Method: POST
+**Method:** `POST`
+**URL:** `http://localhost:8080/api/auth/login`
 
-URL:
-
-```text
-http://localhost:8080/api/auth/login
+**Headers:**
 ```
-
-Headers:
-
-```http
 Content-Type: application/json
 ```
 
-Body JSON:
-
+**Body:**
 ```json
 {
   "email": "john.doe@example.com",
@@ -191,287 +204,360 @@ Body JSON:
 }
 ```
 
-Expected response:
+**Expected:** `200 OK`
 
+**Response:**
 ```json
 {
   "success": true,
   "message": "Login successful",
   "data": {
-    "token": "eyJhbGciOiJIUzI1NiJ9....",
+    "token": "eyJhbGciOiJIUzI1NiJ9...",
     "tokenType": "Bearer",
     "expiresInSeconds": 3600,
-    "custId": 1,
+    "customerId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "email": "john.doe@example.com"
-  },
-  "timestamp": "2026-09-22T10:00:00Z"
+  }
 }
 ```
 
-Copy the token value from `data.token`.
+Copy `data.token`. Add it as `Authorization: Bearer <token>` on every request from here on.
 
 ---
 
-### Step 3: Create an account
+### Step 3 — Create a SAVINGS account
 
-Method: POST
+**Method:** `POST`
+**URL:** `http://localhost:8080/api/accounts`
 
-URL:
-
-```text
-http://localhost:8080/api/accounts
+**Headers:**
 ```
-
-Headers:
-
-```http
 Content-Type: application/json
-Authorization: Bearer <PASTE_TOKEN_HERE>
+Authorization: Bearer <token>
 ```
 
-Body JSON:
-
+**Body:**
 ```json
 {
-  "custId": 1,
-  "acctType": "SAVINGS"
+  "customerId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "accountType": "SAVINGS",
+  "currencyCode": "PHP"
 }
 ```
 
-You can also create a second account for transfer testing:
+**Expected:** `201 Created`
 
+**Response:**
 ```json
 {
-  "custId": 1,
-  "acctType": "CHECKING"
+  "success": true,
+  "message": "Account created",
+  "data": {
+    "accountId": "11111111-aaaa-bbbb-cccc-222222222222",
+    "customerId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "accountType": "SAVINGS",
+    "accountStatus": "ACTIVE",
+    "balanceAmount": 0,
+    "currencyCode": "PHP",
+    "createdAt": "2026-09-23T05:00:00"
+  }
 }
 ```
 
-Expected result: status 201 Created.
+Save `data.accountId` as **Account 1**.
 
-Save the returned account number (`acctNo`) because you will use it for balance checks and transactions.
-
----
-
-### Step 4: Check balance
-
-Method: GET
-
-URL:
-
-```text
-http://localhost:8080/api/accounts/100001/balance
-```
-
-Headers:
-
-```http
-Authorization: Bearer <PASTE_TOKEN_HERE>
-```
-
-Replace `100001` with the actual account number returned earlier.
+Valid `accountType` values: `SAVINGS`, `CHECKING`, `WALLET`
+Valid `currencyCode`: any 3-letter ISO code, e.g. `PHP`, `USD`, `EUR`
 
 ---
 
-### Step 5: Debit money from an account
+### Step 4 — Create a second account (for transfer testing)
 
-Method: POST
+Same as Step 3, change `accountType`:
 
-URL:
-
-```text
-http://localhost:8080/api/transactions/debit
+```json
+{
+  "customerId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "accountType": "CHECKING",
+  "currencyCode": "PHP"
+}
 ```
 
-Headers:
+Save `data.accountId` as **Account 2**.
 
-```http
+---
+
+### Step 5 — Check balance
+
+**Method:** `GET`
+**URL:** `http://localhost:8080/api/accounts/11111111-aaaa-bbbb-cccc-222222222222/balance`
+
+Replace the UUID with your actual Account 1 `accountId`.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Expected:** `200 OK` — returns `0` at this point.
+
+---
+
+### Step 6 — Deposit money into Account 1
+
+**Method:** `POST`
+**URL:** `http://localhost:8080/api/v1/ledger/mutate`
+
+**Headers:**
+```
 Content-Type: application/json
-Authorization: Bearer <PASTE_TOKEN_HERE>
+Authorization: Bearer <token>
 ```
 
-Body JSON:
-
+**Body:**
 ```json
 {
-  "acctNo": 100001,
-  "counterpartyAcctNo": null,
-  "amount": 250.0,
-  "idempotencyKey": "debit-100001-250-001"
+  "accountId": "11111111-aaaa-bbbb-cccc-222222222222",
+  "counterpartyAccountId": null,
+  "txnType": "DEPOSIT",
+  "amount": 5000.00,
+  "idempotencyKey": "deposit-acct1-5000-001"
 }
 ```
 
-Expected: new balance reduced by 250.00.
+**Expected:** `201 Created`
 
----
-
-### Step 6: Credit money to an account
-
-Method: POST
-
-URL:
-
-```text
-http://localhost:8080/api/transactions/credit
-```
-
-Headers:
-
-```http
-Content-Type: application/json
-Authorization: Bearer <PASTE_TOKEN_HERE>
-```
-
-Body JSON:
-
+**Response:**
 ```json
 {
-  "acctNo": 100001,
-  "counterpartyAcctNo": null,
-  "amount": 1000.0,
-  "idempotencyKey": "credit-100001-1000-001"
+  "success": true,
+  "message": "DEPOSIT processed",
+  "data": {
+    "txnId": "ffffffff-0000-1111-2222-333333333333",
+    "accountId": "11111111-aaaa-bbbb-cccc-222222222222",
+    "txnType": "DEPOSIT",
+    "amount": 5000.00,
+    "balanceAfter": 5000.00,
+    "txnStatus": "COMMITTED",
+    "timestamp": "2026-09-23T05:10:00Z"
+  }
 }
 ```
 
+Save `data.txnId` to check the audit record in Step 9.
+
 ---
 
-### Step 7: Transfer money between two accounts
+### Step 7 — Withdraw money from Account 1
 
-Method: POST
+**Method:** `POST`
+**URL:** `http://localhost:8080/api/v1/ledger/mutate`
 
-URL:
-
-```text
-http://localhost:8080/api/transactions/transfer
-```
-
-Headers:
-
-```http
-Content-Type: application/json
-Authorization: Bearer <PASTE_TOKEN_HERE>
-```
-
-Body JSON:
-
+**Body:**
 ```json
 {
-  "acctNo": 100001,
-  "counterpartyAcctNo": 100002,
-  "amount": 150.5,
-  "idempotencyKey": "transfer-100001-100002-001"
+  "accountId": "11111111-aaaa-bbbb-cccc-222222222222",
+  "counterpartyAccountId": null,
+  "txnType": "WITHDRAWAL",
+  "amount": 500.00,
+  "idempotencyKey": "withdrawal-acct1-500-001"
 }
 ```
 
-This performs a transfer from account 100001 to 100002.
+**Expected:** `balanceAfter` = `4500.00`
 
-Important:
-
-- source and destination accounts must be different
-- source account must have enough balance
-- idempotencyKey must be unique per logical operation
+To confirm the non-negative balance guard works, try withdrawing more than the current balance — you should get a `409 Conflict` error.
 
 ---
 
-### Step 8: Fetch transaction audit record
+### Step 8 — Transfer from Account 1 to Account 2
 
-Method: GET
+**Method:** `POST`
+**URL:** `http://localhost:8080/api/v1/ledger/mutate`
 
-URL:
-
-```text
-http://localhost:8080/api/transactions/<txnId>
+**Body:**
+```json
+{
+  "accountId": "11111111-aaaa-bbbb-cccc-222222222222",
+  "counterpartyAccountId": "22222222-bbbb-cccc-dddd-333333333333",
+  "txnType": "TRANSFER",
+  "amount": 1500.50,
+  "idempotencyKey": "transfer-acct1-acct2-1500-001"
+}
 ```
 
-Headers:
+Replace both UUIDs with your actual Account 1 and Account 2 IDs.
 
-```http
-Authorization: Bearer <PASTE_TOKEN_HERE>
+**Expected:**
+- Account 1 balance decreases by 1500.50
+- Account 2 balance increases by 1500.50
+- `txnStatus: "COMMITTED"`
+
+Constraints the service enforces:
+- `accountId` and `counterpartyAccountId` must differ — same value on both returns `400`
+- `counterpartyAccountId` is required for TRANSFER — omitting it returns `400`
+- Source must have sufficient funds — returns `409` on shortfall
+
+---
+
+### Step 9 — Fetch the ledger audit record
+
+**Method:** `GET`
+**URL:** `http://localhost:8080/api/v1/ledger/audit/ffffffff-0000-1111-2222-333333333333`
+
+Replace the UUID with `txnId` from any transaction response.
+
+**Headers:**
+```
+Authorization: Bearer <token>
 ```
 
-The txnId is returned in the transaction response body from debit, credit, or transfer operations.
+**What to expect per operation:**
+
+| txnType    | Rows returned | mutationType values         |
+|------------|---------------|-----------------------------|
+| DEPOSIT    | 1             | `CREDIT`                    |
+| WITHDRAWAL | 1             | `DEBIT`                     |
+| TRANSFER   | 2             | `DEBIT` (source) + `CREDIT` (dest) |
+
+All rows will have `auditState: "COMMITTED"` and `txnType` matching the original operation.
 
 ---
 
-## Example end-to-end flow
+### Step 10 — Logout
 
-This is a realistic sequence to test in Postman:
+**Method:** `POST`
+**URL:** `http://localhost:8080/api/auth/logout`
 
-1. Register customer
-2. Login
-3. Create account 1
-4. Create account 2
-5. Credit account 1 with 1000
-6. Transfer 150.50 from account 1 to account 2
-7. Debit account 2 with 75.00
-8. Check balances
-9. Query transaction details by txnId
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Expected:** `200 OK`
+
+The token is now blacklisted in Redis. Any subsequent request using it will be rejected with `401 Unauthorized` by the gateway.
 
 ---
 
-## Useful mock payloads
+## Complete end-to-end sequence
 
-### Registration
+| # | Action | Value to save |
+|---|--------|---------------|
+| 1 | Register → `POST /api/auth/register` | `customerId` |
+| 2 | Login → `POST /api/auth/login` | `token` |
+| 3 | Create Account 1 (SAVINGS/PHP) → `POST /api/accounts` | `accountId` (acct1) |
+| 4 | Create Account 2 (CHECKING/PHP) → `POST /api/accounts` | `accountId` (acct2) |
+| 5 | Deposit 5000 → `POST /api/v1/ledger/mutate` | `txnId` |
+| 6 | Withdraw 500 → `POST /api/v1/ledger/mutate` | `txnId` |
+| 7 | Transfer 1500.50 acct1 → acct2 → `POST /api/v1/ledger/mutate` | `txnId` |
+| 8 | Check acct1 balance → `GET /api/accounts/{acct1}/balance` | expect `3000.00` |
+| 9 | Check acct2 balance → `GET /api/accounts/{acct2}/balance` | expect `1500.50` |
+| 10 | Audit deposit txn → `GET /api/v1/ledger/audit/{txnId}` | 1 CREDIT row |
+| 11 | Audit transfer txn → `GET /api/v1/ledger/audit/{txnId}` | 1 DEBIT + 1 CREDIT row |
+| 12 | Logout → `POST /api/auth/logout` | token blacklisted |
 
+---
+
+## Idempotency key rules
+
+Every mutation request (`DEPOSIT`, `WITHDRAWAL`, `TRANSFER`) requires a unique `idempotencyKey`:
+
+- Submitting the same key twice returns the **cached original response** — the mutation is not re-executed
+- Keys expire after 24 hours
+- Use a pattern that makes each operation unique:
+
+```
+deposit-<accountId-prefix>-<amount>-<sequence>
+withdrawal-<accountId-prefix>-<amount>-<sequence>
+transfer-<src-prefix>-<dst-prefix>-<amount>-<sequence>
+```
+
+Example:
+```
+deposit-11111111-5000-001
+withdrawal-11111111-500-001
+transfer-11111111-22222222-1500-001
+```
+
+---
+
+## Error cases worth testing
+
+| Scenario | Expected |
+|----------|----------|
+| Withdraw more than balance | `409 Conflict` — InsufficientBalanceException |
+| Transfer to the same account | `400 Bad Request` |
+| TRANSFER without `counterpartyAccountId` | `400 Bad Request` |
+| Duplicate idempotency key in-flight | `409 Conflict` — IdempotencyConflictException |
+| Expired or blacklisted token | `401 Unauthorized` from gateway |
+| Invalid `txnType` value | `400 Bad Request` |
+| Zero or negative `amount` | `400 Bad Request` |
+| Missing required field | `400 Bad Request` with field-level validation message |
+
+---
+
+## Mock payloads (copy-paste ready)
+
+### Register
 ```json
 {
   "firstName": "Alice",
-  "lastName": "Nguyen",
-  "email": "alice.nguyen@example.com",
-  "phoneNumber": "+1-415-555-0100",
-  "birthday": "1990-04-12",
+  "lastName": "Reyes",
+  "email": "alice.reyes@example.com",
+  "contactNo": "+63-917-555-0100",
+  "birthDate": "1990-04-12",
   "password": "StrongPass123!"
 }
 ```
 
 ### Login
-
 ```json
 {
-  "email": "alice.nguyen@example.com",
+  "email": "alice.reyes@example.com",
   "password": "StrongPass123!"
 }
 ```
 
 ### Create account
-
 ```json
 {
-  "custId": 1,
-  "acctType": "SAVINGS"
+  "customerId": "<customerId from register>",
+  "accountType": "SAVINGS",
+  "currencyCode": "PHP"
 }
 ```
 
-### Debit
-
+### Deposit
 ```json
 {
-  "acctNo": 100001,
-  "counterpartyAcctNo": null,
-  "amount": 250.0,
-  "idempotencyKey": "debit-100001-250-001"
+  "accountId": "<accountId>",
+  "counterpartyAccountId": null,
+  "txnType": "DEPOSIT",
+  "amount": 10000.00,
+  "idempotencyKey": "deposit-acct1-10000-001"
 }
 ```
 
-### Credit
-
+### Withdrawal
 ```json
 {
-  "acctNo": 100001,
-  "counterpartyAcctNo": null,
-  "amount": 500.0,
-  "idempotencyKey": "credit-100001-500-001"
+  "accountId": "<accountId>",
+  "counterpartyAccountId": null,
+  "txnType": "WITHDRAWAL",
+  "amount": 2500.00,
+  "idempotencyKey": "withdrawal-acct1-2500-001"
 }
 ```
 
 ### Transfer
-
 ```json
 {
-  "acctNo": 100001,
-  "counterpartyAcctNo": 100002,
-  "amount": 150.5,
-  "idempotencyKey": "transfer-100001-100002-001"
+  "accountId": "<source-accountId>",
+  "counterpartyAccountId": "<dest-accountId>",
+  "txnType": "TRANSFER",
+  "amount": 1000.00,
+  "idempotencyKey": "transfer-acct1-acct2-1000-001"
 }
 ```
 
@@ -479,27 +565,36 @@ This is a realistic sequence to test in Postman:
 
 ## Notes for testing
 
-- Use the gateway URL on port 8080 for all external testing.
-- Authorization is required for account and transaction calls.
-- Use a new unique idempotency key each time, otherwise the service can reject duplicate requests.
-- Transaction responses include txnId, which is used to fetch the ledger audit history.
-- If the app fails at startup, check Docker logs and confirm the database containers are healthy first.
+- All IDs in request bodies and URL paths are **UUID strings**, not numbers.
+- The `Authorization` header must be exactly `Bearer <token>` with no extra quotes.
+- Always use a new unique `idempotencyKey` per logical transaction unless you intentionally want to test idempotency replay.
+- `txnId` in the mutation response is the key to retrieve ledger audit rows.
+- Notifications are consumed asynchronously — check the logs to see them:
 
 ```bash
-docker compose logs -f oracle-db postgres-db redis kafka api-gateway
+docker compose logs -f notification-service
+```
+
+- To watch all infrastructure logs at once:
+
+```bash
+docker compose logs -f oracle-db postgres-db redis kafka
 ```
 
 ---
 
 ## Expected results when everything works
 
-If the app is working properly, you should be able to:
-
-- register a customer successfully
-- log in and receive a JWT
-- create at least one account
-- check balance values
-- make debit, credit, and transfer requests
-- receive transaction audit records and a successful response payload
-
-This confirms the banking flow is functioning from the client side through the gateway, services, databases, and messaging layer.
+| Verification | What to confirm |
+|--------------|-----------------|
+| Registration | `201 Created`, `customerId` UUID in response |
+| Login | `200 OK`, JWT in `data.token`, `customerId` matches |
+| Account creation | `201 Created`, `accountId` UUID, `balanceAmount: 0`, `accountStatus: "ACTIVE"` |
+| Deposit | `txnStatus: "COMMITTED"`, `balanceAfter` equals deposited amount |
+| Withdrawal | `balanceAfter` correctly decremented |
+| Insufficient balance | `409 Conflict` error, balance unchanged |
+| Transfer | Source decremented, destination incremented, both by exact `amount` |
+| Audit — DEPOSIT | 1 row, `mutationType: "CREDIT"`, `auditState: "COMMITTED"` |
+| Audit — WITHDRAWAL | 1 row, `mutationType: "DEBIT"`, `auditState: "COMMITTED"` |
+| Audit — TRANSFER | 2 rows: `"DEBIT"` for source + `"CREDIT"` for destination |
+| Logout | `200 OK`, subsequent call with same token returns `401` |

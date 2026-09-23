@@ -1,3 +1,4 @@
+
 package com.capstone.registration.controller;
 
 import com.capstone.common.dto.ApiResponse;
@@ -27,3 +28,4 @@ public class RegistrationController {
                 .body(ApiResponse.ok("Customer registered successfully", response));
     }
 }
+

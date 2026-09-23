@@ -1,3 +1,4 @@
+
 package com.capstone.gateway.config;
 
 import org.springframework.context.annotation.Bean;
@@ -24,3 +25,4 @@ public class GlobalCorsConfig {
         return new CorsWebFilter(source);
     }
 }
+

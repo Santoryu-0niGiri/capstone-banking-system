@@ -1,3 +1,4 @@
+
 package com.capstone.accounts.controller;
 
 import com.capstone.common.dto.AccountDTO;
@@ -26,23 +27,28 @@ public class AccountController {
     private final AccountService accountService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<AccountDTO>> createAccount(@Valid @RequestBody CreateAccountRequest request) {
+    public ResponseEntity<ApiResponse<AccountDTO>> createAccount(
+            @Valid @RequestBody CreateAccountRequest request) {
         AccountDTO dto = accountService.createAccount(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Account created", dto));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Account created", dto));
     }
 
-    @GetMapping("/{acctNo}")
-    public ResponseEntity<ApiResponse<AccountDTO>> getAccount(@PathVariable Long acctNo) {
-        return ResponseEntity.ok(ApiResponse.ok(accountService.getAccount(acctNo)));
+    // accountId is a String UUID e.g. /api/accounts/550e8400-e29b-41d4-a716-446655440000
+    @GetMapping("/{accountId}")
+    public ResponseEntity<ApiResponse<AccountDTO>> getAccount(@PathVariable String accountId) {
+        return ResponseEntity.ok(ApiResponse.ok(accountService.getAccount(accountId)));
     }
 
-    @GetMapping("/{acctNo}/balance")
-    public ResponseEntity<ApiResponse<BigDecimal>> getBalance(@PathVariable Long acctNo) {
-        return ResponseEntity.ok(ApiResponse.ok(accountService.getBalance(acctNo)));
+    @GetMapping("/{accountId}/balance")
+    public ResponseEntity<ApiResponse<BigDecimal>> getBalance(@PathVariable String accountId) {
+        return ResponseEntity.ok(ApiResponse.ok(accountService.getBalance(accountId)));
     }
 
-    @GetMapping("/customer/{custId}")
-    public ResponseEntity<ApiResponse<List<AccountDTO>>> getAccountsForCustomer(@PathVariable Long custId) {
-        return ResponseEntity.ok(ApiResponse.ok(accountService.getAccountsForCustomer(custId)));
+    @GetMapping("/customer/{customerId}")
+    public ResponseEntity<ApiResponse<List<AccountDTO>>> getAccountsForCustomer(
+            @PathVariable String customerId) {
+        return ResponseEntity.ok(ApiResponse.ok(accountService.getAccountsForCustomer(customerId)));
     }
 }
+

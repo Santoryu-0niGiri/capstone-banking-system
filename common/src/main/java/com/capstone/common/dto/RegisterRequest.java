@@ -1,3 +1,4 @@
+
 package com.capstone.common.dto;
 
 import jakarta.validation.constraints.Email;
@@ -9,6 +10,10 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
+/**
+ * contactNo maps to CUSTOMER_MASTER.contact_no (nullable VARCHAR2 20).
+ * birthDate maps to CUSTOMER_MASTER.birth_date (nullable DATE).
+ */
 public record RegisterRequest(
 
         @NotBlank(message = "First name is required")
@@ -23,16 +28,17 @@ public record RegisterRequest(
         @Email(message = "Email must be a valid address")
         String email,
 
-        @NotBlank(message = "Phone number is required")
+        // nullable in schema — phone is optional at registration
         @Pattern(regexp = "^[0-9+()\\-\\s]{7,20}$", message = "Phone number format is invalid")
-        String phoneNumber,
+        String contactNo,
 
         @NotNull(message = "Birthday is required")
         @Past(message = "Birthday must be in the past")
-        LocalDate birthday,
+        LocalDate birthDate,
 
         @NotBlank(message = "Password is required")
         @Size(min = 8, max = 100, message = "Password must be at least 8 characters")
         String password
 ) {
 }
+

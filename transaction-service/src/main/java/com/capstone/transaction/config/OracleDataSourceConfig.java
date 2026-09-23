@@ -1,7 +1,7 @@
+
 package com.capstone.transaction.config;
 
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
@@ -24,7 +24,6 @@ import java.util.Map;
  * injections elsewhere in the app default to Oracle.
  */
 @Configuration
-@EntityScan(basePackages = "com.capstone.transaction.entity.oracle")
 @EnableJpaRepositories(
         basePackages = "com.capstone.transaction.repository.oracle",
         entityManagerFactoryRef = "oracleEntityManagerFactory",
@@ -55,7 +54,7 @@ public class OracleDataSourceConfig {
         props.put("hibernate.dialect", "org.hibernate.dialect.OracleDialect");
         return builder
                 .dataSource(dataSource)
-                .packages("com.capstone.transaction.entity.oracle")
+                .packages("com.capstone.transaction.entity.oracle")   // CustomerBalanceMaster + TransactionMaster
                 .persistenceUnit("oracle")
                 .properties(props)
                 .build();
@@ -68,3 +67,4 @@ public class OracleDataSourceConfig {
         return new JpaTransactionManager(entityManagerFactory);
     }
 }
+
