@@ -1,4 +1,3 @@
-
 package com.capstone.gateway.filter;
 
 import java.util.Optional;
@@ -9,6 +8,8 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -18,13 +19,13 @@ import io.jsonwebtoken.Claims;
 import reactor.core.publisher.Mono;
 
 /**
- * Gateway edge-authentication filter. Applied to protected routes in
- * application.yml.
+ * Gateway edge-authentication filter.
+ * Applied to protected routes in application.yml.
  *
  * Responsibilities:
  * - Validates the Bearer JWT.
  * - Checks the Redis blacklist for revoked tokens.
- * - Forwards the authenticated customer information downstream.
+ * - Forwards authenticated customer information downstream.
  */
 @Component
 public class JwtAuthenticationGatewayFilterFactory
@@ -101,49 +102,48 @@ public class JwtAuthenticationGatewayFilterFactory
             Claims claims) {
 
         String customerId = claims.getSubject();
-        String customerEmail = String.valueOf(claims.get("email"));
+
+        Object emailClaim = claims.get("email");
+        String customerEmail =
+                emailClaim != null ? emailClaim.toString() : "";
 
         /*
-         * IMPORTANT:
-         *
-         * Do not directly modify:
-         *
-         * exchange.getRequest().getHeaders()
-         *
-         * Those headers can be read-only.
-         *
-         * Instead, create a mutable copy of the existing headers and
-         * replace/add the headers on the copied request.
+         * Create a decorated request instead of modifying the original
+         * read-only request headers.
          */
+        ServerHttpRequest decoratedRequest =
+                new ServerHttpRequestDecorator(exchange.getRequest()) {
 
-        HttpHeaders headers = new HttpHeaders();
+                    @Override
+                    @NonNull
+                    public HttpHeaders getHeaders() {
 
-        headers.putAll(exchange.getRequest().getHeaders());
+                        HttpHeaders headers = new HttpHeaders();
 
-        headers.set("X-Cust-Id", customerId);
-        headers.set("X-Cust-Email", customerEmail);
+                        // Copy the original request headers.
+                        headers.putAll(super.getHeaders());
 
-        ServerHttpRequest mutatedRequest = exchange.getRequest()
-                .mutate()
-                .headers(existingHeaders -> {
-                    existingHeaders.clear();
-                    existingHeaders.putAll(headers);
-                })
-                .build();
+                        // Add authenticated customer information.
+                        headers.set("X-Cust-Id", customerId);
+                        headers.set("X-Cust-Email", customerEmail);
 
-        org.springframework.web.server.ServerWebExchange mutatedExchange =
+                        return headers;
+                    }
+                };
+
+        return chain.filter(
                 exchange.mutate()
-                        .request(mutatedRequest)
-                        .build();
-
-        return chain.filter(mutatedExchange);
+                        .request(decoratedRequest)
+                        .build()
+        );
     }
 
     private Mono<Void> unauthorized(
             org.springframework.web.server.ServerWebExchange exchange,
             String reason) {
 
-        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        exchange.getResponse()
+                .setStatusCode(HttpStatus.UNAUTHORIZED);
 
         exchange.getResponse()
                 .getHeaders()
@@ -153,7 +153,6 @@ public class JwtAuthenticationGatewayFilterFactory
     }
 
     public static class Config {
-        // No per-route configuration needed today.
         // Reserved for future configuration.
     }
 }

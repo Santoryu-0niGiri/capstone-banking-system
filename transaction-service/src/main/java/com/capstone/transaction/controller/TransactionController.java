@@ -1,4 +1,3 @@
-
 package com.capstone.transaction.controller;
 
 import com.capstone.common.dto.ApiResponse;
@@ -48,6 +47,7 @@ public class TransactionController {
             default -> throw new IllegalArgumentException(
                     "Unsupported txnType: " + request.txnType());
         };
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(request.txnType() + " processed", response));
     }
@@ -59,12 +59,16 @@ public class TransactionController {
      */
     @GetMapping("/audit/{txnId}")
     public ResponseEntity<ApiResponse<List<LedgerMutationAudit>>> getAudit(
-            @PathVariable String txnId) {
-        List<LedgerMutationAudit> audits = transactionService.findAuditByTxnId(txnId);
+            @PathVariable("txnId") String txnId) {
+
+        List<LedgerMutationAudit> audits =
+                transactionService.findAuditByTxnId(txnId);
+
         if (audits.isEmpty()) {
-            throw new ResourceNotFoundException("Transaction " + txnId + " not found");
+            throw new ResourceNotFoundException(
+                    "Transaction " + txnId + " not found");
         }
+
         return ResponseEntity.ok(ApiResponse.ok(audits));
     }
 }
-

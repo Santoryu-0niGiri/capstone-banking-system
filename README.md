@@ -59,53 +59,126 @@ git clone <your-repo-url>
 cd capstone-banking-system
 ```
 
-### 2) Start the infrastructure services
+### 2) Build the Java services
 
-This starts Oracle, PostgreSQL, Redis, Kafka, and Zookeeper:
-
-```bash
-docker compose up -d oracle-db postgres-db redis zookeeper kafka
-```
-
-Wait until the database containers are healthy before continuing. Oracle can take a few minutes on first start.
-
-### 3) Build the Java services
-
-From the root folder:
+From the project root, compile and package all modules:
 
 ```bash
 mvn clean package -DskipTests
 ```
 
-This builds all modules in the multi-module Maven project.
+This produces a fat jar in `target/` for every service. Run this before starting Docker so the Dockerfiles have fresh jars to copy.
 
-### 4) Start the application services
+### 3) Start everything with Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-This starts all service containers and the gateway. The gateway is the main entry point for testing.
+This builds every service image, then starts the full stack in dependency order:
 
-### 5) Verify the services are running
+- `zookeeper` and `kafka` start first
+- `oracle-db`, `postgres-db`, and `redis` start with healthchecks
+- All application services start only after their dependencies are healthy
 
-Open these URLs in your browser or use Postman:
+Oracle takes **1–2 minutes** on the first run to initialize. The compose healthcheck retries automatically — the application services wait for it.
 
-```text
-http://localhost:8080/actuator/health
-http://localhost:8081/actuator/health
-http://localhost:8082/actuator/health
-http://localhost:8083/actuator/health
-http://localhost:8084/actuator/health
+> **Important:** The Oracle SQL schema (`sql/oracle/oracle_main_db.sql`) and PostgreSQL schema (`sql/postgres/postgres_audit_db.sql`) are mounted as init scripts via Docker volumes. They run automatically on the **first startup** when the database volume is empty. If you have run the containers before without a fresh volume, the schema may already exist — or you may need to apply it manually (see step 4 below).
+
+### 4) Apply the database schema (if needed)
+
+If the application services log `Schema-validation: missing table` on startup, the init scripts did not run. This happens when the database container was previously started with an existing volume.
+
+**For Oracle:**
+
+```bash
+docker cp sql/oracle/oracle_main_db.sql oracle-db:/tmp/oracle_main_db.sql
+docker exec oracle-db bash -c "sqlplus -S ledger_app/LedgerAppPass123@localhost:1521/XEPDB1 @/tmp/oracle_main_db.sql"
 ```
 
-If the app is running correctly, the gateway should be available on port 8080.
+Also add the `version` column required by Hibernate optimistic locking:
 
-### 6) Stop everything later
+```bash
+docker exec oracle-db bash -c "sqlplus -S ledger_app/LedgerAppPass123@localhost:1521/XEPDB1 <<'EOF'
+ALTER TABLE customer_balance_master ADD (version NUMBER DEFAULT 0 NOT NULL);
+EXIT;
+EOF"
+```
+
+**For PostgreSQL** (usually initializes automatically):
+
+```bash
+docker exec postgres-db bash -c "psql -U ledger_audit -d ledger_audit -f /docker-entrypoint-initdb.d/postgres_audit_db.sql"
+```
+
+After applying the schema, restart the crashed services:
+
+```bash
+docker compose up -d registration-service login-service accounts-service transaction-service
+```
+
+### 5) Verify all services are running
+
+```bash
+docker ps --format "{{.Names}}\t{{.Status}}"
+```
+
+Expected output — all containers `Up` with no restarts:
+
+```
+accounts-service      Up X seconds
+transaction-service   Up X seconds
+login-service         Up X seconds
+registration-service  Up X seconds
+notification-service  Up X seconds
+api-gateway           Up X seconds
+postgres-db           Up X seconds (healthy)
+oracle-db             Up X seconds (healthy)
+redis                 Up X seconds (healthy)
+kafka                 Up X seconds
+zookeeper             Up X seconds
+```
+
+You can also hit the health endpoints:
+
+```
+http://localhost:8080/actuator/health   ← gateway
+http://localhost:8081/actuator/health   ← registration-service
+http://localhost:8082/actuator/health   ← login-service
+http://localhost:8083/actuator/health   ← accounts-service
+http://localhost:8084/actuator/health   ← transaction-service
+```
+
+### 6) Watch logs (optional)
+
+To tail all service logs at once:
+
+```bash
+docker compose logs -f
+```
+
+To watch a specific service:
+
+```bash
+docker compose logs -f registration-service
+docker compose logs -f notification-service
+```
+
+The notification-service logs a line every time a Kafka event is consumed — useful to confirm the event pipeline is working after a transaction.
+
+### 7) Stop everything
+
+```bash
+docker compose down
+```
+
+To also wipe the database volumes (full reset):
 
 ```bash
 docker compose down -v
 ```
+
+> After `down -v`, the next `docker compose up --build` will re-initialize the databases from the init scripts automatically.
 
 ---
 

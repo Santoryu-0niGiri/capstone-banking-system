@@ -1,4 +1,3 @@
-
 package com.capstone.accounts.repository;
 
 import com.capstone.accounts.entity.CustomerBalanceMaster;

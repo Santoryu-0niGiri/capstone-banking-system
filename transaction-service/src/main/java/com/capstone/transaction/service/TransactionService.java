@@ -1,4 +1,3 @@
-
 package com.capstone.transaction.service;
 
 import com.capstone.common.constants.KafkaTopics;
@@ -50,15 +49,6 @@ import java.util.UUID;
  *
  * If Phase 2 fails → compensating Oracle transaction reverses the balance
  * delta AND sets txn_status=ROLLED_BACK, then throws LedgerPersistenceException.
- * This is the single unavoidable gap of a non-XA dual-write; the spec
- * mandates logging at CRITICAL severity for manual reconciliation if the
- * compensation itself fails.
- *
- * ── Double-entry audit rows ───────────────────────────────────────────────────
- * WITHDRAWAL : one DEBIT  row  (account loses funds)
- * DEPOSIT    : one CREDIT row  (account gains funds)
- * TRANSFER   : one DEBIT  row  (source) + one CREDIT row (destination)
- * mutation_amount is always positive; mutation_type carries the direction.
  */
 @Service
 @Slf4j
@@ -77,11 +67,14 @@ public class TransactionService {
             AccountRepository accountRepository,
             TransactionMasterRepository txnMasterRepository,
             LedgerMutationAuditRepository auditRepository,
-            @Qualifier("oracleTransactionManager") PlatformTransactionManager oracleTxManager,
-            @Qualifier("postgresTransactionManager") PlatformTransactionManager postgresTxManager,
+            @Qualifier("oracleTransactionManager")
+            PlatformTransactionManager oracleTxManager,
+            @Qualifier("postgresTransactionManager")
+            PlatformTransactionManager postgresTxManager,
             IdempotencyService idempotencyService,
             TransactionEventProducer eventProducer,
             BalanceCacheInvalidator balanceCacheInvalidator) {
+
         this.accountRepository = accountRepository;
         this.txnMasterRepository = txnMasterRepository;
         this.auditRepository = auditRepository;
@@ -103,378 +96,670 @@ public class TransactionService {
     }
 
     public TransactionResponse transfer(TransactionRequest request) {
-        if (request.counterpartyAccountId() == null || request.counterpartyAccountId().isBlank()) {
-            throw new IllegalArgumentException("counterpartyAccountId is required for TRANSFER");
+
+        if (request.counterpartyAccountId() == null
+                || request.counterpartyAccountId().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "counterpartyAccountId is required for TRANSFER");
         }
+
         if (request.counterpartyAccountId().equals(request.accountId())) {
-            throw new IllegalArgumentException("Source and destination accounts must differ");
+            throw new IllegalArgumentException(
+                    "Source and destination accounts must differ");
         }
+
         return executeTransfer(request);
     }
 
+    /**
+     * Finds all PostgreSQL audit records belonging to a transaction.
+     *
+     * txn_id is stored as a VARCHAR/character column in PostgreSQL and is
+     * represented as String in LedgerMutationAudit.
+     *
+     * The UUID validation is performed in Java so invalid transaction IDs
+     * are rejected before reaching the database.
+     */
     public List<LedgerMutationAudit> findAuditByTxnId(String txnId) {
+
+        if (txnId == null || txnId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Transaction ID is required");
+        }
+
+        try {
+            UUID.fromString(txnId);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException(
+                    "Invalid transaction ID: " + txnId, ex);
+        }
+
         return auditRepository.findByTxnId(txnId);
     }
 
-    // ── Single-leg (WITHDRAWAL / DEPOSIT) ────────────────────────────────────
+    // ── Single-leg (WITHDRAWAL / DEPOSIT) ─────────────────────────────────────
 
     private TransactionResponse executeSingleLeg(
-            TransactionRequest request, String txnType, String mutationType) {
+            TransactionRequest request,
+            String txnType,
+            String mutationType) {
 
-        Optional<TransactionResponse> cached = idempotencyService.getCached(request.idempotencyKey());
-        if (cached.isPresent()) return cached.get();
+        Optional<TransactionResponse> cached =
+                idempotencyService.getCached(request.idempotencyKey());
+
+        if (cached.isPresent()) {
+            return cached.get();
+        }
 
         if (!idempotencyService.tryLock(request.idempotencyKey())) {
             throw new IdempotencyConflictException(
-                    "Request with idempotency key '" + request.idempotencyKey() + "' is already being processed");
+                    "Request with idempotency key '"
+                            + request.idempotencyKey()
+                            + "' is already being processed");
         }
 
         String txnId = UUID.randomUUID().toString();
 
         try {
-            // Phase 1: Oracle — balance mutation + TRANSACTION_MASTER PENDING
+
+            // Phase 1: Oracle — balance mutation +
+            // TRANSACTION_MASTER PENDING
             BigDecimal delta = "DEBIT".equals(mutationType)
                     ? request.amount().negate()
                     : request.amount();
 
             MutationResult result = applyDelta(
-                    request.accountId(), delta, txnId, txnType,
-                    "DEBIT".equals(mutationType) ? request.accountId() : null,
-                    "CREDIT".equals(mutationType) ? request.accountId() : null);
+                    request.accountId(),
+                    delta,
+                    txnId,
+                    txnType,
+                    "DEBIT".equals(mutationType)
+                            ? request.accountId()
+                            : null,
+                    "CREDIT".equals(mutationType)
+                            ? request.accountId()
+                            : null);
 
-            eventProducer.publishCreated(new TransactionCreatedEvent(
-                    UUID.fromString(txnId), request.accountId(), null,
-                    txnType, request.amount(), Instant.now()));
+            eventProducer.publishCreated(
+                    new TransactionCreatedEvent(
+                            UUID.fromString(txnId),
+                            request.accountId(),
+                            null,
+                            txnType,
+                            request.amount(),
+                            Instant.now()));
 
-            // Phase 2+3: Postgres audit + Oracle status → COMMITTED
+            // Phase 2 + 3:
+            // PostgreSQL audit + Oracle status COMMITTED
             persistAuditOrCompensate(
-                    txnId, request.accountId(), txnType, mutationType,
-                    request.amount(), result);
+                    txnId,
+                    request.accountId(),
+                    txnType,
+                    mutationType,
+                    request.amount(),
+                    result);
 
-            TransactionResponse response = new TransactionResponse(
-                    UUID.fromString(txnId), request.accountId(), txnType,
-                    request.amount(), result.balanceAfter(), "COMMITTED", Instant.now());
+            TransactionResponse response =
+                    new TransactionResponse(
+                            UUID.fromString(txnId),
+                            request.accountId(),
+                            txnType,
+                            request.amount(),
+                            result.balanceAfter(),
+                            "COMMITTED",
+                            Instant.now());
 
-            idempotencyService.storeResult(request.idempotencyKey(), response);
-            eventProducer.publishCompleted(new TransactionCompletedEvent(
-                    UUID.fromString(txnId), request.accountId(), null,
-                    txnType, request.amount(), result.balanceAfter(), Instant.now()));
+            idempotencyService.storeResult(
+                    request.idempotencyKey(),
+                    response);
+
+            eventProducer.publishCompleted(
+                    new TransactionCompletedEvent(
+                            UUID.fromString(txnId),
+                            request.accountId(),
+                            null,
+                            txnType,
+                            request.amount(),
+                            result.balanceAfter(),
+                            Instant.now()));
+
             return response;
 
         } catch (RuntimeException ex) {
-            idempotencyService.release(request.idempotencyKey());
-            eventProducer.publishFailed(new TransactionFailedEvent(
-                    UUID.fromString(txnId), request.accountId(), null,
-                    txnType, request.amount(), ex.getMessage(), Instant.now()));
+
+            idempotencyService.release(
+                    request.idempotencyKey());
+
+            eventProducer.publishFailed(
+                    new TransactionFailedEvent(
+                            UUID.fromString(txnId),
+                            request.accountId(),
+                            null,
+                            txnType,
+                            request.amount(),
+                            ex.getMessage(),
+                            Instant.now()));
+
             throw ex;
         }
     }
 
-    // ── Transfer (two accounts, deterministic lock order → no deadlock) ───────
+    // ── Transfer ─────────────────────────────────────────────────────────────
 
-    private TransactionResponse executeTransfer(TransactionRequest request) {
-        Optional<TransactionResponse> cached = idempotencyService.getCached(request.idempotencyKey());
-        if (cached.isPresent()) return cached.get();
+    private TransactionResponse executeTransfer(
+            TransactionRequest request) {
 
-        if (!idempotencyService.tryLock(request.idempotencyKey())) {
+        Optional<TransactionResponse> cached =
+                idempotencyService.getCached(
+                        request.idempotencyKey());
+
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
+        if (!idempotencyService.tryLock(
+                request.idempotencyKey())) {
+
             throw new IdempotencyConflictException(
-                    "Request with idempotency key '" + request.idempotencyKey() + "' is already being processed");
+                    "Request with idempotency key '"
+                            + request.idempotencyKey()
+                            + "' is already being processed");
         }
 
         String txnId = UUID.randomUUID().toString();
 
         try {
-            // Phase 1: Oracle — debit source + credit dest + TRANSACTION_MASTER PENDING
-            TransferResult transferResult = applyTransfer(
-                    request.accountId(), request.counterpartyAccountId(),
-                    request.amount(), txnId);
 
-            eventProducer.publishCreated(new TransactionCreatedEvent(
-                    UUID.fromString(txnId), request.accountId(), request.counterpartyAccountId(),
-                    "TRANSFER", request.amount(), Instant.now()));
+            // Phase 1:
+            // Oracle — debit source + credit destination
+            TransferResult transferResult =
+                    applyTransfer(
+                            request.accountId(),
+                            request.counterpartyAccountId(),
+                            request.amount(),
+                            txnId);
 
-            // Phase 2+3: Postgres audit (DEBIT + CREDIT rows) + Oracle status → COMMITTED
-            persistTransferAuditOrCompensate(txnId, request, transferResult);
+            eventProducer.publishCreated(
+                    new TransactionCreatedEvent(
+                            UUID.fromString(txnId),
+                            request.accountId(),
+                            request.counterpartyAccountId(),
+                            "TRANSFER",
+                            request.amount(),
+                            Instant.now()));
 
-            TransactionResponse response = new TransactionResponse(
-                    UUID.fromString(txnId), request.accountId(), "TRANSFER",
-                    request.amount(), transferResult.sourceResult().balanceAfter(),
-                    "COMMITTED", Instant.now());
+            // Phase 2 + 3:
+            // PostgreSQL audit + Oracle status COMMITTED
+            persistTransferAuditOrCompensate(
+                    txnId,
+                    request,
+                    transferResult);
 
-            idempotencyService.storeResult(request.idempotencyKey(), response);
-            eventProducer.publishCompleted(new TransactionCompletedEvent(
-                    UUID.fromString(txnId), request.accountId(), request.counterpartyAccountId(),
-                    "TRANSFER", request.amount(),
-                    transferResult.sourceResult().balanceAfter(), Instant.now()));
+            TransactionResponse response =
+                    new TransactionResponse(
+                            UUID.fromString(txnId),
+                            request.accountId(),
+                            "TRANSFER",
+                            request.amount(),
+                            transferResult
+                                    .sourceResult()
+                                    .balanceAfter(),
+                            "COMMITTED",
+                            Instant.now());
+
+            idempotencyService.storeResult(
+                    request.idempotencyKey(),
+                    response);
+
+            eventProducer.publishCompleted(
+                    new TransactionCompletedEvent(
+                            UUID.fromString(txnId),
+                            request.accountId(),
+                            request.counterpartyAccountId(),
+                            "TRANSFER",
+                            request.amount(),
+                            transferResult
+                                    .sourceResult()
+                                    .balanceAfter(),
+                            Instant.now()));
+
             return response;
 
         } catch (RuntimeException ex) {
-            idempotencyService.release(request.idempotencyKey());
-            eventProducer.publishFailed(new TransactionFailedEvent(
-                    UUID.fromString(txnId), request.accountId(), request.counterpartyAccountId(),
-                    "TRANSFER", request.amount(), ex.getMessage(), Instant.now()));
+
+            idempotencyService.release(
+                    request.idempotencyKey());
+
+            eventProducer.publishFailed(
+                    new TransactionFailedEvent(
+                            UUID.fromString(txnId),
+                            request.accountId(),
+                            request.counterpartyAccountId(),
+                            "TRANSFER",
+                            request.amount(),
+                            ex.getMessage(),
+                            Instant.now()));
+
             throw ex;
         }
     }
 
-    // ── Oracle Phase 1 helpers ────────────────────────────────────────────────
+    // ── Oracle Phase 1 ────────────────────────────────────────────────────────
 
-    /**
-     * Applies a signed delta to a single account under PESSIMISTIC_WRITE and
-     * inserts a TRANSACTION_MASTER row with txn_status=PENDING in the same
-     * Oracle transaction.
-     */
     private MutationResult applyDelta(
-            String accountId, BigDecimal delta, String txnId, String txnType,
-            String debitAccountId, String creditAccountId) {
+            String accountId,
+            BigDecimal delta,
+            String txnId,
+            String txnType,
+            String debitAccountId,
+            String creditAccountId) {
 
-        MutationResult result = oracleTx.execute(status -> {
-            CustomerBalanceMaster account = accountRepository.findByIdForUpdate(accountId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Account " + accountId + " not found"));
-            assertActive(account);
+        MutationResult result =
+                oracleTx.execute(status -> {
 
-            BigDecimal before = account.getBalanceAmount();
-            BigDecimal after  = before.add(delta);
-            if (after.compareTo(BigDecimal.ZERO) < 0) {
-                throw new InsufficientBalanceException(
-                        "Account " + accountId + " has insufficient balance");
-            }
+                    CustomerBalanceMaster account =
+                            accountRepository
+                                    .findByIdForUpdate(accountId)
+                                    .orElseThrow(() ->
+                                            new ResourceNotFoundException(
+                                                    "Account "
+                                                            + accountId
+                                                            + " not found"));
 
-            LocalDateTime now = LocalDateTime.now();
-            account.setBalanceAmount(after);
-            account.setUpdatedAt(now);
-            account.setUpdatedBy("SYSTEM");
-            accountRepository.save(account);
+                    assertActive(account);
 
-            // Insert TRANSACTION_MASTER with PENDING status; status updated to
-            // COMMITTED (or ROLLED_BACK) after the Postgres write completes.
-            TransactionMaster txnMaster = TransactionMaster.builder()
-                    .txnId(txnId)
-                    .txnType(txnType)
-                    .debitAccountId(debitAccountId)
-                    .creditAccountId(creditAccountId)
-                    .mutationAmount(delta.abs())
-                    .txnStatus("PENDING")
-                    .initiatedAt(now)
-                    .createdAt(now)
-                    .createdBy("SYSTEM")
-                    .build();
-            txnMasterRepository.save(txnMaster);
+                    BigDecimal before =
+                            account.getBalanceAmount();
 
-            return new MutationResult(before, after, delta);
-        });
+                    BigDecimal after =
+                            before.add(delta);
+
+                    if (after.compareTo(
+                            BigDecimal.ZERO) < 0) {
+
+                        throw new InsufficientBalanceException(
+                                "Account "
+                                        + accountId
+                                        + " has insufficient balance");
+                    }
+
+                    LocalDateTime now =
+                            LocalDateTime.now();
+
+                    account.setBalanceAmount(after);
+                    account.setUpdatedAt(now);
+                    account.setUpdatedBy("SYSTEM");
+
+                    accountRepository.save(account);
+
+                    TransactionMaster txnMaster =
+                            TransactionMaster.builder()
+                                    .txnId(txnId)
+                                    .txnType(txnType)
+                                    .debitAccountId(
+                                            debitAccountId)
+                                    .creditAccountId(
+                                            creditAccountId)
+                                    .mutationAmount(
+                                            delta.abs())
+                                    .txnStatus("PENDING")
+                                    .initiatedAt(now)
+                                    .createdAt(now)
+                                    .createdBy("SYSTEM")
+                                    .build();
+
+                    txnMasterRepository.save(txnMaster);
+
+                    return new MutationResult(
+                            before,
+                            after,
+                            delta);
+                });
 
         if (result == null) {
             throw new IllegalStateException(
-                    "Oracle transaction for account " + accountId + " returned no result");
+                    "Oracle transaction for account "
+                            + accountId
+                            + " returned no result");
         }
+
         return result;
     }
 
     private TransferResult applyTransfer(
-            String sourceId, String destId, BigDecimal amount, String txnId) {
+            String sourceId,
+            String destId,
+            BigDecimal amount,
+            String txnId) {
 
-        // Lock in deterministic string order to prevent deadlock across
-        // concurrent transfers involving the same pair of accounts
-        String first  = sourceId.compareTo(destId) <= 0 ? sourceId : destId;
-        String second = sourceId.compareTo(destId) <= 0 ? destId   : sourceId;
+        String first =
+                sourceId.compareTo(destId) <= 0
+                        ? sourceId
+                        : destId;
 
-        TransferResult result = oracleTx.execute(status -> {
-            CustomerBalanceMaster firstAcct = accountRepository.findByIdForUpdate(first)
-                    .orElseThrow(() -> new ResourceNotFoundException("Account " + first + " not found"));
-            CustomerBalanceMaster secondAcct = accountRepository.findByIdForUpdate(second)
-                    .orElseThrow(() -> new ResourceNotFoundException("Account " + second + " not found"));
+        String second =
+                sourceId.compareTo(destId) <= 0
+                        ? destId
+                        : sourceId;
 
-            CustomerBalanceMaster source = first.equals(sourceId) ? firstAcct  : secondAcct;
-            CustomerBalanceMaster dest   = first.equals(sourceId) ? secondAcct : firstAcct;
+        TransferResult result =
+                oracleTx.execute(status -> {
 
-            assertActive(source);
-            assertActive(dest);
+                    CustomerBalanceMaster firstAcct =
+                            accountRepository
+                                    .findByIdForUpdate(first)
+                                    .orElseThrow(() ->
+                                            new ResourceNotFoundException(
+                                                    "Account "
+                                                            + first
+                                                            + " not found"));
 
-            BigDecimal sourceBefore = source.getBalanceAmount();
-            BigDecimal sourceAfter  = sourceBefore.subtract(amount);
-            if (sourceAfter.compareTo(BigDecimal.ZERO) < 0) {
-                throw new InsufficientBalanceException(
-                        "Account " + sourceId + " has insufficient balance for this transfer");
-            }
-            BigDecimal destBefore = dest.getBalanceAmount();
-            BigDecimal destAfter  = destBefore.add(amount);
+                    CustomerBalanceMaster secondAcct =
+                            accountRepository
+                                    .findByIdForUpdate(second)
+                                    .orElseThrow(() ->
+                                            new ResourceNotFoundException(
+                                                    "Account "
+                                                            + second
+                                                            + " not found"));
 
-            LocalDateTime now = LocalDateTime.now();
-            source.setBalanceAmount(sourceAfter);
-            source.setUpdatedAt(now);
-            source.setUpdatedBy("SYSTEM");
-            dest.setBalanceAmount(destAfter);
-            dest.setUpdatedAt(now);
-            dest.setUpdatedBy("SYSTEM");
-            accountRepository.save(source);
-            accountRepository.save(dest);
+                    CustomerBalanceMaster source =
+                            first.equals(sourceId)
+                                    ? firstAcct
+                                    : secondAcct;
 
-            // TRANSFER: debitAccountId = source, creditAccountId = dest
-            TransactionMaster txnMaster = TransactionMaster.builder()
-                    .txnId(txnId)
-                    .txnType("TRANSFER")
-                    .debitAccountId(sourceId)
-                    .creditAccountId(destId)
-                    .mutationAmount(amount)
-                    .txnStatus("PENDING")
-                    .initiatedAt(now)
-                    .createdAt(now)
-                    .createdBy("SYSTEM")
-                    .build();
-            txnMasterRepository.save(txnMaster);
+                    CustomerBalanceMaster dest =
+                            first.equals(sourceId)
+                                    ? secondAcct
+                                    : firstAcct;
 
-            return new TransferResult(
-                    new MutationResult(sourceBefore, sourceAfter, amount.negate()),
-                    new MutationResult(destBefore,   destAfter,   amount));
-        });
+                    assertActive(source);
+                    assertActive(dest);
+
+                    BigDecimal sourceBefore =
+                            source.getBalanceAmount();
+
+                    BigDecimal sourceAfter =
+                            sourceBefore.subtract(amount);
+
+                    if (sourceAfter.compareTo(
+                            BigDecimal.ZERO) < 0) {
+
+                        throw new InsufficientBalanceException(
+                                "Account "
+                                        + sourceId
+                                        + " has insufficient balance for this transfer");
+                    }
+
+                    BigDecimal destBefore =
+                            dest.getBalanceAmount();
+
+                    BigDecimal destAfter =
+                            destBefore.add(amount);
+
+                    LocalDateTime now =
+                            LocalDateTime.now();
+
+                    source.setBalanceAmount(sourceAfter);
+                    source.setUpdatedAt(now);
+                    source.setUpdatedBy("SYSTEM");
+
+                    dest.setBalanceAmount(destAfter);
+                    dest.setUpdatedAt(now);
+                    dest.setUpdatedBy("SYSTEM");
+
+                    accountRepository.save(source);
+                    accountRepository.save(dest);
+
+                    TransactionMaster txnMaster =
+                            TransactionMaster.builder()
+                                    .txnId(txnId)
+                                    .txnType("TRANSFER")
+                                    .debitAccountId(sourceId)
+                                    .creditAccountId(destId)
+                                    .mutationAmount(amount)
+                                    .txnStatus("PENDING")
+                                    .initiatedAt(now)
+                                    .createdAt(now)
+                                    .createdBy("SYSTEM")
+                                    .build();
+
+                    txnMasterRepository.save(txnMaster);
+
+                    return new TransferResult(
+                            new MutationResult(
+                                    sourceBefore,
+                                    sourceAfter,
+                                    amount.negate()),
+                            new MutationResult(
+                                    destBefore,
+                                    destAfter,
+                                    amount));
+                });
 
         if (result == null) {
-            throw new IllegalStateException("Oracle transfer transaction returned no result");
+            throw new IllegalStateException(
+                    "Oracle transfer transaction returned no result");
         }
+
         return result;
     }
 
-    // ── Dual-write Phase 2+3 ──────────────────────────────────────────────────
+    // ── Dual-write Phase 2 + 3 ────────────────────────────────────────────────
 
-    /**
-     * Writes the single-leg audit row to Postgres, then marks the Oracle
-     * TRANSACTION_MASTER row as COMMITTED.  On any Postgres failure, the
-     * Oracle balance delta is reversed, txn_status set to ROLLED_BACK, and
-     * LedgerPersistenceException is thrown.
-     */
     private void persistAuditOrCompensate(
-            String txnId, String accountId, String txnType, String mutationType,
-            BigDecimal amount, MutationResult result) {
-        try {
-            postgresTx.executeWithoutResult(status ->
-                    auditRepository.save(LedgerMutationAudit.builder()
-                            .txnId(txnId)
-                            .accountId(accountId)
-                            .mutationAmount(amount)   // always positive
-                            .mutationType(mutationType)
-                            .txnType(txnType)
-                            .auditState("COMMITTED")
-                            .createdAt(Instant.now())
-                            .build()));
+            String txnId,
+            String accountId,
+            String txnType,
+            String mutationType,
+            BigDecimal amount,
+            MutationResult result) {
 
-            // Phase 3: flip PENDING → COMMITTED in Oracle
+        try {
+
+            postgresTx.executeWithoutResult(status ->
+                    auditRepository.save(
+                            LedgerMutationAudit.builder()
+                                    .txnId(txnId)
+                                    .accountId(accountId)
+                                    .mutationAmount(amount)
+                                    .mutationType(mutationType)
+                                    .txnType(txnType)
+                                    .auditState("COMMITTED")
+                                    .createdAt(Instant.now())
+                                    .build()));
+
             commitTxnStatus(txnId);
+
             balanceCacheInvalidator.evict(accountId);
 
         } catch (RuntimeException ex) {
-            log.error("Ledger audit write failed for txn {}; compensating Oracle on account {}",
-                    txnId, accountId, ex);
-            compensate(accountId, result.appliedDelta(), txnId);
+
+            log.error(
+                    "Ledger audit write failed for txn {}; "
+                            + "compensating Oracle on account {}",
+                    txnId,
+                    accountId,
+                    ex);
+
+            compensate(
+                    accountId,
+                    result.appliedDelta(),
+                    txnId);
+
             throw new LedgerPersistenceException(
-                    "Failed to persist ledger audit for txn " + txnId
-                    + "; balance mutation was rolled back", ex);
+                    "Failed to persist ledger audit for txn "
+                            + txnId
+                            + "; balance mutation was rolled back",
+                    ex);
         }
     }
 
-    /**
-     * Writes two audit rows to Postgres (DEBIT for source, CREDIT for dest),
-     * then marks TRANSACTION_MASTER COMMITTED in Oracle.  Both cache entries
-     * are evicted on success.
-     */
     private void persistTransferAuditOrCompensate(
-            String txnId, TransactionRequest request, TransferResult result) {
-        try {
-            postgresTx.executeWithoutResult(status -> {
-                // DEBIT leg — source account loses funds
-                auditRepository.save(LedgerMutationAudit.builder()
-                        .txnId(txnId)
-                        .accountId(request.accountId())
-                        .mutationAmount(request.amount())  // positive
-                        .mutationType("DEBIT")
-                        .txnType("TRANSFER")
-                        .auditState("COMMITTED")
-                        .createdAt(Instant.now())
-                        .build());
+            String txnId,
+            TransactionRequest request,
+            TransferResult result) {
 
-                // CREDIT leg — destination account gains funds
-                auditRepository.save(LedgerMutationAudit.builder()
-                        .txnId(txnId)
-                        .accountId(request.counterpartyAccountId())
-                        .mutationAmount(request.amount())  // positive
-                        .mutationType("CREDIT")
-                        .txnType("TRANSFER")
-                        .auditState("COMMITTED")
-                        .createdAt(Instant.now())
-                        .build());
+        try {
+
+            postgresTx.executeWithoutResult(status -> {
+
+                auditRepository.save(
+                        LedgerMutationAudit.builder()
+                                .txnId(txnId)
+                                .accountId(
+                                        request.accountId())
+                                .mutationAmount(
+                                        request.amount())
+                                .mutationType("DEBIT")
+                                .txnType("TRANSFER")
+                                .auditState("COMMITTED")
+                                .createdAt(Instant.now())
+                                .build());
+
+                auditRepository.save(
+                        LedgerMutationAudit.builder()
+                                .txnId(txnId)
+                                .accountId(
+                                        request.counterpartyAccountId())
+                                .mutationAmount(
+                                        request.amount())
+                                .mutationType("CREDIT")
+                                .txnType("TRANSFER")
+                                .auditState("COMMITTED")
+                                .createdAt(Instant.now())
+                                .build());
             });
 
             commitTxnStatus(txnId);
-            balanceCacheInvalidator.evict(request.accountId());
-            balanceCacheInvalidator.evict(request.counterpartyAccountId());
+
+            balanceCacheInvalidator.evict(
+                    request.accountId());
+
+            balanceCacheInvalidator.evict(
+                    request.counterpartyAccountId());
 
         } catch (RuntimeException ex) {
-            log.error("Ledger audit write failed for transfer txn {}; compensating both legs", txnId, ex);
-            compensate(request.accountId(),            result.sourceResult().appliedDelta(), txnId);
-            compensate(request.counterpartyAccountId(), result.destResult().appliedDelta(),   txnId);
+
+            log.error(
+                    "Ledger audit write failed for transfer txn {}; "
+                            + "compensating both legs",
+                    txnId,
+                    ex);
+
+            compensate(
+                    request.accountId(),
+                    result.sourceResult().appliedDelta(),
+                    txnId);
+
+            compensate(
+                    request.counterpartyAccountId(),
+                    result.destResult().appliedDelta(),
+                    txnId);
+
             throw new LedgerPersistenceException(
-                    "Failed to persist ledger audit for transfer txn " + txnId
-                    + "; balances were rolled back", ex);
+                    "Failed to persist ledger audit for transfer txn "
+                            + txnId
+                            + "; balances were rolled back",
+                    ex);
         }
     }
 
-    // ── Compensation & status helpers ─────────────────────────────────────────
+    // ── Compensation & Status ─────────────────────────────────────────────────
 
-    /**
-     * Reverses a previously-applied balance delta in a new Oracle transaction
-     * and sets txn_status = ROLLED_BACK.  If this itself fails, the system
-     * has an un-audited mutation — logged at CRITICAL for manual reconciliation.
-     */
-    private void compensate(String accountId, BigDecimal appliedDelta, String txnId) {
+    private void compensate(
+            String accountId,
+            BigDecimal appliedDelta,
+            String txnId) {
+
         try {
+
             oracleTx.executeWithoutResult(status -> {
-                CustomerBalanceMaster account = accountRepository.findByIdForUpdate(accountId)
-                        .orElseThrow(() -> new ResourceNotFoundException(
-                                "Account " + accountId + " not found during compensation"));
-                LocalDateTime now = LocalDateTime.now();
-                account.setBalanceAmount(account.getBalanceAmount().add(appliedDelta.negate()));
+
+                CustomerBalanceMaster account =
+                        accountRepository
+                                .findByIdForUpdate(accountId)
+                                .orElseThrow(() ->
+                                        new ResourceNotFoundException(
+                                                "Account "
+                                                        + accountId
+                                                        + " not found during compensation"));
+
+                LocalDateTime now =
+                        LocalDateTime.now();
+
+                account.setBalanceAmount(
+                        account.getBalanceAmount()
+                                .add(appliedDelta.negate()));
+
                 account.setUpdatedAt(now);
                 account.setUpdatedBy("SYSTEM");
+
                 accountRepository.save(account);
 
-                txnMasterRepository.findById(txnId).ifPresent(txn -> {
-                    txn.setTxnStatus("ROLLED_BACK");
-                    txn.setCompletedAt(now);
-                    txn.setUpdatedAt(now);
-                    txn.setUpdatedBy("SYSTEM");
-                    txnMasterRepository.save(txn);
-                });
+                txnMasterRepository.findById(txnId)
+                        .ifPresent(txn -> {
+
+                            txn.setTxnStatus(
+                                    "ROLLED_BACK");
+
+                            txn.setCompletedAt(now);
+                            txn.setUpdatedAt(now);
+                            txn.setUpdatedBy("SYSTEM");
+
+                            txnMasterRepository.save(txn);
+                        });
             });
+
             balanceCacheInvalidator.evict(accountId);
+
         } catch (RuntimeException compensationEx) {
-            log.error("CRITICAL: compensation failed for account {} (delta {}, txnId {}). "
-                    + "Manual reconciliation required.", accountId, appliedDelta, txnId, compensationEx);
+
+            log.error(
+                    "CRITICAL: compensation failed for account {} "
+                            + "(delta {}, txnId {}). Manual reconciliation required.",
+                    accountId,
+                    appliedDelta,
+                    txnId,
+                    compensationEx);
+
             throw compensationEx;
         }
     }
 
-    /**
-     * Flips TRANSACTION_MASTER.txn_status from PENDING to COMMITTED after
-     * the Postgres audit write has succeeded.
-     */
     private void commitTxnStatus(String txnId) {
+
         oracleTx.executeWithoutResult(status ->
-                txnMasterRepository.findById(txnId).ifPresent(txn -> {
-                    LocalDateTime now = LocalDateTime.now();
-                    txn.setTxnStatus("COMMITTED");
-                    txn.setCompletedAt(now);
-                    txn.setUpdatedAt(now);
-                    txn.setUpdatedBy("SYSTEM");
-                    txnMasterRepository.save(txn);
-                }));
+                txnMasterRepository.findById(txnId)
+                        .ifPresent(txn -> {
+
+                            LocalDateTime now =
+                                    LocalDateTime.now();
+
+                            txn.setTxnStatus(
+                                    "COMMITTED");
+
+                            txn.setCompletedAt(now);
+                            txn.setUpdatedAt(now);
+                            txn.setUpdatedBy("SYSTEM");
+
+                            txnMasterRepository.save(txn);
+                        }));
     }
 
-    private void assertActive(CustomerBalanceMaster account) {
-        if (!"ACTIVE".equals(account.getAccountStatus())) {
+    private void assertActive(
+            CustomerBalanceMaster account) {
+
+        if (!"ACTIVE".equals(
+                account.getAccountStatus())) {
+
             throw new IllegalStateException(
-                    "Account " + account.getAccountId()
-                    + " is not ACTIVE (status=" + account.getAccountStatus() + ")");
+                    "Account "
+                            + account.getAccountId()
+                            + " is not ACTIVE (status="
+                            + account.getAccountStatus()
+                            + ")");
         }
     }
 }
-
