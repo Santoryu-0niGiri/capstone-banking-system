@@ -1,6 +1,6 @@
-
 package com.capstone.transaction.config;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -18,11 +18,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Secondary persistence unit: PostgreSQL, holding the `ledger_mutation_audit`
- * table. Kept fully independent from the Oracle unit above -- this is what
- * makes the dual-write compensating-transaction pattern in
- * TransactionService necessary (there is no single JTA transaction
- * spanning both databases).
+ * Secondary persistence unit: PostgreSQL (ledger_mutation_audit — append-only).
+ * Pool is smaller than Oracle because writes here are one-shot audit inserts,
+ * not concurrent balance reads with row-level locks.
  */
 @Configuration
 @EnableJpaRepositories(
@@ -39,8 +37,16 @@ public class PostgresDataSourceConfig {
     }
 
     @Bean(name = "postgresDataSource")
-    public DataSource postgresDataSource(@Qualifier("postgresDataSourceProperties") DataSourceProperties properties) {
-        return properties.initializeDataSourceBuilder().build();
+    public DataSource postgresDataSource(
+            @Qualifier("postgresDataSourceProperties") DataSourceProperties properties) {
+        HikariDataSource ds = properties.initializeDataSourceBuilder()
+                .type(HikariDataSource.class)
+                .build();
+        ds.setMaximumPoolSize(10);
+        ds.setMinimumIdle(2);
+        ds.setConnectionTimeout(30_000);
+        ds.setPoolName("TransactionPostgresHikariPool");
+        return ds;
     }
 
     @Bean(name = "postgresEntityManagerFactory")
@@ -64,4 +70,3 @@ public class PostgresDataSourceConfig {
         return new JpaTransactionManager(entityManagerFactory);
     }
 }
-

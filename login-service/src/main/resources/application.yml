@@ -1,4 +1,3 @@
-
 server:
   port: 8082
 
@@ -10,6 +9,11 @@ spring:
     username: ${ORACLE_USERNAME:ledger_app}
     password: ${ORACLE_PASSWORD:LedgerAppPass123}
     driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 5
+      connection-timeout: 30000
+      pool-name: LoginHikariPool
   jpa:
     database-platform: org.hibernate.dialect.OracleDialect
     hibernate:
@@ -33,4 +37,3 @@ management:
 logging:
   level:
     com.capstone: INFO
-
