@@ -8,6 +8,9 @@
 -- unquoted identifiers resolve consistently against Hibernate defaults.
 -- =====================================================================
 
+ALTER SESSION SET CONTAINER = XEPDB1;
+ALTER SESSION SET CURRENT_SCHEMA = LEDGER_APP;
+
 -- ---------------------------------------------------------------------
 -- CUSTOMER_MASTER
 -- ---------------------------------------------------------------------
@@ -50,6 +53,7 @@ CREATE TABLE customer_balance_master (
     created_by      VARCHAR2(50)   NOT NULL,
     updated_at      TIMESTAMP,
     updated_by      VARCHAR2(50),
+    version         NUMBER(19)     DEFAULT 0 NOT NULL,
     CONSTRAINT pk_customer_balance_master PRIMARY KEY (account_id),
     CONSTRAINT fk_balance_master_customer FOREIGN KEY (customer_id)
         REFERENCES customer_master (customer_id),
@@ -61,8 +65,7 @@ CREATE TABLE customer_balance_master (
 CREATE INDEX ix_balance_master_customer_id ON customer_balance_master (customer_id);
 
 COMMENT ON TABLE customer_balance_master IS
-    'Live balance state, row-locked via @Lock(LockModeType.PESSIMISTIC_WRITE) '
-    '-> SELECT balance_amount FROM customer_balance_master WHERE account_id = ? FOR UPDATE';
+    'Live balance state, row-locked via @Lock(LockModeType.PESSIMISTIC_WRITE) -> SELECT balance_amount FROM customer_balance_master WHERE account_id = ? FOR UPDATE';
 
 -- ---------------------------------------------------------------------
 -- APP_USER_MASTER
@@ -143,6 +146,4 @@ CREATE INDEX ix_txn_status ON transaction_master (txn_status);
 CREATE INDEX ix_txn_completed_at ON transaction_master (completed_at);
 
 COMMENT ON TABLE transaction_master IS
-    'Requested balance mutations. On PostgreSQL audit-write failure, the '
-    'owning service must roll back this row and throw LedgerPersistenceException '
-    'to prevent an un-audited state change (spec Section C).';
+    'Requested balance mutations. On PostgreSQL audit-write failure, the owning service must roll back this row and throw LedgerPersistenceException to prevent an un-audited state change (spec Section C).';

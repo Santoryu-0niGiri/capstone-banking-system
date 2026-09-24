@@ -1,0 +1,16 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: frontend-web
+  thymeleaf:
+    cache: false   # live-reload templates during development
+
+banking:
+  backend:
+    # Mode can be 'mock' (default self-contained demo) or 'gateway' (live REST microservices via Spring Cloud Gateway)
+    mode: ${BANKING_BACKEND_MODE:gateway}
+    gateway-url: ${BANKING_GATEWAY_URL:http://localhost:8080}
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000

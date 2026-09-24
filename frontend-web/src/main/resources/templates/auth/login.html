@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Sign In')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: demoBar}"></div>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: alerts}"></div>
+
+<main class="container py-4">
+    <div class="card auth-card p-4 p-md-5">
+        <div class="text-center mb-4">
+            <div class="display-6 text-primary mb-2"><i class="bi bi-shield-lock-fill"></i></div>
+            <h3 class="fw-bold mb-1">Account Sign In</h3>
+            <p class="text-muted small">Access your accounts and banking ledger</p>
+        </div>
+
+        <form th:action="@{/login}" th:object="${loginForm}" method="post">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Email address</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                    <input type="email" id="emailInput" class="form-control" th:field="*{email}" placeholder="e.g. name@example.com"/>
+                </div>
+                <div class="text-danger small mt-1" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+                    <input type="password" id="passwordInput" class="form-control" th:field="*{password}" placeholder="Enter password"/>
+                </div>
+                <div class="text-danger small mt-1" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2 mt-2">
+                <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+            </button>
+        </form>
+
+        <div class="mt-4 pt-3 border-top">
+            <div class="small fw-semibold text-muted mb-2 text-center">Click to Quick-Fill Demo Credentials:</div>
+            <div class="d-flex flex-column gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary text-start"
+                        onclick="fillDemo('admin@ledgerbank.com', 'admin123')">
+                    <i class="bi bi-shield-fill text-danger me-1"></i>
+                    <strong>Admin:</strong> admin@ledgerbank.com (admin123)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary text-start"
+                        onclick="fillDemo('juan.delacruz@example.com', 'password123')">
+                    <i class="bi bi-person-fill text-primary me-1"></i>
+                    <strong>Customer:</strong> juan.delacruz@example.com (password123)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary text-start"
+                        onclick="fillDemo('maria.santos@example.com', 'password123')">
+                    <i class="bi bi-person-fill text-info me-1"></i>
+                    <strong>Customer:</strong> maria.santos@example.com (password123)
+                </button>
+            </div>
+        </div>
+
+        <p class="text-center text-muted small mt-4 mb-0">
+            Don't have an account yet? <a href="/register" class="fw-semibold text-primary">Start KYC Onboarding</a>
+        </p>
+    </div>
+</main>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+
+<script>
+function fillDemo(email, pass) {
+    document.getElementById('emailInput').value = email;
+    document.getElementById('passwordInput').value = pass;
+}
+</script>
+</body>
+</html>

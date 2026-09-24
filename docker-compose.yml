@@ -227,3 +227,19 @@ services:
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
     networks:
       - banking-net
+
+  frontend-web:
+    build:
+      context: .
+      dockerfile: frontend-web/Dockerfile
+    container_name: frontend-web
+    ports:
+      - "8090:8090"
+    depends_on:
+      - api-gateway
+    environment:
+      BANKING_BACKEND_MODE: gateway
+      BANKING_GATEWAY_URL: http://api-gateway:8080
+    networks:
+      - banking-net
+

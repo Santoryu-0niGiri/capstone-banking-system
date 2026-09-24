@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Account Details &amp; Ledger')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: demoBar}"></div>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: alerts}"></div>
+
+<main class="container py-4">
+    <!-- Account Overview Card -->
+    <div class="card p-4 mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="currency-badge fs-6" th:text="${account.currencyCode}">PHP</span>
+                    <span class="badge" th:classappend="${account.accountStatus.name() == 'ACTIVE'} ? 'bg-success' : 'bg-warning'"
+                          th:text="${account.accountStatus.displayName}">ACTIVE</span>
+                    <span class="text-muted small">· Created <span th:text="${#temporals.format(account.createdAt, 'dd MMM yyyy')}"></span></span>
+                </div>
+                <h4 class="fw-bold mb-1" th:text="${account.accountType.displayName}">Regular Savings</h4>
+                <div class="font-monospace text-muted small">Account ID: <strong th:text="${account.accountId}">ACCT-1001-PHP</strong></div>
+                <div class="balance-figure text-primary mt-2" th:text="${account.formattedBalance}">₱0.00</div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2">
+                <a th:href="@{/transactions/new(fromAcctNo=${account.accountId},type='DEPOSIT')}" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-box-arrow-in-down me-1"></i> Deposit
+                </a>
+                <a th:href="@{/transactions/new(fromAcctNo=${account.accountId},type='WITHDRAWAL')}" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-box-arrow-up me-1"></i> Withdraw
+                </a>
+                <a th:href="@{/transactions/new(fromAcctNo=${account.accountId},type='TRANSFER')}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-send me-1"></i> Transfer Funds
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ledger Mutations for This Account -->
+    <div class="card p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="fw-bold mb-0"><i class="bi bi-journal-text text-primary me-2"></i>Account Ledger History</h5>
+                <p class="text-muted small mb-0">Synchronous and asynchronous balance mutations posted to this account</p>
+            </div>
+            <span class="badge bg-light text-dark border"><span th:text="${transactions.size()}"></span> Records</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Transaction ID</th>
+                        <th>Mutation ID</th>
+                        <th>Type</th>
+                        <th>Direction</th>
+                        <th>Amount</th>
+                        <th>Audit State</th>
+                        <th>Voucher</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="t : ${transactions}">
+                        <td class="small" th:text="${#temporals.format(t.timestamp, 'dd MMM yyyy HH:mm:ss')}"></td>
+                        <td class="font-monospace small" th:text="${t.txnId}"></td>
+                        <td class="font-monospace small text-muted" th:text="${t.mutationId}"></td>
+                        <td>
+                            <span class="badge" th:classappend="${t.txnType.badgeClass}" th:text="${t.txnType.displayName}">DEPOSIT</span>
+                            <span th:if="${t.crossCurrency}" class="badge bg-warning-subtle text-warning border small" title="Cross Currency FX">FX</span>
+                        </td>
+                        <td>
+                            <span class="badge" th:classappend="${t.direction.name() == 'CREDIT'} ? 'badge-credit' : 'badge-debit'"
+                                  th:text="${t.direction.name()}"></span>
+                        </td>
+                        <td class="fw-bold" th:classappend="${t.direction.name() == 'CREDIT'} ? 'text-success' : 'text-danger'"
+                            th:text="${t.formattedAmount}"></td>
+                        <td>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle small"
+                                  th:text="${t.auditState}">COMMITTED</span>
+                        </td>
+                        <td>
+                            <a th:href="@{/transactions/receipt/{id}(id=${t.txnId})}" class="btn btn-sm btn-outline-secondary py-0 px-2" title="View digital receipt">
+                                <i class="bi bi-receipt"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(transactions)}">
+                        <td colspan="8" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                            No transaction ledger records recorded for this account yet.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+</body>
+</html>
