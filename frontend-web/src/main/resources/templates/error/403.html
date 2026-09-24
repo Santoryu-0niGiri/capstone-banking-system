@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Access Denied')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: demoBar}"></div>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<main class="container text-center py-5">
+    <div style="margin-top: 4rem;">
+        <div class="display-1 text-warning mb-3"><i class="bi bi-shield-x"></i></div>
+        <h1 class="display-5 fw-bold">403 — Access Denied</h1>
+        <p class="text-muted lead mb-4">You do not have administrative privileges to access this banking resource.</p>
+        <div class="d-flex justify-content-center gap-2">
+            <a href="/customer/dashboard" class="btn btn-primary">Return to Customer Dashboard</a>
+            <a href="/auth/switch?role=admin" class="btn btn-outline-danger">Switch to Admin Persona</a>
+        </div>
+    </div>
+</main>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+</body>
+</html>
+

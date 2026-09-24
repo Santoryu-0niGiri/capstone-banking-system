@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Customer KYC Management')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: demoBar}"></div>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: alerts}"></div>
+
+<main class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h4 class="fw-bold mb-1"><i class="bi bi-people text-primary me-2"></i>Customer Directory &amp; KYC Verification</h4>
+            <p class="text-muted small mb-0">Review identity documents and update KYC verification compliance</p>
+        </div>
+        <div>
+            <input type="text" id="custSearch" class="form-control form-control-sm" placeholder="Search by name, email, ID..." onkeyup="filterCustomers()">
+        </div>
+    </div>
+
+    <div class="card p-3">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle" id="custTable">
+                <thead>
+                    <tr>
+                        <th>Customer ID</th>
+                        <th>Name</th>
+                        <th>Email &amp; Phone</th>
+                        <th>Identity Document</th>
+                        <th>Address</th>
+                        <th>KYC Status</th>
+                        <th>Accounts</th>
+                        <th>KYC Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="c : ${customers}">
+                        <td class="font-monospace fw-semibold" th:text="${c.customerId}">CUST-1001</td>
+                        <td>
+                            <div class="fw-bold" th:text="${c.fullName}">Juan Dela Cruz</div>
+                            <small class="text-muted" th:text="${'Since ' + #temporals.format(c.createdAt, 'MMM yyyy')}"></small>
+                        </td>
+                        <td>
+                            <div class="small" th:text="${c.email}">email@example.com</div>
+                            <div class="small text-muted" th:text="${c.contactNo}">+63 917 000 0000</div>
+                        </td>
+                        <td>
+                            <div class="small fw-semibold" th:text="${c.idType}">PASSPORT</div>
+                            <div class="font-monospace small text-muted" th:text="${c.idNumber}">P1234567A</div>
+                        </td>
+                        <td class="small text-muted" style="max-width: 200px;" th:text="${c.address}">Metro Manila</td>
+                        <td>
+                            <span th:class="${'badge ' + (c.kycStatus.name() == 'VERIFIED' ? 'badge-kyc-verified' : (c.kycStatus.name() == 'REJECTED' ? 'bg-danger' : 'badge-kyc-pending'))}"
+                                  th:text="${c.kycStatus.displayName}">VERIFIED</span>
+                        </td>
+                        <td>
+                            <a th:href="@{/customers/{id}(id=${c.customerId})}" class="btn btn-sm btn-outline-secondary py-0 px-2">
+                                <span th:text="${c.accounts.size()}"></span> accts
+                            </a>
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <form th:if="${c.kycStatus.name() != 'VERIFIED'}"
+                                      th:action="@{/admin/customers/{id}/kyc(id=${c.customerId})}" method="post">
+                                    <input type="hidden" name="status" value="VERIFIED"/>
+                                    <button type="submit" class="btn btn-sm btn-success py-0 px-2" title="Approve KYC">
+                                        <i class="bi bi-check-lg"></i> Approve
+                                    </button>
+                                </form>
+                                <form th:if="${c.kycStatus.name() != 'REJECTED'}"
+                                      th:action="@{/admin/customers/{id}/kyc(id=${c.customerId})}" method="post">
+                                    <input type="hidden" name="status" value="REJECTED"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" title="Reject / Flag KYC">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+
+<script>
+function filterCustomers() {
+    const query = document.getElementById('custSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('#custTable tbody tr');
+    rows.forEach(r => {
+        const text = r.textContent.toLowerCase();
+        r.style.display = text.includes(query) ? '' : 'none';
+    });
+}
+</script>
+</body>
+</html>
+

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('System Accounts Registry')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: demoBar}"></div>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: alerts}"></div>
+
+<main class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h4 class="fw-bold mb-1"><i class="bi bi-wallet2 text-primary me-2"></i>Master Accounts Registry</h4>
+            <p class="text-muted small mb-0">System-wide ACCOUNT_MASTER management and account freeze/unfreeze controls</p>
+        </div>
+        <div>
+            <input type="text" id="acctSearch" class="form-control form-control-sm" placeholder="Filter accounts, customers..." onkeyup="filterAccounts()">
+        </div>
+    </div>
+
+    <div class="card p-3">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle" id="acctTable">
+                <thead>
+                    <tr>
+                        <th>Account ID</th>
+                        <th>Owner Customer</th>
+                        <th>Type</th>
+                        <th>Currency</th>
+                        <th>Current Balance</th>
+                        <th>Status</th>
+                        <th>Provisioned</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="a : ${accounts}">
+                        <td class="font-monospace fw-bold" th:text="${a.accountId}">ACCT-1001</td>
+                        <td>
+                            <a th:href="@{/customers/{id}(id=${a.customerId})}" class="font-monospace text-decoration-none small" th:text="${a.customerId}"></a>
+                        </td>
+                        <td th:text="${a.accountType.displayName}">Savings</td>
+                        <td><span class="currency-badge" th:text="${a.currencyCode}">PHP</span></td>
+                        <td class="fw-bold fs-6" th:text="${a.formattedBalance}">₱0.00</td>
+                        <td>
+                            <span class="badge" th:classappend="${a.accountStatus.name() == 'ACTIVE'} ? 'bg-success' : 'bg-warning'"
+                                  th:text="${a.accountStatus.displayName}">ACTIVE</span>
+                        </td>
+                        <td class="small text-muted" th:text="${#temporals.format(a.createdAt, 'dd MMM yyyy')}"></td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a th:href="@{/accounts/{id}(id=${a.accountId})}" class="btn btn-sm btn-outline-secondary py-0 px-2" title="View Ledger">
+                                    <i class="bi bi-journal-text"></i>
+                                </a>
+
+                                <!-- Freeze / Unfreeze toggle forms -->
+                                <form th:if="${a.accountStatus.name() == 'ACTIVE'}"
+                                      th:action="@{/admin/accounts/{id}/status(id=${a.accountId})}" method="post">
+                                    <input type="hidden" name="status" value="FROZEN"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-warning py-0 px-2" title="Freeze account">
+                                        <i class="bi bi-pause-circle"></i> Freeze
+                                    </button>
+                                </form>
+
+                                <form th:if="${a.accountStatus.name() == 'FROZEN'}"
+                                      th:action="@{/admin/accounts/{id}/status(id=${a.accountId})}" method="post">
+                                    <input type="hidden" name="status" value="ACTIVE"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-success py-0 px-2" title="Unfreeze account">
+                                        <i class="bi bi-play-circle"></i> Unfreeze
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+
+<script>
+function filterAccounts() {
+    const query = document.getElementById('acctSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('#acctTable tbody tr');
+    rows.forEach(r => {
+        const text = r.textContent.toLowerCase();
+        r.style.display = text.includes(query) ? '' : 'none';
+    });
+}
+</script>
+</body>
+</html>
+
