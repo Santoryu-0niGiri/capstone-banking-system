@@ -15,7 +15,7 @@ import java.util.UUID;
  * prevents accidental misuse.
  *
  * txnId  is a String matching TRANSACTION_MASTER.txn_id (VARCHAR2 36).
- * accountId is a String matching CUSTOMER_BALANCE_MASTER.account_id.
+ * accountId is a String matching ACCOUNT_MASTER.account_id.
  */
 public interface LedgerMutationAuditRepository extends JpaRepository<LedgerMutationAudit, UUID> {
 

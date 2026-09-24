@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
  *
  * One row per /api/v1/ledger/mutate request, persisted in Oracle
  * inside the same PESSIMISTIC_WRITE transaction that updates
- * CUSTOMER_BALANCE_MASTER, so the two writes are atomic.
+ * ACCOUNT_MASTER, so the two writes are atomic.
  *
  * txn_type   CHECK : WITHDRAWAL | DEPOSIT | TRANSFER
  * txn_status CHECK : PENDING | COMMITTED | ROLLED_BACK

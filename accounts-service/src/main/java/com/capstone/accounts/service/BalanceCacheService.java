@@ -12,7 +12,7 @@ import java.util.Optional;
 
 /**
  * Cache-aside wrapper for balance:{accountId} in Redis.
- * accountId is a String UUID matching CUSTOMER_BALANCE_MASTER.account_id.
+ * accountId is a String UUID matching CUSTOMER_ACCOUNT.account_id.
  * TTL is 5 minutes; transaction-service evicts the entry on every successful
  * mutation so reads never serve stale balances beyond the TTL window.
  */

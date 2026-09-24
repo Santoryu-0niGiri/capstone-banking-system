@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * accountId is now a String UUID matching CUSTOMER_BALANCE_MASTER.account_id.
+ * accountId is now a String UUID matching ACCOUNT_MASTER.account_id.
  * txnType mirrors TRANSACTION_MASTER.txn_type (WITHDRAWAL|DEPOSIT|TRANSFER).
  * txnStatus mirrors TRANSACTION_MASTER.txn_status (PENDING|COMMITTED|ROLLED_BACK).
  */

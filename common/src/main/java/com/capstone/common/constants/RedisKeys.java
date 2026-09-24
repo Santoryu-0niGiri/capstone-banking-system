@@ -10,7 +10,7 @@ public final class RedisKeys {
     public static final String IDEMPOTENCY_PREFIX = "idempotency:";
     public static final String TOKEN_PREFIX       = "token:";
 
-    /** accountId is a String UUID from CUSTOMER_BALANCE_MASTER.account_id */
+    /** accountId is a String UUID from ACCOUNT_MASTER.account_id */
     public static String balanceKey(String accountId) {
         return BALANCE_PREFIX + accountId;
     }

@@ -1,6 +1,6 @@
 package com.capstone.accounts.service;
 
-import com.capstone.accounts.entity.CustomerBalanceMaster;
+import com.capstone.accounts.entity.AccountMaster;
 import com.capstone.accounts.repository.AccountRepository;
 import com.capstone.accounts.repository.CustomerRepository;
 import com.capstone.common.constants.KafkaTopics;
@@ -32,14 +32,14 @@ public class AccountService {
      * Creates an account for an existing customer.
      *
      * CUSTOMER_MASTER must already contain the supplied customerId.
-     * The database foreign key FK_BALANCE_MASTER_CUSTOMER remains unchanged.
+     * The database foreign key FK_ACCOUNT_CUSTOMER remains unchanged.
      */
     @Transactional
     public AccountDTO createAccount(CreateAccountRequest request) {
 
         /*
          * Validate the parent customer before inserting into
-         * CUSTOMER_BALANCE_MASTER.
+         * ACCOUNT_MASTER.
          *
          * This prevents Oracle ORA-02291 from being exposed to the client.
          */
@@ -52,7 +52,7 @@ public class AccountService {
         String accountId = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
 
-        CustomerBalanceMaster account = CustomerBalanceMaster.builder()
+        AccountMaster account = AccountMaster.builder()
                 .accountId(accountId)
                 .customerId(request.customerId())
                 .accountType(request.accountType())
@@ -63,7 +63,7 @@ public class AccountService {
                 .createdBy("SYSTEM")
                 .build();
 
-        CustomerBalanceMaster saved = accountRepository.save(account);
+        AccountMaster saved = accountRepository.save(account);
 
         balanceCacheService.put(
                 saved.getAccountId(),
@@ -110,7 +110,7 @@ public class AccountService {
     public BigDecimal getBalance(String accountId) {
         return balanceCacheService.get(accountId)
                 .orElseGet(() -> {
-                    CustomerBalanceMaster acct = findOrThrow(accountId);
+                    AccountMaster acct = findOrThrow(accountId);
 
                     balanceCacheService.put(
                             accountId,
@@ -125,7 +125,7 @@ public class AccountService {
     // Helpers
     // ----------------------------------------------------------------
 
-    private CustomerBalanceMaster findOrThrow(String accountId) {
+    private AccountMaster findOrThrow(String accountId) {
         return accountRepository.findById(accountId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
@@ -134,7 +134,7 @@ public class AccountService {
                 );
     }
 
-    private AccountDTO toDto(CustomerBalanceMaster account) {
+    private AccountDTO toDto(AccountMaster account) {
         return new AccountDTO(
                 account.getAccountId(),
                 account.getCustomerId(),

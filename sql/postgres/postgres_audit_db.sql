@@ -4,7 +4,7 @@
 --         recon_result_audit
 --
 -- Aligned to CAPSTONE FSE: Core Retail Ledger & Balance Mutation Engine
--- account_id / txn_id here reference customer_balance_master /
+-- account_id / txn_id here reference account_master /
 -- transaction_master in the separate Oracle XE 21c database, so no
 -- cross-engine FK is declared for those columns -- indexed instead.
 -- =====================================================================
