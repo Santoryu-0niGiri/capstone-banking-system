@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 /**
  * Simulates notification dispatch (email/SMS/push).
  * Swap log calls for a real provider (SES, Twilio, FCM …) for production.
- * accountId is now a String UUID matching CUSTOMER_BALANCE_MASTER.account_id.
+ * accountId is now a String UUID matching ACCOUNT_MASTER.account_id.
  */
 @Service
 @Slf4j

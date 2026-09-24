@@ -100,7 +100,7 @@ Also add the `version` column required by Hibernate optimistic locking:
 
 ```bash
 docker exec oracle-db bash -c "sqlplus -S ledger_app/LedgerAppPass123@localhost:1521/XEPDB1 <<'EOF'
-ALTER TABLE customer_balance_master ADD (version NUMBER DEFAULT 0 NOT NULL);
+ALTER TABLE account_master ADD (version NUMBER DEFAULT 0 NOT NULL);
 EXIT;
 EOF"
 ```

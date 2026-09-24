@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * customerId -> CUSTOMER_BALANCE_MASTER.customer_id (String UUID).
+ * customerId -> ACCOUNT_MASTER.customer_id (String UUID).
  * accountType -> CHECK SAVINGS|CHECKING|WALLET.
  * currencyCode -> CHAR(3), e.g. PHP, USD.
  */

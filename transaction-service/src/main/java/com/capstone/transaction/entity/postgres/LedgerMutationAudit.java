@@ -56,7 +56,7 @@ public class LedgerMutationAudit {
     @Column(name = "txn_id", nullable = false, length = 36)
     private String txnId;
 
-    // References CUSTOMER_BALANCE_MASTER.account_id (Oracle) — indexed
+    // References ACCOUNT_MASTER.account_id (Oracle) — indexed
     @Column(name = "account_id", nullable = false, length = 36)
     private String accountId;
 

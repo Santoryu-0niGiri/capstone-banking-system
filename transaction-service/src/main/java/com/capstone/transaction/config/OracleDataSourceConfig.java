@@ -19,7 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Primary persistence unit: Oracle XE (CUSTOMER_BALANCE_MASTER + TRANSACTION_MASTER).
+ * Primary persistence unit: Oracle XE (ACCOUNT_MASTER + TRANSACTION_MASTER).
  * Marked @Primary so unqualified DataSource/EntityManagerFactory injections default here.
  * HikariCP pool is configured explicitly because DataSourceProperties.initializeDataSourceBuilder()
  * does not bind nested hikari.* sub-keys from a custom prefix.

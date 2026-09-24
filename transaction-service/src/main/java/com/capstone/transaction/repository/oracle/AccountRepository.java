@@ -1,7 +1,7 @@
 
 package com.capstone.transaction.repository.oracle;
 
-import com.capstone.transaction.entity.oracle.CustomerBalanceMaster;
+import com.capstone.transaction.entity.oracle.AccountMaster;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,10 +13,10 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 /**
- * Targets CUSTOMER_BALANCE_MASTER via the Oracle primary DataSource.
+ * Targets ACCOUNT_MASTER via the Oracle primary DataSource.
  * String PK: account_id (VARCHAR2 36 UUID).
  */
-public interface AccountRepository extends JpaRepository<CustomerBalanceMaster, String> {
+public interface AccountRepository extends JpaRepository<AccountMaster, String> {
 
     /**
      * Issues SELECT … FOR UPDATE (PESSIMISTIC_WRITE) with a 5-second
@@ -26,7 +26,7 @@ public interface AccountRepository extends JpaRepository<CustomerBalanceMaster, 
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @QueryHints({@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000")})
-    @Query("SELECT b FROM CustomerBalanceMaster b WHERE b.accountId = :accountId")
-    Optional<CustomerBalanceMaster> findByIdForUpdate(@Param("accountId") String accountId);
+    @Query("SELECT b FROM AccountMaster b WHERE b.accountId = :accountId")
+    Optional<AccountMaster> findByIdForUpdate(@Param("accountId") String accountId);
 }
 

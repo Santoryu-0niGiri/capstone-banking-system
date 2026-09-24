@@ -13,13 +13,13 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "customer_balance_master")
+@Table(name = "account_master")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CustomerBalanceMaster {
+public class AccountMaster {
 
     @Id
     @Column(
