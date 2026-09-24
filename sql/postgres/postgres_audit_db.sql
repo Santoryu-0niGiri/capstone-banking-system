@@ -166,3 +166,25 @@ CREATE INDEX ix_recon_result_audit_status ON recon_result_audit (recon_status, e
 CREATE INDEX ix_recon_result_audit_created_at ON recon_result_audit (created_at);
 
 COMMENT ON TABLE recon_result_audit IS 'One row per reconciled ledger leg (or missing/orphan leg) within a recon_run_audit';
+
+-- ---------------------------------------------------------------------
+-- TRANSACTION_OUTBOX (PostgreSQL, owned by Transaction Service)
+-- Written in the SAME local transaction as the ledger_mutation_audit
+-- insert it accompanies -- a separate poller/relay reads PENDING rows
+-- and publishes to Kafka, then marks them PUBLISHED. This is what
+-- makes event publishing atomic with the audit write it reports on,
+-- without needing a distributed transaction across Kafka + Postgres.
+-- ---------------------------------------------------------------------
+CREATE TABLE transaction_outbox (
+    outbox_id       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    aggregate_type  VARCHAR(30)   NOT NULL,   -- e.g. 'TRANSACTION'
+    aggregate_id    VARCHAR(36)   NOT NULL,   -- txn_id
+    event_type      VARCHAR(60)   NOT NULL,   -- e.g. 'transaction.completed', 'forex.conversion.requested'
+    payload         JSONB         NOT NULL,
+    status          VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    published_at    TIMESTAMPTZ,
+    CONSTRAINT ck_transaction_outbox_status CHECK (status IN ('PENDING','PUBLISHED','FAILED'))
+);
+
+CREATE INDEX ix_transaction_outbox_status ON transaction_outbox (status, created_at);
