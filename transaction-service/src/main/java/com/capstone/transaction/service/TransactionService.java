@@ -87,15 +87,31 @@ public class TransactionService {
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    public TransactionResponse withdraw(TransactionRequest request) {
-        return executeSingleLeg(request, "WITHDRAWAL", "DEBIT");
-    }
+  public TransactionResponse withdraw(
+        TransactionRequest request,
+        UUID txnId) {
 
-    public TransactionResponse deposit(TransactionRequest request) {
-        return executeSingleLeg(request, "DEPOSIT", "CREDIT");
-    }
+    return executeSingleLeg(
+            request,
+            "WITHDRAWAL",
+            "DEBIT",
+            txnId.toString());
+}
 
-    public TransactionResponse transfer(TransactionRequest request) {
+public TransactionResponse deposit(
+        TransactionRequest request,
+        UUID txnId) {
+
+    return executeSingleLeg(
+            request,
+            "DEPOSIT",
+            "CREDIT",
+            txnId.toString());
+}
+
+    public TransactionResponse transfer(
+        TransactionRequest request,
+        UUID txnId) {
 
         if (request.counterpartyAccountId() == null
                 || request.counterpartyAccountId().isBlank()) {
@@ -109,7 +125,9 @@ public class TransactionService {
                     "Source and destination accounts must differ");
         }
 
-        return executeTransfer(request);
+        return executeTransfer(
+        request,
+        txnId.toString());
     }
 
     /**
@@ -141,9 +159,10 @@ public class TransactionService {
     // ── Single-leg (WITHDRAWAL / DEPOSIT) ─────────────────────────────────────
 
     private TransactionResponse executeSingleLeg(
-            TransactionRequest request,
-            String txnType,
-            String mutationType) {
+        TransactionRequest request,
+        String txnType,
+        String mutationType,
+        String txnId) {
 
         Optional<TransactionResponse> cached =
                 idempotencyService.getCached(request.idempotencyKey());
@@ -159,7 +178,6 @@ public class TransactionService {
                             + "' is already being processed");
         }
 
-        String txnId = UUID.randomUUID().toString();
 
         try {
 
@@ -248,7 +266,8 @@ public class TransactionService {
     // ── Transfer ─────────────────────────────────────────────────────────────
 
     private TransactionResponse executeTransfer(
-            TransactionRequest request) {
+        TransactionRequest request,
+        String txnId) {
 
         Optional<TransactionResponse> cached =
                 idempotencyService.getCached(
@@ -267,7 +286,7 @@ public class TransactionService {
                             + "' is already being processed");
         }
 
-        String txnId = UUID.randomUUID().toString();
+       
 
         try {
 

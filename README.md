@@ -61,6 +61,10 @@ cd capstone-banking-system
 
 ### 2) Build the Java services
 
+```bash
+docker compose up -d oracle-db postgres-db redis zookeeper kafka
+```
+
 From the project root, compile and package all modules:
 
 ```bash
@@ -179,6 +183,10 @@ docker compose down -v
 ```
 
 > After `down -v`, the next `docker compose up --build` will re-initialize the databases from the init scripts automatically.
+
+---
+
+For standalone testing instructions and a quick reference of mock payloads, please see the [**Testing Instructions**](TESTING_INSTRUCTIONS.md) document.
 
 ---
 
