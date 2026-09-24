@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Customer Profile &amp; KYC')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: demoBar}"></div>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: alerts}"></div>
+
+<main class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card p-4 p-md-5 mb-4">
+                <div class="d-flex justify-content-between align-items-start mb-4 border-bottom pb-3">
+                    <div>
+                        <h3 class="fw-bold mb-1" th:text="${customer.fullName}">Customer Name</h3>
+                        <div class="text-muted small">
+                            Customer ID: <strong class="font-monospace" th:text="${customer.customerId}">CUST-1001</strong> ·
+                            Member since <span th:text="${#temporals.format(customer.createdAt, 'MMMM yyyy')}">January 2026</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span th:class="${'badge fs-6 ' + (customer.kycStatus.name() == 'VERIFIED' ? 'badge-kyc-verified' : 'badge-kyc-pending')}"
+                              th:text="${customer.kycStatus.displayName}">VERIFIED</span>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="text-muted small text-uppercase fw-semibold mb-1">Email Address</div>
+                        <div class="fw-semibold" th:text="${customer.email}">email@example.com</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small text-uppercase fw-semibold mb-1">Contact Phone</div>
+                        <div class="fw-semibold" th:text="${customer.contactNo}">+63 917 555 0101</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small text-uppercase fw-semibold mb-1">Date of Birth</div>
+                        <div class="fw-semibold" th:text="${#temporals.format(customer.birthDate, 'dd MMMM yyyy')}">15 April 1993</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small text-uppercase fw-semibold mb-1">Account Role</div>
+                        <div class="fw-semibold" th:text="${customer.role}">CUSTOMER</div>
+                    </div>
+
+                    <div class="col-12 border-top pt-3">
+                        <h6 class="text-primary fw-bold text-uppercase small mb-3">KYC Verification Record</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="text-muted small">ID Type</div>
+                                <div class="fw-semibold" th:text="${customer.idType}">PASSPORT</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-muted small">Document / ID Number</div>
+                                <div class="fw-semibold font-monospace" th:text="${customer.idNumber}">P3819204A</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-muted small">KYC Status</div>
+                                <div class="fw-semibold" th:text="${customer.kycStatus}">VERIFIED</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="text-muted small">Registered Residential Address</div>
+                                <div class="fw-semibold" th:text="${customer.address}">45 Ayala Avenue, Makati City, Metro Manila</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-4 border-top d-flex justify-content-between align-items-center">
+                    <a href="/customer/dashboard" class="btn btn-outline-secondary btn-sm">
+                        &larr; Back to Dashboard
+                    </a>
+                    <a href="/accounts/open" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle me-1"></i> Open Another Account
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+</body>
+</html>
+

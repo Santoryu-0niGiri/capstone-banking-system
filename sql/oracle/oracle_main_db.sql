@@ -10,6 +10,9 @@ CONNECT ledger_app/LedgerAppPass123@//localhost:1521/XEPDB1
 -- unquoted identifiers resolve consistently against Hibernate defaults.
 -- =====================================================================
 
+ALTER SESSION SET CONTAINER = XEPDB1;
+ALTER SESSION SET CURRENT_SCHEMA = LEDGER_APP;
+
 -- ---------------------------------------------------------------------
 -- CUSTOMER_MASTER
 -- ---------------------------------------------------------------------
@@ -148,6 +151,4 @@ CREATE INDEX ix_txn_status ON transaction_master (txn_status);
 CREATE INDEX ix_txn_completed_at ON transaction_master (completed_at);
 
 COMMENT ON TABLE transaction_master IS
-    'Requested balance mutations. On PostgreSQL audit-write failure, the '
-    'owning service must roll back this row and throw LedgerPersistenceException '
-    'to prevent an un-audited state change (spec Section C).';
+    'Requested balance mutations. On PostgreSQL audit-write failure, the owning service must roll back this row and throw LedgerPersistenceException to prevent an un-audited state change (spec Section C).';

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Initiate Transaction')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: demoBar}"></div>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: alerts}"></div>
+
+<main class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="card p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <div class="display-6 text-primary mb-2"><i class="bi bi-arrow-left-right"></i></div>
+                    <h3 class="fw-bold mb-1">New Balance Mutation</h3>
+                    <p class="text-muted small">Execute deposits, withdrawals, or cross-currency transfers</p>
+                </div>
+
+                <form th:action="@{/transactions/new}" th:object="${transactionForm}" method="post" id="txnForm">
+                    <!-- Operation Type Selector -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Select Operation Type</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" th:field="*{txnType}" value="DEPOSIT" id="btnDeposit" onchange="onTypeChanged()">
+                            <label class="btn btn-outline-success py-2" for="btnDeposit">
+                                <i class="bi bi-box-arrow-in-down me-1"></i> Deposit
+                            </label>
+
+                            <input type="radio" class="btn-check" th:field="*{txnType}" value="WITHDRAWAL" id="btnWithdraw" onchange="onTypeChanged()">
+                            <label class="btn btn-outline-danger py-2" for="btnWithdraw">
+                                <i class="bi bi-box-arrow-up me-1"></i> Withdrawal
+                            </label>
+
+                            <input type="radio" class="btn-check" th:field="*{txnType}" value="TRANSFER" id="btnTransfer" onchange="onTypeChanged()">
+                            <label class="btn btn-outline-primary py-2" for="btnTransfer">
+                                <i class="bi bi-send me-1"></i> Fund Transfer
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Source Account -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" id="fromAccountLabel">Source Account</label>
+                        <select class="form-select" th:field="*{fromAcctNo}" id="sourceAcctSelect" onchange="updateFxPreview()">
+                            <option th:each="a : ${userAccounts}"
+                                    th:value="${a.accountId}"
+                                    th:data-currency="${a.currencyCode}"
+                                    th:data-balance="${a.balance}"
+                                    th:text="${a.accountId + ' · ' + a.currencyCode + ' ' + a.accountType.displayName + ' (Available: ' + a.formattedBalance + ')'}"></option>
+                        </select>
+                        <div class="text-danger small mt-1" th:if="${#fields.hasErrors('fromAcctNo')}" th:errors="*{fromAcctNo}"></div>
+                    </div>
+
+                    <!-- Destination Account (Transfer Only) -->
+                    <div class="mb-3" id="destinationAccountGroup">
+                        <label class="form-label fw-semibold">Destination Account <span class="text-muted">(Transfer Only)</span></label>
+                        <select class="form-select" th:field="*{toAcctNo}" id="destAcctSelect" onchange="updateFxPreview()">
+                            <option value="">— Select Target Account —</option>
+                            <option th:each="a : ${allAccounts}"
+                                    th:value="${a.accountId}"
+                                    th:data-currency="${a.currencyCode}"
+                                    th:text="${a.accountId + ' · ' + a.currencyCode + ' ' + a.accountType.displayName + ' (' + a.customerId + ')'}"></option>
+                        </select>
+                        <div class="text-danger small mt-1" th:if="${#fields.hasErrors('toAcctNo')}" th:errors="*{toAcctNo}"></div>
+                    </div>
+
+                    <!-- Amount -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text fw-bold" id="currencyPrefix">₱</span>
+                            <input type="number" step="0.01" min="0.01" class="form-control form-control-lg fw-bold"
+                                   th:field="*{amount}" id="amountInput" placeholder="0.00" oninput="updateFxPreview()"/>
+                        </div>
+                        <div class="text-danger small mt-1" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></div>
+                    </div>
+
+                    <!-- Cross-Currency ForEx Preview Box -->
+                    <div class="card p-3 mb-3 bg-light border-warning d-none" id="fxPreviewCard">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="badge bg-warning text-dark"><i class="bi bi-currency-exchange me-1"></i>Cross-Currency Transfer</span>
+                            <span class="small text-muted">via ForEx Microservice</span>
+                        </div>
+                        <div class="row align-items-center mt-2">
+                            <div class="col-6">
+                                <div class="small text-muted">Exchange Rate:</div>
+                                <div class="fw-bold font-monospace" id="fxRateText">1 USD = 56.50 PHP</div>
+                            </div>
+                            <div class="col-6 text-end">
+                                <div class="small text-muted">Recipient Receives Approx:</div>
+                                <div class="fs-5 fw-bold text-success font-monospace" id="fxDestAmountText">₱0.00</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Idempotency Key & Description -->
+                    <div class="row mb-3">
+                        <div class="col-md-7 mb-2 mb-md-0">
+                            <label class="form-label small text-muted">Idempotency Key</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control font-monospace" th:field="*{idempotencyKey}" id="idempKey"/>
+                                <button type="button" class="btn btn-outline-secondary" onclick="generateNewKey()" title="Generate new key">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small text-muted">Reference Note</label>
+                            <input type="text" class="form-control form-control-sm" th:field="*{description}" placeholder="Optional remark"/>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 justify-content-end mt-4">
+                        <a href="/customer/dashboard" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4 py-2 fw-semibold">
+                            <i class="bi bi-lock-fill me-1"></i> Submit &amp; Authorize Mutation
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+
+<script>
+function onTypeChanged() {
+    const isTransfer = document.getElementById('btnTransfer').checked;
+    const destGroup = document.getElementById('destinationAccountGroup');
+    const fromLabel = document.getElementById('fromAccountLabel');
+
+    if (isTransfer) {
+        destGroup.classList.remove('d-none');
+        fromLabel.textContent = "Source Account (Debit Leg)";
+    } else {
+        destGroup.classList.add('d-none');
+        fromLabel.textContent = document.getElementById('btnDeposit').checked ? "Target Account (Credit Leg)" : "Source Account (Debit Leg)";
+    }
+    updateFxPreview();
+}
+
+function updateFxPreview() {
+    const isTransfer = document.getElementById('btnTransfer').checked;
+    const fxCard = document.getElementById('fxPreviewCard');
+    const sourceSelect = document.getElementById('sourceAcctSelect');
+    const destSelect = document.getElementById('destAcctSelect');
+    const amountVal = parseFloat(document.getElementById('amountInput').value) || 0;
+
+    const sourceOpt = sourceSelect.options[sourceSelect.selectedIndex];
+    const sourceCurr = sourceOpt ? sourceOpt.getAttribute('data-currency') : 'PHP';
+
+    // Update symbol prefix
+    const symbols = { 'PHP': '₱', 'USD': '$', 'EUR': '€', 'GBP': '£', 'SGD': 'S$' };
+    document.getElementById('currencyPrefix').textContent = symbols[sourceCurr] || '₱';
+
+    if (!isTransfer || !destSelect.value || amountVal <= 0) {
+        fxCard.classList.add('d-none');
+        return;
+    }
+
+    const destOpt = destSelect.options[destSelect.selectedIndex];
+    const destCurr = destOpt ? destOpt.getAttribute('data-currency') : '';
+
+    if (!destCurr || sourceCurr === destCurr) {
+        fxCard.classList.add('d-none');
+        return;
+    }
+
+    // Fetch exchange rate from helper endpoint
+    fetch(`/api/fx-rate?fromCurrency=${sourceCurr}&toCurrency=${destCurr}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.isCrossCurrency) {
+                fxCard.classList.remove('d-none');
+                document.getElementById('fxRateText').textContent = `1 ${sourceCurr} = ${data.exchangeRate} ${destCurr}`;
+                const destAmt = (amountVal * data.exchangeRate).toFixed(2);
+                const destSymbol = symbols[destCurr] || '';
+                document.getElementById('fxDestAmountText').textContent = `${destSymbol}${Number(destAmt).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            } else {
+                fxCard.classList.add('d-none');
+            }
+        })
+        .catch(() => fxCard.classList.add('d-none'));
+}
+
+function generateNewKey() {
+    const rand = Math.random().toString(36).substring(2, 10).toUpperCase();
+    document.getElementById('idempKey').value = 'TXN-KEY-' + rand;
+}
+
+// Initial setup on page load
+document.addEventListener('DOMContentLoaded', () => {
+    onTypeChanged();
+});
+</script>
+</body>
+</html>

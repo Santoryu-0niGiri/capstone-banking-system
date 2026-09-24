@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Admin Dashboard')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container py-4">
+    <h3 class="mb-4">Admin Summary Dashboard</h3>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card p-3">
+                <div class="text-muted small">Total customers</div>
+                <div class="balance-figure" th:text="${customerCount}">0</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-3">
+                <div class="text-muted small">Total accounts</div>
+                <div class="balance-figure" th:text="${accountCount}">0</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-3">
+                <div class="text-muted small">Total balance across all accounts</div>
+                <div class="balance-figure" th:text="${'₱' + #numbers.formatDecimal(totalBalance, 1, 'COMMA', 2, 'POINT')}">₱0.00</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-7">
+            <div class="card p-3 mb-4">
+                <h5 class="mb-3">Customers</h5>
+                <table class="table table-sm">
+                    <thead><tr><th>ID</th><th>Name</th><th>Email</th><th># Accounts</th><th></th></tr></thead>
+                    <tbody>
+                    <tr th:each="c : ${customers}">
+                        <td th:text="${c.custId}"></td>
+                        <td th:text="${c.fullName}"></td>
+                        <td th:text="${c.email}"></td>
+                        <td th:text="${c.accounts.size()}"></td>
+                        <td><a th:href="@{/customers/{id}(id=${c.custId})}" class="btn btn-sm btn-outline-primary">View</a></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card p-3 mb-4">
+                <h5 class="mb-3">Recent Transactions</h5>
+                <table class="table table-sm">
+                    <thead><tr><th>Account</th><th>Type</th><th>Amount</th></tr></thead>
+                    <tbody>
+                    <tr th:each="t : ${recentTransactions}">
+                        <td th:text="${t.acctNo}"></td>
+                        <td>
+                            <span class="badge" th:classappend="${t.direction.name() == 'CREDIT'} ? 'badge-credit' : 'badge-debit'"
+                                  th:text="${t.txnType}"></span>
+                        </td>
+                        <td th:text="${'₱' + #numbers.formatDecimal(t.amount, 1, 'COMMA', 2, 'POINT')}"></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-3">
+        <h5 class="mb-3">All Accounts</h5>
+        <table class="table table-sm">
+            <thead><tr><th>Account #</th><th>Customer</th><th>Type</th><th>Status</th><th>Balance</th><th></th></tr></thead>
+            <tbody>
+            <tr th:each="a : ${accounts}">
+                <td th:text="${a.acctNo}"></td>
+                <td th:text="${a.custId}"></td>
+                <td th:text="${a.acctType}"></td>
+                <td th:text="${a.acctStatus}"></td>
+                <td th:text="${'₱' + #numbers.formatDecimal(a.balance, 1, 'COMMA', 2, 'POINT')}"></td>
+                <td><a th:href="@{/accounts/{no}(no=${a.acctNo})}" class="btn btn-sm btn-outline-secondary">View</a></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+</body>
+</html>

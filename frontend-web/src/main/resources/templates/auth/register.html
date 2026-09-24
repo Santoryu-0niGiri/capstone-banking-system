@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Customer Onboarding &amp; KYC')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: demoBar}"></div>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: alerts}"></div>
+
+<main class="container py-4">
+    <div class="card auth-card p-4 p-md-5" style="max-width: 680px;">
+        <div class="text-center mb-4">
+            <div class="display-6 text-primary mb-2"><i class="bi bi-person-vcard"></i></div>
+            <h3 class="fw-bold mb-1">Customer KYC &amp; Onboarding</h3>
+            <p class="text-muted small">Open a verified account in the Core Retail Ledger system</p>
+        </div>
+
+        <form th:action="@{/register}" th:object="${registerForm}" method="post">
+            <h6 class="text-primary fw-bold text-uppercase small mb-3 border-bottom pb-1">
+                <i class="bi bi-person me-1"></i> Personal Information
+            </h6>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">First Name</label>
+                    <input type="text" class="form-control" th:field="*{firstName}" placeholder="First name"/>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('firstName')}" th:errors="*{firstName}"></div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">Last Name</label>
+                    <input type="text" class="form-control" th:field="*{lastName}" placeholder="Last name"/>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('lastName')}" th:errors="*{lastName}"></div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">Email Address</label>
+                    <input type="email" class="form-control" th:field="*{email}" placeholder="name@example.com"/>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">Contact Number</label>
+                    <input type="text" class="form-control" th:field="*{contactNo}" placeholder="+63 917 000 0000"/>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('contactNo')}" th:errors="*{contactNo}"></div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Date of Birth</label>
+                <input type="date" class="form-control" th:field="*{birthDate}"/>
+                <div class="text-danger small mt-1" th:if="${#fields.hasErrors('birthDate')}" th:errors="*{birthDate}"></div>
+            </div>
+
+            <h6 class="text-primary fw-bold text-uppercase small mt-4 mb-3 border-bottom pb-1">
+                <i class="bi bi-shield-check me-1"></i> KYC &amp; Verification Details
+            </h6>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Residential Address</label>
+                <input type="text" class="form-control" th:field="*{address}" placeholder="Street, City, Province, Postal Code"/>
+                <div class="text-danger small mt-1" th:if="${#fields.hasErrors('address')}" th:errors="*{address}"></div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">Government ID Type</label>
+                    <select class="form-select" th:field="*{idType}">
+                        <option value="PASSPORT">Passport</option>
+                        <option value="NATIONAL_ID">PhilSys National ID</option>
+                        <option value="DRIVERS_LICENSE">Driver's License</option>
+                        <option value="UMID">Unified Multi-Purpose ID (UMID)</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">ID / Document Number</label>
+                    <input type="text" class="form-control" th:field="*{idNumber}" placeholder="e.g. P1234567A"/>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('idNumber')}" th:errors="*{idNumber}"></div>
+                </div>
+            </div>
+
+            <h6 class="text-primary fw-bold text-uppercase small mt-4 mb-3 border-bottom pb-1">
+                <i class="bi bi-wallet2 me-1"></i> Initial Account Opening
+            </h6>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">Account Type</label>
+                    <select class="form-select" th:field="*{initialAccountType}">
+                        <option value="SAVINGS">Savings Account</option>
+                        <option value="CHECKING">Checking Account</option>
+                        <option value="WALLET">Digital Wallet</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">Base Currency</label>
+                    <select class="form-select" th:field="*{currencyCode}">
+                        <option value="PHP">PHP (Philippine Peso ₱)</option>
+                        <option value="USD">USD (US Dollar $)</option>
+                        <option value="EUR">EUR (Euro €)</option>
+                    </select>
+                </div>
+            </div>
+
+            <h6 class="text-primary fw-bold text-uppercase small mt-4 mb-3 border-bottom pb-1">
+                <i class="bi bi-lock me-1"></i> Security Credentials
+            </h6>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">Password</label>
+                    <input type="password" class="form-control" th:field="*{password}" placeholder="Min. 8 characters"/>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-semibold">Confirm Password</label>
+                    <input type="password" class="form-control" th:field="*{confirmPassword}" placeholder="Repeat password"/>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}"></div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2 mt-3">
+                <i class="bi bi-check2-circle me-1"></i> Complete Onboarding &amp; Open Account
+            </button>
+        </form>
+
+        <p class="text-center text-muted small mt-4 mb-0">
+            Already have an account? <a href="/login" class="fw-semibold text-primary">Log in here</a>
+        </p>
+    </div>
+</main>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+</body>
+</html>

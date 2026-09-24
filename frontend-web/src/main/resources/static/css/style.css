@@ -1,0 +1,227 @@
+/* Modern Core Retail Banking & Ledger Design System */
+:root {
+    --brand-navy-dark: #0a1128;
+    --brand-navy: #0f172a;
+    --brand-blue: #1d4ed8;
+    --brand-blue-hover: #1e40af;
+    --brand-accent: #0284c7;
+    --brand-bg: #f8fafc;
+    --brand-card-bg: #ffffff;
+    --brand-border: #e2e8f0;
+    --brand-text-primary: #0f172a;
+    --brand-text-muted: #64748b;
+    --brand-emerald: #059669;
+    --brand-amber: #d97706;
+    --brand-rose: #dc2626;
+}
+
+body {
+    background-color: var(--brand-bg);
+    color: var(--brand-text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+/* Persona Switcher Top Banner */
+.demo-bar {
+    background-color: #0f172a;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    padding: 0.35rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.demo-bar a {
+    color: #38bdf8;
+    text-decoration: none;
+    font-weight: 500;
+    margin-left: 0.4rem;
+}
+
+.demo-bar a:hover {
+    text-decoration: underline;
+    color: #7dd3fc;
+}
+
+/* Main Navigation */
+.navbar-custom {
+    background-color: #0f172a;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-custom .navbar-brand {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.navbar-custom .nav-link {
+    color: #cbd5e1;
+    font-weight: 500;
+    font-size: 0.92rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 6px;
+    transition: all 0.15s ease-in-out;
+}
+
+.navbar-custom .nav-link:hover,
+.navbar-custom .nav-link.active {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Cards & Containers */
+.card {
+    background-color: var(--brand-card-bg);
+    border: 1px solid var(--brand-border);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+}
+
+/* Typography & Figure styles */
+.balance-figure {
+    font-size: 1.85rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--brand-navy);
+}
+
+.balance-figure-sm {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--brand-navy);
+}
+
+.currency-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    background-color: #e2e8f0;
+    color: #334155;
+    letter-spacing: 0.05em;
+}
+
+/* Badges */
+.badge-credit {
+    background-color: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    font-weight: 600;
+}
+
+.badge-debit {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    font-weight: 600;
+}
+
+.badge-kyc-verified {
+    background-color: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.badge-kyc-pending {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: var(--brand-blue);
+    border-color: var(--brand-blue);
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 0.5rem 1.25rem;
+}
+
+.btn-primary:hover {
+    background-color: var(--brand-blue-hover);
+    border-color: var(--brand-blue-hover);
+}
+
+.btn-outline-primary {
+    color: var(--brand-blue);
+    border-color: var(--brand-blue);
+    font-weight: 600;
+    border-radius: 8px;
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--brand-blue);
+    color: #ffffff;
+}
+
+/* Auth Cards */
+.auth-card {
+    max-width: 480px;
+    margin: 3rem auto;
+    border-radius: 14px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+/* Tables */
+.table {
+    vertical-align: middle;
+}
+
+.table th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--brand-text-muted);
+    font-weight: 600;
+    border-bottom: 2px solid var(--brand-border);
+}
+
+.table-sm td, .table-sm th {
+    padding: 0.65rem 0.75rem;
+}
+
+/* Receipt Voucher Style */
+.receipt-card {
+    max-width: 580px;
+    margin: 2rem auto;
+    border: 2px dashed #cbd5e1;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+}
+
+.receipt-header {
+    border-bottom: 2px solid #f1f5f9;
+    padding-bottom: 1.5rem;
+}
+
+.receipt-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f8fafc;
+}
+
+/* Footer */
+footer {
+    background-color: #ffffff;
+    border-top: 1px solid var(--brand-border);
+    color: var(--brand-text-muted);
+    font-size: 0.85rem;
+}
