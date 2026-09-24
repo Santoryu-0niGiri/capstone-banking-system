@@ -214,4 +214,3 @@ In `HttpBankingApiClient.java`, change the `ParameterizedTypeReference`:
 2. **Customer Directory (`/admin/customers`)**: Review submitted KYC identity documentation and click **Approve** or **Reject**.
 3. **Accounts Registry (`/admin/accounts`)**: View all accounts across all customers. Click **Freeze** to immediately lock an account (any subsequent mutation attempts will be blocked with an error).
 4. **Reconciliation Monitor (`/admin/reconciliation`)**: Periodic audit job monitor verifying consistency between Master DB (Oracle XE) and Audit Log (Postgres). Displays flagged variance, posting lag, and severity ratings (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), with a button to trigger batch reconciliation runs on demand.
-
