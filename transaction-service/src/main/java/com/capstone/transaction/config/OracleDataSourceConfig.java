@@ -19,16 +19,22 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
+<<<<<<< Updated upstream
  * Primary persistence unit: Oracle XE, holding the `account` table.
  * Marked @Primary so plain @Autowired DataSource/EntityManagerFactory
  * injections elsewhere in the app default to Oracle.
+=======
+ * Primary persistence unit: Oracle XE (CUSTOMER_BALANCE_MASTER +
+ * TRANSACTION_MASTER).
+ * Marked @Primary so unqualified DataSource/EntityManagerFactory injections
+ * default here.
+ * HikariCP pool is configured explicitly because
+ * DataSourceProperties.initializeDataSourceBuilder()
+ * does not bind nested hikari.* sub-keys from a custom prefix.
+>>>>>>> Stashed changes
  */
 @Configuration
-@EnableJpaRepositories(
-        basePackages = "com.capstone.transaction.repository.oracle",
-        entityManagerFactoryRef = "oracleEntityManagerFactory",
-        transactionManagerRef = "oracleTransactionManager"
-)
+@EnableJpaRepositories(basePackages = "com.capstone.transaction.repository.oracle", entityManagerFactoryRef = "oracleEntityManagerFactory", transactionManagerRef = "oracleTransactionManager")
 public class OracleDataSourceConfig {
 
     @Primary
@@ -50,7 +56,7 @@ public class OracleDataSourceConfig {
             EntityManagerFactoryBuilder builder,
             @Qualifier("oracleDataSource") DataSource dataSource) {
         Map<String, Object> props = new HashMap<>();
-        props.put("hibernate.hbm2ddl.auto", "validate");
+        props.put("hibernate.hbm2ddl.auto", "update");
         props.put("hibernate.dialect", "org.hibernate.dialect.OracleDialect");
         return builder
                 .dataSource(dataSource)
@@ -66,5 +72,9 @@ public class OracleDataSourceConfig {
             @Qualifier("oracleEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
         return new JpaTransactionManager(entityManagerFactory);
     }
+<<<<<<< Updated upstream
 }
 
+=======
+}
+>>>>>>> Stashed changes

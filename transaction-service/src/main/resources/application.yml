@@ -18,6 +18,9 @@ spring:
       password: ${POSTGRES_PASSWORD:LedgerAuditPass123}
       driver-class-name: org.postgresql.Driver
 
+  jpa:
+    open-in-view: false
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -37,5 +40,9 @@ management:
 
 logging:
   level:
+<<<<<<< Updated upstream
     com.capstone: INFO
 
+=======
+    com.capstone: INFO
+>>>>>>> Stashed changes
