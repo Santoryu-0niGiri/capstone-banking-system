@@ -15,7 +15,21 @@ public record TransactionCreatedEvent(
         String counterpartyAccountId,
         String txnType,
         BigDecimal amount,
-        Instant occurredAt
+        Instant occurredAt,
+        String targetCurrency,
+        BigDecimal exchangeRate,
+        BigDecimal targetAmount,
+        BigDecimal feeAmount,
+        Boolean isCrossCurrency
 ) {
+    public TransactionCreatedEvent(
+            UUID txnId,
+            String accountId,
+            String counterpartyAccountId,
+            String txnType,
+            BigDecimal amount,
+            Instant occurredAt) {
+        this(txnId, accountId, counterpartyAccountId, txnType, amount, occurredAt, null, null, null, null, false);
+    }
 }
 

@@ -41,5 +41,5 @@ management:
 
 logging:
   level:
-<<<<<<< Updated upstream
+
     com.capstone: INFO

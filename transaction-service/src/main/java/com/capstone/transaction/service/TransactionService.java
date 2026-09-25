@@ -62,6 +62,10 @@ public class TransactionService {
     private final IdempotencyService idempotencyService;
     private final TransactionEventProducer eventProducer;
     private final BalanceCacheInvalidator balanceCacheInvalidator;
+    private final com.capstone.transaction.repository.postgres.TransactionOutboxRepository outboxRepository;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final FxRateService fxRateService;
+    private final com.capstone.transaction.repository.postgres.FxConversionAuditRepository fxConversionAuditRepository;
 
     public TransactionService(
             AccountRepository accountRepository,
@@ -73,7 +77,11 @@ public class TransactionService {
             PlatformTransactionManager postgresTxManager,
             IdempotencyService idempotencyService,
             TransactionEventProducer eventProducer,
-            BalanceCacheInvalidator balanceCacheInvalidator) {
+            BalanceCacheInvalidator balanceCacheInvalidator,
+            com.capstone.transaction.repository.postgres.TransactionOutboxRepository outboxRepository,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper,
+            FxRateService fxRateService,
+            com.capstone.transaction.repository.postgres.FxConversionAuditRepository fxConversionAuditRepository) {
 
         this.accountRepository = accountRepository;
         this.txnMasterRepository = txnMasterRepository;
@@ -83,6 +91,10 @@ public class TransactionService {
         this.idempotencyService = idempotencyService;
         this.eventProducer = eventProducer;
         this.balanceCacheInvalidator = balanceCacheInvalidator;
+        this.outboxRepository = outboxRepository;
+        this.objectMapper = objectMapper;
+        this.fxRateService = fxRateService;
+        this.fxConversionAuditRepository = fxConversionAuditRepository;
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -249,15 +261,15 @@ public TransactionResponse deposit(
             idempotencyService.release(
                     request.idempotencyKey());
 
-            eventProducer.publishFailed(
-                    new TransactionFailedEvent(
-                            UUID.fromString(txnId),
-                            request.accountId(),
-                            null,
-                            txnType,
-                            request.amount(),
-                            ex.getMessage(),
-                            Instant.now()));
+            saveOutbox(txnId, "TRANSACTION_FAILED",
+                new TransactionFailedEvent(
+                    UUID.fromString(txnId),
+                    request.accountId(),
+                    null,
+                    txnType,
+                    request.amount(),
+                    ex.getMessage(),
+                    Instant.now()));
 
             throw ex;
         }
@@ -306,7 +318,12 @@ public TransactionResponse deposit(
                             request.counterpartyAccountId(),
                             "TRANSFER",
                             request.amount(),
-                            Instant.now()));
+                            Instant.now(),
+                            transferResult.targetCurrency(),
+                            transferResult.fxRate(),
+                            transferResult.destAmount(),
+                            null, // feeAmount
+                            transferResult.isCrossCurrency()));
 
             // Phase 2 + 3:
             // PostgreSQL audit + Oracle status COMMITTED
@@ -325,7 +342,12 @@ public TransactionResponse deposit(
                                     .sourceResult()
                                     .balanceAfter(),
                             "COMMITTED",
-                            Instant.now());
+                            Instant.now(),
+                            transferResult.targetCurrency(),
+                            transferResult.fxRate(),
+                            transferResult.destAmount(),
+                            null, // feeAmount
+                            transferResult.isCrossCurrency());
 
             idempotencyService.storeResult(
                     request.idempotencyKey(),
@@ -341,7 +363,12 @@ public TransactionResponse deposit(
                             transferResult
                                     .sourceResult()
                                     .balanceAfter(),
-                            Instant.now()));
+                            Instant.now(),
+                            transferResult.targetCurrency(),
+                            transferResult.fxRate(),
+                            transferResult.destAmount(),
+                            null, // feeAmount
+                            transferResult.isCrossCurrency()));
 
             return response;
 
@@ -350,17 +377,36 @@ public TransactionResponse deposit(
             idempotencyService.release(
                     request.idempotencyKey());
 
-            eventProducer.publishFailed(
-                    new TransactionFailedEvent(
-                            UUID.fromString(txnId),
-                            request.accountId(),
-                            request.counterpartyAccountId(),
-                            "TRANSFER",
-                            request.amount(),
-                            ex.getMessage(),
-                            Instant.now()));
+            saveOutbox(txnId, "TRANSACTION_FAILED",
+                new TransactionFailedEvent(
+                    UUID.fromString(txnId),
+                    request.accountId(),
+                    request.counterpartyAccountId(),
+                    "TRANSFER",
+                    request.amount(),
+                    ex.getMessage(),
+                    Instant.now()));
 
             throw ex;
+        }
+    }
+
+    // ── Helper ──────────────────────────────────────────────────────────────
+
+    private void saveOutbox(String aggregateId, String eventType, Object event) {
+        try {
+            outboxRepository.save(
+                    com.capstone.transaction.entity.postgres.TransactionOutbox.builder()
+                            .aggregateType("TRANSACTION")
+                            .aggregateId(aggregateId)
+                            .eventType(eventType)
+                            .payload(objectMapper.writeValueAsString(event))
+                            .status("PENDING")
+                            .createdAt(java.time.OffsetDateTime.now())
+                            .build());
+        } catch (Exception e) {
+            log.error("Failed to save to outbox: {}", e.getMessage());
+            throw new LedgerPersistenceException("Outbox write failed", e);
         }
     }
 
@@ -514,8 +560,16 @@ public TransactionResponse deposit(
                     BigDecimal destBefore =
                             dest.getBalanceAmount();
 
+                    boolean isCrossCurrency = !source.getCurrencyCode().equalsIgnoreCase(dest.getCurrencyCode());
+                    BigDecimal fxRate = isCrossCurrency 
+                            ? fxRateService.getExchangeRate(source.getCurrencyCode(), dest.getCurrencyCode()) 
+                            : null;
+                    BigDecimal destAmount = isCrossCurrency
+                            ? amount.multiply(fxRate).setScale(4, java.math.RoundingMode.HALF_UP)
+                            : amount;
+
                     BigDecimal destAfter =
-                            destBefore.add(amount);
+                            destBefore.add(destAmount); // use converted amount
 
                     LocalDateTime now =
                             LocalDateTime.now();
@@ -538,6 +592,9 @@ public TransactionResponse deposit(
                                     .debitAccountId(sourceId)
                                     .creditAccountId(destId)
                                     .mutationAmount(amount)
+                                    .isCrossCurrency(isCrossCurrency ? "Y" : "N")
+                                    .fxRate(fxRate)
+                                    .destAmount(isCrossCurrency ? destAmount : null)
                                     .txnStatus("PENDING")
                                     .initiatedAt(now)
                                     .createdAt(now)
@@ -554,7 +611,12 @@ public TransactionResponse deposit(
                             new MutationResult(
                                     destBefore,
                                     destAfter,
-                                    amount));
+                                    destAmount), // pass the correct credit amount
+                            isCrossCurrency,
+                            fxRate,
+                            isCrossCurrency ? destAmount : null,
+                            source.getCurrencyCode(),
+                            dest.getCurrencyCode());
                 });
 
         if (result == null) {
@@ -577,7 +639,8 @@ public TransactionResponse deposit(
 
         try {
 
-            postgresTx.executeWithoutResult(status ->
+            postgresTx.executeWithoutResult(status -> {
+                    
                     auditRepository.save(
                             LedgerMutationAudit.builder()
                                     .txnId(txnId)
@@ -587,7 +650,28 @@ public TransactionResponse deposit(
                                     .txnType(txnType)
                                     .auditState("COMMITTED")
                                     .createdAt(Instant.now())
-                                    .build()));
+                                    .build());
+
+                    // Save outbox events within the same transaction
+                    saveOutbox(txnId, "TRANSACTION_CREATED",
+                        new com.capstone.common.event.TransactionCreatedEvent(
+                            UUID.fromString(txnId),
+                            accountId,
+                            null,
+                            txnType,
+                            amount,
+                            Instant.now()));
+
+                    saveOutbox(txnId, "TRANSACTION_COMPLETED",
+                        new com.capstone.common.event.TransactionCompletedEvent(
+                            UUID.fromString(txnId),
+                            accountId,
+                            null,
+                            txnType,
+                            amount,
+                            result.balanceAfter(),
+                            Instant.now()));
+                });
 
             commitTxnStatus(txnId);
 
@@ -637,18 +721,52 @@ public TransactionResponse deposit(
                                 .createdAt(Instant.now())
                                 .build());
 
+                // credit audit record for second leg (can be different amount for cross-currency)
                 auditRepository.save(
                         LedgerMutationAudit.builder()
                                 .txnId(txnId)
                                 .accountId(
                                         request.counterpartyAccountId())
                                 .mutationAmount(
-                                        request.amount())
+                                        result.destResult().appliedDelta()) // uses actual destination amount!
                                 .mutationType("CREDIT")
                                 .txnType("TRANSFER")
                                 .auditState("COMMITTED")
                                 .createdAt(Instant.now())
                                 .build());
+
+                if (Boolean.TRUE.equals(result.isCrossCurrency())) {
+                    fxConversionAuditRepository.save(
+                            com.capstone.transaction.entity.postgres.FxConversionAudit.builder()
+                                    .txnId(txnId)
+                                    .sourceCurrency(result.sourceCurrency())
+                                    .destCurrency(result.targetCurrency())
+                                    .sourceAmount(request.amount())
+                                    .fxRate(result.fxRate())
+                                    .destAmount(result.destAmount())
+                                    .conversionStatus("COMPLETED")
+                                    .createdAt(java.time.OffsetDateTime.now())
+                                    .build());
+                }
+
+                saveOutbox(txnId, "TRANSACTION_CREATED",
+                    new com.capstone.common.event.TransactionCreatedEvent(
+                        java.util.UUID.fromString(txnId),
+                        request.accountId(),
+                        request.counterpartyAccountId(),
+                        "TRANSFER",
+                        request.amount(),
+                        java.time.Instant.now()));
+
+                saveOutbox(txnId, "TRANSACTION_COMPLETED",
+                    new com.capstone.common.event.TransactionCompletedEvent(
+                        java.util.UUID.fromString(txnId),
+                        request.accountId(),
+                        request.counterpartyAccountId(),
+                        "TRANSFER",
+                        request.amount(),
+                        result.sourceResult().balanceAfter(),
+                        java.time.Instant.now()));
             });
 
             commitTxnStatus(txnId);

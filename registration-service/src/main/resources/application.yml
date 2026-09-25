@@ -23,6 +23,12 @@ spring:
       hibernate:
         format_sql: true
 
+  # Redis — used by JwtAuthenticationFilter for token blacklist checks on admin endpoints
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
@@ -40,5 +46,5 @@ management:
 
 logging:
   level:
-<<<<<<< Updated upstream
+
     com.capstone: INFO
