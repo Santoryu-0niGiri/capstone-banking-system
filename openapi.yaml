@@ -1,0 +1,779 @@
+openapi: 3.0.3
+info:
+  title: Core Retail Ledger & Balance Mutation Engine API
+  description: |
+    Comprehensive OpenAPI specification for the Capstone Banking System.
+    This multi‑service banking platform provides customer onboarding, JWT‑based authentication,
+    multi‑currency bank account management, atomic double‑entry balance mutation (DEPOSIT, WITHDRAWAL, TRANSFER),
+    pessimistic row locking, and an append‑only ledger audit trail.
+  version: 1.0.0
+  contact:
+    name: Capstone Banking Engineering Team
+    email: dev@capstone.bank
+servers:
+  - url: http://localhost:8080
+    description: API Gateway (Main entry point with JWT validation and routing)
+  - url: http://localhost:8081
+    description: Registration Service (Direct microservice port)
+  - url: http://localhost:8082
+    description: Login Service (Direct microservice port)
+  - url: http://localhost:8083
+    description: Accounts Service (Direct microservice port)
+  - url: http://localhost:8084
+    description: Transaction Service (Direct microservice port)
+tags:
+  - name: Authentication & Registration
+    description: Customer registration, credential verification, JWT token issuance, and logout/blacklisting.
+  - name: Accounts Management
+    description: Creation and retrieval of savings, checking, and wallet accounts and real‑time balance inquiries.
+  - name: Ledger & Transactions
+    description: High‑concurrency balance mutations (Deposit, Withdrawal, Transfer) and double‑entry audit trail lookup.
+
+paths:
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication & Registration
+      summary: Register a new customer
+      description: |
+        Atomically provisions a new customer record in `CUSTOMER_MASTER` and corresponding
+        user credentials in `APP_USER_MASTER` within a single Oracle transaction.
+        Upon success, publishes a `customer.registered` event to Kafka.
+      operationId: registerCustomer
+      security: []
+      requestBody:
+        required: true
+        description: Customer registration payload.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              firstName: "Alice"
+              lastName: "Reyes"
+              email: "alice.reyes@example.com"
+              contactNo: "+63-917-555-0100"
+              birthDate: "1990-04-12"
+              password: "StrongPass123!"
+      responses:
+        "201":
+          description: Customer registered successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterApiResponse"
+        "400":
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: Email already exists.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "500":
+          description: Internal server error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication & Registration
+      summary: User login & JWT issuance
+      description: |
+        Authenticates against `APP_USER_MASTER` (BCrypt password hash) and verifies active status.
+        Generates a signed HMAC‑SHA256 JWT and registers it in Redis.
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        description: Login credentials.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: "alice.reyes@example.com"
+              password: "StrongPass123!"
+      responses:
+        "200":
+          description: Login successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginApiResponse"
+        "400":
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "401":
+          description: Invalid credentials or inactive account.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication & Registration
+      summary: User logout & token revocation
+      description: |
+        Blacklists the JWT in Redis so further requests with the same token are rejected.
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Logout successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoidApiResponse"
+        "401":
+          description: Missing or malformed token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/accounts:
+    post:
+      tags:
+        - Accounts Management
+      summary: Create a new bank account
+      description: |
+        Creates a new `ACCOUNT_MASTER` row for an existing customer.
+        Balance is initialised to 0.0000, status set to `ACTIVE`, and a Kafka `account.created`
+        event is emitted.
+      operationId: createAccount
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        description: Account provisioning details.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+            example:
+              customerId: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+              accountType: "SAVINGS"
+              currencyCode: "PHP"
+      responses:
+        "201":
+          description: Account created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountApiResponse"
+        "400":
+          description: Validation error or unsupported type.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "401":
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Customer not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/accounts/{accountId}:
+    get:
+      tags:
+        - Accounts Management
+      summary: Get account details by ID
+      operationId: getAccountById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Account details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountApiResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Account not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/accounts/{accountId}/balance:
+    get:
+      tags:
+        - Accounts Management
+      summary: Get real‑time account balance
+      operationId: getAccountBalance
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Current balance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceApiResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Account not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/accounts/customer/{customerId}:
+    get:
+      tags:
+        - Accounts Management
+      summary: List all accounts for a customer
+      operationId: getAccountsForCustomer
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of accounts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountListApiResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/v1/ledger/mutate:
+    post:
+      tags:
+        - Ledger & Transactions
+      summary: Execute balance mutation (DEPOSIT, WITHDRAWAL, TRANSFER)
+      description: |
+        Core transaction endpoint with three‑phase processing:
+        1️⃣ Idempotency check (Redis).  
+        2️⃣ **Phase 1 – Oracle**: row lock (`SELECT … FOR UPDATE`), balance validation, write to `ACCOUNT_MASTER` and `TRANSACTION_MASTER` (`PENDING`).  
+        3️⃣ **Phase 2 – PostgreSQL**: append double‑entry rows to `LEDGER_MUTATION_AUDIT`.  
+        4️⃣ **Phase 3 – Commit**: mark `TRANSACTION_MASTER` `COMMITTED`, evict balance cache, store outbox event, publish `transaction.completed` to Kafka.  
+        If Phase 2 fails, a compensating transaction rolls back Oracle changes and marks the transaction `ROLLED_BACK`.
+      operationId: mutateBalance
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        description: Mutation request.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionRequest"
+      responses:
+        "201":
+          description: Transaction committed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionApiResponse"
+        "400":
+          description: Bad request / validation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "401":
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Source or destination account missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: Idempotency conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          description: Insufficient balance.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "500":
+          description: Ledger persistence failure (compensated & rolled back).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/v1/ledger/audit/{txnId}:
+    get:
+      tags:
+        - Ledger & Transactions
+      summary: Retrieve double‑entry audit trail for a transaction
+      description: |
+        Returns rows from PostgreSQL `LEDGER_MUTATION_AUDIT`:
+        * WITHDRAWAL – 1 DEBIT row  
+        * DEPOSIT – 1 CREDIT row  
+        * TRANSFER – 2 rows (DEBIT + CREDIT)
+      operationId: getAuditByTxnId
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: txnId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Audit rows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditListApiResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Transaction not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Include the JWT issued by `/api/auth/login` in the `Authorization` header.
+        Example: `Bearer <token>`
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [firstName, lastName, email, birthDate, password]
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+          example: "Alice"
+        lastName:
+          type: string
+          maxLength: 100
+          example: "Reyes"
+        email:
+          type: string
+          format: email
+          example: "alice.reyes@example.com"
+        contactNo:
+          type: string
+          nullable: true
+          pattern: '^[0-9+()\\-\\s]{7,20}$'
+          example: "+63-917-555-0100"
+        birthDate:
+          type: string
+          format: date
+          example: "1990-04-12"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "StrongPass123!"
+
+    RegisterResponse:
+      type: object
+      properties:
+        customerId:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        firstName:
+          type: string
+          example: "Alice"
+        lastName:
+          type: string
+          example: "Reyes"
+        email:
+          type: string
+          format: email
+          example: "alice.reyes@example.com"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "alice.reyes@example.com"
+        password:
+          type: string
+          format: password
+          example: "StrongPass123!"
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token.
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ... (truncated)"
+        tokenType:
+          type: string
+          example: "Bearer"
+        expiresInSeconds:
+          type: integer
+          format: int64
+          example: 3600
+        customerId:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        email:
+          type: string
+          format: email
+          example: "alice.reyes@example.com"
+
+    CreateAccountRequest:
+      type: object
+      required: [customerId, accountType, currencyCode]
+      properties:
+        customerId:
+          type: string
+          format: uuid
+          maxLength: 36
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        accountType:
+          type: string
+          enum: [SAVINGS, CHECKING, WALLET]
+          example: "SAVINGS"
+        currencyCode:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          example: "PHP"
+
+    AccountDTO:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+        customerId:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        accountType:
+          type: string
+          enum: [SAVINGS, CHECKING, WALLET]
+          example: "SAVINGS"
+        accountStatus:
+          type: string
+          enum: [ACTIVE, FROZEN, CLOSED]
+          example: "ACTIVE"
+        balanceAmount:
+          type: number
+          format: decimal
+          example: 10000.0000
+        currencyCode:
+          type: string
+          example: "PHP"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-25T08:00:00"
+
+    TransactionRequest:
+      type: object
+      required: [accountId, txnType, amount, idempotencyKey]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          maxLength: 36
+          example: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+        counterpartyAccountId:
+          type: string
+          format: uuid
+          nullable: true
+          maxLength: 36
+          example: "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e"
+        txnType:
+          type: string
+          enum: [WITHDRAWAL, DEPOSIT, TRANSFER]
+          example: "TRANSFER"
+        amount:
+          type: number
+          format: decimal
+          minimum: 0.0001
+          example: 1000.0000
+        idempotencyKey:
+          type: string
+          example: "transfer-acct1-acct2-1000-001"
+
+    TransactionResponse:
+      type: object
+      properties:
+        txnId:
+          type: string
+          format: uuid
+          example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+        accountId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+        txnType:
+          type: string
+          enum: [WITHDRAWAL, DEPOSIT, TRANSFER]
+        amount:
+          type: number
+          format: decimal
+        balanceAfter:
+          type: number
+          format: decimal
+        txnStatus:
+          type: string
+          enum: [COMMITTED, PENDING, ROLLED_BACK]
+        timestamp:
+          type: string
+          format: date-time
+
+    LedgerMutationAudit:
+      type: object
+      properties:
+        mutationUuid:
+          type: string
+          format: uuid
+        txnId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        mutationAmount:
+          type: number
+          format: decimal
+        mutationType:
+          type: string
+          enum: [DEBIT, CREDIT]
+        txnType:
+          type: string
+          enum: [WITHDRAWAL, DEPOSIT, TRANSFER]
+        auditState:
+          type: string
+          enum: [PENDING, COMMITTED, ROLLED_BACK]
+        createdAt:
+          type: string
+          format: date-time
+
+    ProblemDetail:
+      type: object
+      description: RFC 7807 problem+json error representation.
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        timestamp:
+          type: string
+          format: date-time
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+
+    RegisterApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Customer registered successfully"
+        data:
+          $ref: "#/components/schemas/RegisterResponse"
+        timestamp:
+          type: string
+          format: date-time
+
+    LoginApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Login successful"
+        data:
+          $ref: "#/components/schemas/LoginResponse"
+        timestamp:
+          type: string
+          format: date-time
+
+    VoidApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Logout successful"
+        data:
+          type: object
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
+    AccountApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Account created"
+        data:
+          $ref: "#/components/schemas/AccountDTO"
+        timestamp:
+          type: string
+          format: date-time
+
+    BalanceApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "OK"
+        data:
+          type: number
+          format: decimal
+          example: 10000.0000
+        timestamp:
+          type: string
+          format: date-time
+
+    AccountListApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "OK"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountDTO"
+        timestamp:
+          type: string
+          format: date-time
+
+    TransactionApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "DEPOSIT processed"
+        data:
+          $ref: "#/components/schemas/TransactionResponse"
+        timestamp:
+          type: string
+          format: date-time
+
+    AuditListApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "OK"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LedgerMutationAudit"
+        timestamp:
+          type: string
+          format: date-time
