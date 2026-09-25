@@ -72,7 +72,6 @@ public class OracleDataSourceConfig {
     public PlatformTransactionManager oracleTransactionManager(
             @Qualifier("oracleEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
         return new JpaTransactionManager(entityManagerFactory);
-    }<<<<<<<
-
-    Updated upstream
+    }
 }
+
