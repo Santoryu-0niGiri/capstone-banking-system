@@ -17,7 +17,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.OracleDialect
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     open-in-view: false
   data:
     redis:
@@ -41,4 +41,5 @@ management:
 
 logging:
   level:
+<<<<<<< Updated upstream
     com.capstone: INFO

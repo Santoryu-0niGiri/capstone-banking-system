@@ -51,4 +51,5 @@ management:
 
 logging:
   level:
+ 
     com.capstone: INFO
