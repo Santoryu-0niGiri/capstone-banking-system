@@ -224,14 +224,14 @@ COMMENT ON TABLE fx_rate_cache IS
 
 
 -- ---------------------------------------------------------------------
--- TRANSACTION_OUTBOX (PostgreSQL, owned by Transaction Service)
+-- OUTBOX_AUDIT (PostgreSQL, owned by Transaction Service)
 -- Written in the SAME local transaction as the ledger_mutation_audit
 -- insert it accompanies -- a separate poller/relay reads PENDING rows
 -- and publishes to Kafka, then marks them PUBLISHED. This is what
 -- makes event publishing atomic with the audit write it reports on,
 -- without needing a distributed transaction across Kafka + Postgres.
 -- ---------------------------------------------------------------------
-CREATE TABLE transaction_outbox (
+CREATE TABLE outbox_audit (
     outbox_id       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     aggregate_type  VARCHAR(30)   NOT NULL,   -- e.g. 'TRANSACTION'
     aggregate_id    VARCHAR(36)   NOT NULL,   -- txn_id
@@ -240,7 +240,7 @@ CREATE TABLE transaction_outbox (
     status          VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
     published_at    TIMESTAMPTZ,
-    CONSTRAINT ck_transaction_outbox_status CHECK (status IN ('PENDING','PUBLISHED','FAILED'))
+    CONSTRAINT ck_outbox_audit_status CHECK (status IN ('PENDING','PUBLISHED','FAILED'))
 );
 
-CREATE INDEX ix_transaction_outbox_status ON transaction_outbox (status, created_at);
+CREATE INDEX ix_outbox_audit_status ON outbox_audit (status, created_at);

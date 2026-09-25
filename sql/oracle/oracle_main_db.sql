@@ -152,3 +152,23 @@ CREATE INDEX ix_txn_completed_at ON transaction_master (completed_at);
 
 COMMENT ON TABLE transaction_master IS
     'Requested balance mutations. On PostgreSQL audit-write failure, the owning service must roll back this row and throw LedgerPersistenceException to prevent an un-audited state change (spec Section C).';
+
+-- =====================================================================
+-- OUTBOX_MAIN (Oracle) — oracle_main_db.sql
+-- Written in the same transaction as the account/txn write it
+-- describes, so an event is queued iff that write committed.
+-- =====================================================================
+CREATE TABLE outbox_main (
+    outbox_id       VARCHAR2(36)  NOT NULL,   -- app-generated, same convention as txn_id/account_id
+    aggregate_type  VARCHAR2(30)  NOT NULL,   -- e.g. 'TRANSACTION'
+    aggregate_id    VARCHAR2(36)  NOT NULL,   -- txn_id
+    event_type      VARCHAR2(60)  NOT NULL,   -- e.g. 'transaction.completed', 'forex.conversion.requested'
+    payload         JSON          NOT NULL,
+    status          VARCHAR2(20)  DEFAULT 'PENDING' NOT NULL,
+    created_at      TIMESTAMP     DEFAULT SYSTIMESTAMP NOT NULL,
+    published_at    TIMESTAMP,
+    CONSTRAINT pk_outbox_main PRIMARY KEY (outbox_id),
+    CONSTRAINT ck_outbox_main_status CHECK (status IN ('PENDING','PUBLISHED','FAILED'))
+);
+
+CREATE INDEX ix_outbox_main_status ON outbox_main (status, created_at);
