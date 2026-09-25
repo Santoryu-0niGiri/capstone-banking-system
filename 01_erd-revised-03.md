@@ -5,6 +5,7 @@ erDiagram
     CUSTOMER_MASTER ||--o{ APP_USER_MASTER : has
     ACCOUNT_MASTER ||--o{ TRANSACTION_MASTER : "debit leg"
     ACCOUNT_MASTER ||--o{ TRANSACTION_MASTER : "credit leg"
+    TRANSACTION_MASTER ||--o{ OUTBOX_MAIN : "raises event"
 
     %% ===== cross-database (logical, not enforced FKs) =====
     CUSTOMER_MASTER ||--o{ NOTIFICATION_AUDIT : "has history in"
@@ -16,6 +17,8 @@ erDiagram
     RECON_RUN_AUDIT ||--o{ RECON_RESULT_AUDIT : contains
     LEDGER_MUTATION_AUDIT ||--o| RECON_RESULT_AUDIT : "matched by"
     LEDGER_MUTATION_AUDIT ||--o| RECON_RESULT_AUDIT : "flagged as duplicate of"
+    LEDGER_MUTATION_AUDIT ||--o{ OUTBOX_AUDIT : "raises event"
+    RECON_RESULT_AUDIT ||--o{ OUTBOX_AUDIT : "raises event"
 
     CUSTOMER_MASTER {
         string customer_id PK
@@ -72,6 +75,17 @@ erDiagram
         string created_by
         datetime updated_at
         string updated_by
+    }
+
+    OUTBOX_MAIN {
+        string outbox_id PK "app-generated VARCHAR2(36)"
+        string aggregate_type "e.g. TRANSACTION"
+        string aggregate_id "txn_id"
+        string event_type "e.g. transaction.completed"
+        json payload
+        string status "PENDING, PUBLISHED, FAILED"
+        datetime created_at
+        datetime published_at "nullable"
     }
 
     NOTIFICATION_AUDIT {
@@ -146,5 +160,40 @@ erDiagram
         datetime fetched_at
         string source "default frankfurter.dev"
     }
+
+    OUTBOX_AUDIT {
+        string outbox_id PK
+        string aggregate_type "e.g. LEDGER_MUTATION, RECON_RESULT"
+        string aggregate_id "txn_id or mutation_uuid"
+        string event_type "e.g. ledger.mutation.posted"
+        json payload
+        string status "PENDING, PUBLISHED, FAILED"
+        datetime created_at
+        datetime published_at "nullable"
+    }
+
+    %% ===== ownership (by owning/writing service) =====
+    classDef ledgerSvc   fill:#cfe2ff,stroke:#0d6efd,color:#000
+    classDef forexSvc    fill:#d1e7dd,stroke:#198754,color:#000
+    classDef reconSvc    fill:#fff3cd,stroke:#997404,color:#000
+    classDef notifSvc    fill:#f8d7da,stroke:#b02a37,color:#000
+    classDef sharedSvc   fill:#e2d9f3,stroke:#6f42c1,color:#000
+
+    class CUSTOMER_MASTER ledgerSvc
+    class ACCOUNT_MASTER ledgerSvc
+    class APP_USER_MASTER ledgerSvc
+    class TRANSACTION_MASTER ledgerSvc
+    class OUTBOX_MAIN ledgerSvc
+    class LEDGER_MUTATION_AUDIT ledgerSvc
+
+    class FX_CONVERSION_AUDIT forexSvc
+    class FX_RATE_CACHE forexSvc
+
+    class RECON_RUN_AUDIT reconSvc
+    class RECON_RESULT_AUDIT reconSvc
+
+    class NOTIFICATION_AUDIT notifSvc
+
+    class OUTBOX_AUDIT sharedSvc
 
 ```
