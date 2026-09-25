@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Core Retail Banking System')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: demoBar}"></div>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: alerts}"></div>
+
+<main class="container py-5">
+    <!-- Hero Section -->
+    <div class="row align-items-center py-4 my-3">
+        <div class="col-lg-7 text-center text-lg-start mb-4 mb-lg-0">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill mb-3">
+                <i class="bi bi-shield-check me-1"></i> Core Retail Ledger &amp; Balance Mutation Engine
+            </span>
+            <h1 class="display-4 fw-bold tracking-tight mb-3">
+                Next-Gen Banking Platform with Append-Only Audit Trail
+            </h1>
+            <p class="lead text-muted mb-4">
+                Enterprise multi-service retail banking architecture with synchronous balance mutation locking,
+                cross-currency ForEx conversion, asynchronous Kafka alerts, and automated reconciliation.
+            </p>
+            <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-lg-start">
+                <a href="/login" class="btn btn-primary btn-lg px-4">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Sign In to Portal
+                </a>
+                <a href="/register" class="btn btn-outline-primary btn-lg px-4">
+                    <i class="bi bi-person-vcard me-1"></i> Start KYC Onboarding
+                </a>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card p-4 shadow-sm border-2">
+                <h5 class="fw-bold mb-3 border-bottom pb-2">
+                    <i class="bi bi-key-fill text-warning me-2"></i>Quick Persona Access
+                </h5>
+                <p class="text-muted small mb-3">
+                    Jump straight into either user experience with pre-seeded test credentials:
+                </p>
+
+                <div class="d-grid gap-2">
+                    <a href="/auth/switch?role=admin" class="btn btn-outline-dark text-start p-3 d-flex align-items-center gap-3">
+                        <i class="bi bi-shield-lock-fill fs-3 text-danger"></i>
+                        <div>
+                            <div class="fw-bold">Bank Administrator</div>
+                            <small class="text-muted">Executive liquidity KPI, customer KYC review, account freeze/unfreeze, recon</small>
+                        </div>
+                    </a>
+
+                    <a href="/auth/switch?role=juan" class="btn btn-outline-primary text-start p-3 d-flex align-items-center gap-3">
+                        <i class="bi bi-person-circle fs-3 text-primary"></i>
+                        <div>
+                            <div class="fw-bold">Juan Dela Cruz (Customer)</div>
+                            <small class="text-muted">PHP Savings + USD Checking accounts, fund transfers, statements</small>
+                        </div>
+                    </a>
+
+                    <a href="/auth/switch?role=maria" class="btn btn-outline-info text-start p-3 d-flex align-items-center gap-3">
+                        <i class="bi bi-person-circle fs-3 text-info"></i>
+                        <div>
+                            <div class="fw-bold">Maria Santos (Customer)</div>
+                            <small class="text-muted">Multi-currency portfolio (PHP, EUR), digital wallet, instant payments</small>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Highlights Grid -->
+    <div class="row g-4 mt-2">
+        <div class="col-md-4">
+            <div class="card p-4 h-100">
+                <div class="fs-2 text-primary mb-2"><i class="bi bi-database-lock"></i></div>
+                <h5 class="fw-bold">Dual-Database Architecture</h5>
+                <p class="text-muted small mb-0">
+                    ACID master customer and account balances stored in Oracle XE 21c with SELECT FOR UPDATE row locking;
+                    immutable audit mutations recorded in PostgreSQL 15.
+                </p>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card p-4 h-100">
+                <div class="fs-2 text-success mb-2"><i class="bi bi-currency-exchange"></i></div>
+                <h5 class="fw-bold">Real-Time ForEx Engine</h5>
+                <p class="text-muted small mb-0">
+                    Cross-currency transfers automatically query exchange rates (Frankfurter / ECB) and convert funds
+                    seamlessly between PHP, USD, EUR, GBP, and SGD.
+                </p>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card p-4 h-100">
+                <div class="fs-2 text-warning mb-2"><i class="bi bi-shield-check"></i></div>
+                <h5 class="fw-bold">Automated Reconciliation</h5>
+                <p class="text-muted small mb-0">
+                    Periodic reconciliation daemon checks master ledger balances against mutation logs, flagging
+                    variances, lag, and discrepancies with severity ratings.
+                </p>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+</body>
+</html>

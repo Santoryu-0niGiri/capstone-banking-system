@@ -61,6 +61,10 @@ cd capstone-banking-system
 
 ### 2) Build the Java services
 
+```bash
+docker compose up -d oracle-db postgres-db redis zookeeper kafka
+```
+
 From the project root, compile and package all modules:
 
 ```bash
@@ -100,7 +104,7 @@ Also add the `version` column required by Hibernate optimistic locking:
 
 ```bash
 docker exec oracle-db bash -c "sqlplus -S ledger_app/LedgerAppPass123@localhost:1521/XEPDB1 <<'EOF'
-ALTER TABLE customer_balance_master ADD (version NUMBER DEFAULT 0 NOT NULL);
+ALTER TABLE account_master ADD (version NUMBER DEFAULT 0 NOT NULL);
 EXIT;
 EOF"
 ```
@@ -179,6 +183,10 @@ docker compose down -v
 ```
 
 > After `down -v`, the next `docker compose up --build` will re-initialize the databases from the init scripts automatically.
+
+---
+
+For standalone testing instructions and a quick reference of mock payloads, please see the [**Testing Instructions**](TESTING_INSTRUCTIONS.md) document.
 
 ---
 

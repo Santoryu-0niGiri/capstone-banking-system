@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
  * Evicts balance:{accountId} from Redis after a successful Oracle balance
  * mutation so accounts-service cache-aside reads fall through to Oracle and
  * pick up the updated balance_amount.
- * accountId is a String UUID matching CUSTOMER_BALANCE_MASTER.account_id.
+ * accountId is a String UUID matching ACCOUNT_MASTER.account_id.
  */
 @Component
 @RequiredArgsConstructor

@@ -1,4 +1,3 @@
-
 package com.capstone.transaction.entity.oracle;
 
 import jakarta.persistence.Column;
@@ -16,7 +15,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * transaction-service's write-side mapping of CUSTOMER_BALANCE_MASTER.
+ * transaction-service's write-side mapping of ACCOUNT_MASTER.
  *
  * Owns balance-mutation writes (debit/credit/transfer) under
  * PESSIMISTIC_WRITE locking via AccountRepository#findByIdForUpdate.
@@ -26,13 +25,13 @@ import java.time.LocalDateTime;
  * balance_amount       : NUMBER(18,4), never goes negative (DDL CHECK >= 0)
  */
 @Entity
-@Table(name = "customer_balance_master")
+@Table(name = "account_master")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CustomerBalanceMaster {
+public class AccountMaster {
 
     @Id
     @Column(name = "account_id", length = 36, updatable = false, nullable = false)

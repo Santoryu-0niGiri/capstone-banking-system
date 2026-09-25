@@ -1,6 +1,6 @@
-
 package com.capstone.transaction.config;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -19,19 +19,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
-<<<<<<< Updated upstream
- * Primary persistence unit: Oracle XE, holding the `account` table.
- * Marked @Primary so plain @Autowired DataSource/EntityManagerFactory
- * injections elsewhere in the app default to Oracle.
-=======
- * Primary persistence unit: Oracle XE (CUSTOMER_BALANCE_MASTER +
- * TRANSACTION_MASTER).
+ * Primary persistence unit: Oracle XE (ACCOUNT_MASTER + TRANSACTION_MASTER).
  * Marked @Primary so unqualified DataSource/EntityManagerFactory injections
  * default here.
  * HikariCP pool is configured explicitly because
  * DataSourceProperties.initializeDataSourceBuilder()
  * does not bind nested hikari.* sub-keys from a custom prefix.
->>>>>>> Stashed changes
  */
 @Configuration
 @EnableJpaRepositories(basePackages = "com.capstone.transaction.repository.oracle", entityManagerFactoryRef = "oracleEntityManagerFactory", transactionManagerRef = "oracleTransactionManager")
@@ -46,8 +39,16 @@ public class OracleDataSourceConfig {
 
     @Primary
     @Bean(name = "oracleDataSource")
-    public DataSource oracleDataSource(@Qualifier("oracleDataSourceProperties") DataSourceProperties properties) {
-        return properties.initializeDataSourceBuilder().build();
+    public DataSource oracleDataSource(
+            @Qualifier("oracleDataSourceProperties") DataSourceProperties properties) {
+        HikariDataSource ds = properties.initializeDataSourceBuilder()
+                .type(HikariDataSource.class)
+                .build();
+        ds.setMaximumPoolSize(30);
+        ds.setMinimumIdle(5);
+        ds.setConnectionTimeout(30_000);
+        ds.setPoolName("TransactionOracleHikariPool");
+        return ds;
     }
 
     @Primary
@@ -60,7 +61,7 @@ public class OracleDataSourceConfig {
         props.put("hibernate.dialect", "org.hibernate.dialect.OracleDialect");
         return builder
                 .dataSource(dataSource)
-                .packages("com.capstone.transaction.entity.oracle")   // CustomerBalanceMaster + TransactionMaster
+                .packages("com.capstone.transaction.entity.oracle")
                 .persistenceUnit("oracle")
                 .properties(props)
                 .build();
@@ -71,10 +72,7 @@ public class OracleDataSourceConfig {
     public PlatformTransactionManager oracleTransactionManager(
             @Qualifier("oracleEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
         return new JpaTransactionManager(entityManagerFactory);
-    }
-<<<<<<< Updated upstream
-}
+    }<<<<<<<
 
-=======
+    Updated upstream
 }
->>>>>>> Stashed changes

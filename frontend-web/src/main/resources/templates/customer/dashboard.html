@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Customer Dashboard')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: demoBar}"></div>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: alerts}"></div>
+
+<main class="container py-4">
+    <!-- Welcome Header & KYC Status -->
+    <div class="card p-4 mb-4 bg-white">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <h3 class="fw-bold mb-0" th:text="${'Welcome back, ' + customer.firstName + '!'}">Welcome back!</h3>
+                    <span th:class="${'badge ' + (customer.kycStatus.name() == 'VERIFIED' ? 'badge-kyc-verified' : 'badge-kyc-pending')}"
+                          th:text="${customer.kycStatus.displayName}">Verified</span>
+                </div>
+                <div class="text-muted small">
+                    <span class="me-3"><i class="bi bi-person me-1"></i> Customer ID: <strong th:text="${customer.customerId}">CUST-1001</strong></span>
+                    <span class="me-3"><i class="bi bi-envelope me-1"></i> <span th:text="${customer.email}">email@example.com</span></span>
+                    <span class="me-3"><i class="bi bi-telephone me-1"></i> <span th:text="${customer.contactNo}">+63 917 000 0000</span></span>
+                    <a href="/customer/profile" class="text-primary text-decoration-none fw-semibold">View KYC Profile &rarr;</a>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <a href="/accounts/open" class="btn btn-outline-primary btn-sm me-2">
+                    <i class="bi bi-plus-circle me-1"></i> Open Account
+                </a>
+                <a href="/transactions/new" class="btn btn-primary btn-sm">
+                    <i class="bi bi-send me-1"></i> Transact / Transfer
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Consolidated Balances KPI Banner -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card p-3 border-start border-primary border-4">
+                <div class="text-muted small text-uppercase fw-semibold">Consolidated Portfolio (PHP Approx)</div>
+                <div class="balance-figure mt-1" th:text="${'₱' + #numbers.formatDecimal(customer.totalBalanceInPhp, 1, 'COMMA', 2, 'POINT')}">₱0.00</div>
+                <div class="text-muted small mt-1">Sum of all multi-currency accounts</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-3 border-start border-info border-4">
+                <div class="text-muted small text-uppercase fw-semibold">Active Accounts Held</div>
+                <div class="balance-figure mt-1" th:text="${accounts.size()}">0</div>
+                <div class="text-muted small mt-1">Across Savings, Checking, and Wallets</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-3 border-start border-warning border-4">
+                <div class="text-muted small text-uppercase fw-semibold">Unread Alerts &amp; Notices</div>
+                <div class="balance-figure mt-1" th:text="${unreadCount}">0</div>
+                <div class="text-muted small mt-1"><a href="/notifications" class="text-decoration-none">View alerts inbox &rarr;</a></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Accounts Section -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-wallet2 text-primary me-2"></i>My Deposit Accounts</h5>
+        <a href="/accounts/open" class="btn btn-sm btn-outline-primary">+ Open Another Account</a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4" th:each="acct : ${accounts}">
+            <div class="card p-3 card-hover h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="currency-badge" th:text="${acct.currencyCode}">PHP</span>
+                        <span class="badge" th:classappend="${acct.accountStatus.name() == 'ACTIVE'} ? 'bg-success' : 'bg-warning'"
+                              th:text="${acct.accountStatus.displayName}">Active</span>
+                    </div>
+                    <div class="text-muted small" th:text="${acct.accountType.displayName}">Regular Savings</div>
+                    <div class="balance-figure-sm my-1" th:text="${acct.formattedBalance}">₱0.00</div>
+                    <div class="text-muted small font-monospace" th:text="${acct.accountId}">ACCT-1001</div>
+                </div>
+
+                <div class="mt-3 pt-3 border-top d-flex gap-2">
+                    <a th:href="@{/accounts/{id}(id=${acct.accountId})}" class="btn btn-sm btn-outline-secondary w-50">
+                        <i class="bi bi-list-ul me-1"></i> Ledger
+                    </a>
+                    <a th:href="@{/transactions/new(fromAcctNo=${acct.accountId})}" class="btn btn-sm btn-primary w-50">
+                        <i class="bi bi-arrow-right-circle me-1"></i> Transact
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12" th:if="${#lists.isEmpty(accounts)}">
+            <div class="card p-4 text-center text-muted">
+                <i class="bi bi-wallet2 display-6 mb-2"></i>
+                <p>You have no active accounts yet.</p>
+                <div><a href="/accounts/open" class="btn btn-primary btn-sm">Open an account now</a></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Transactions & Alerts Row -->
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-clock-history text-primary me-2"></i>Recent Activity</h5>
+                    <a href="/transactions/history" class="small text-decoration-none">Full History &rarr;</a>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Account</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Audit State</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="t : ${recentTransactions}">
+                                <td class="small" th:text="${#temporals.format(t.timestamp, 'dd MMM yyyy HH:mm')}"></td>
+                                <td class="font-monospace small" th:text="${t.accountId}"></td>
+                                <td>
+                                    <span class="badge" th:classappend="${t.direction.name() == 'CREDIT'} ? 'badge-credit' : 'badge-debit'"
+                                          th:text="${t.txnType}"></span>
+                                    <span th:if="${t.crossCurrency}" class="badge bg-light text-dark border small" title="Cross-currency conversion">FX</span>
+                                </td>
+                                <td class="fw-semibold" th:classappend="${t.direction.name() == 'CREDIT'} ? 'text-success' : 'text-danger'"
+                                    th:text="${t.formattedAmount}"></td>
+                                <td>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle small"
+                                          th:text="${t.auditState}">COMMITTED</span>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(recentTransactions)}">
+                                <td colspan="5" class="text-center text-muted py-3">No transactions found for your accounts.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-bell text-primary me-2"></i>Recent Notices</h5>
+                    <a href="/notifications" class="small text-decoration-none">All Notices &rarr;</a>
+                </div>
+
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item px-0 py-2 border-bottom" th:each="n : ${notifications}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="badge bg-light text-dark border small" th:text="${n.channel}">SMS</span>
+                            <small class="text-muted" th:text="${#temporals.format(n.sentAt, 'MMM dd, HH:mm')}"></small>
+                        </div>
+                        <div class="small mt-1" th:text="${n.message}">Notification message</div>
+                    </div>
+                    <div class="py-3 text-center text-muted small" th:if="${#lists.isEmpty(notifications)}">
+                        No recent alerts.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+</body>
+</html>
+

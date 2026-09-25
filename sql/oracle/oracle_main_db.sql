@@ -1,12 +1,17 @@
+CONNECT ledger_app/LedgerAppPass123@//localhost:1521/XEPDB1
+
 -- =====================================================================
 -- ORACLE XE 21c - MASTER DB
--- Tables: customer_master, customer_balance_master, app_user_master,
+-- Tables: customer_master, account_master, app_user_master,
 --         transaction_master
 --
 -- Aligned to CAPSTONE FSE: Core Retail Ledger & Balance Mutation Engine
 -- table/column names follow the spec's snake_case JPA @Column style so
 -- unquoted identifiers resolve consistently against Hibernate defaults.
 -- =====================================================================
+
+ALTER SESSION SET CONTAINER = XEPDB1;
+ALTER SESSION SET CURRENT_SCHEMA = LEDGER_APP;
 
 -- ---------------------------------------------------------------------
 -- CUSTOMER_MASTER
@@ -30,12 +35,12 @@ CREATE TABLE customer_master (
 COMMENT ON TABLE customer_master IS 'Retail customer master record';
 
 -- ---------------------------------------------------------------------
--- CUSTOMER_BALANCE_MASTER
+-- ACCOUNT_MASTER
 -- The table named directly in the spec (Section B/C). Holds the live,
 -- directly-updated balance state that /api/v1/ledger/mutate reads and
 -- writes under a pessimistic row lock.
 -- ---------------------------------------------------------------------
-CREATE TABLE customer_balance_master (
+CREATE TABLE account_master (
     account_id      VARCHAR2(36)   NOT NULL,
     customer_id     VARCHAR2(36)   NOT NULL,
     account_type    VARCHAR2(30)   NOT NULL,
@@ -50,19 +55,20 @@ CREATE TABLE customer_balance_master (
     created_by      VARCHAR2(50)   NOT NULL,
     updated_at      TIMESTAMP,
     updated_by      VARCHAR2(50),
-    CONSTRAINT pk_customer_balance_master PRIMARY KEY (account_id),
-    CONSTRAINT fk_balance_master_customer FOREIGN KEY (customer_id)
+    version         NUMBER(19)      DEFAULT 0 NOT NULL,
+    CONSTRAINT pk_account_master PRIMARY KEY (account_id),
+    CONSTRAINT fk_account_master_customer FOREIGN KEY (customer_id)
         REFERENCES customer_master (customer_id),
-    CONSTRAINT ck_balance_master_acct_type CHECK (account_type IN ('SAVINGS','CHECKING','WALLET')),
-    CONSTRAINT ck_balance_master_status CHECK (account_status IN ('ACTIVE','FROZEN','CLOSED')),
-    CONSTRAINT ck_balance_master_nonneg CHECK (balance_amount >= 0)
+    CONSTRAINT ck_account_master_acct_type CHECK (account_type IN ('SAVINGS','CHECKING','WALLET')),
+    CONSTRAINT ck_account_master_status CHECK (account_status IN ('ACTIVE','FROZEN','CLOSED')),
+    CONSTRAINT ck_account_master_nonneg CHECK (balance_amount >= 0)
 );
 
-CREATE INDEX ix_balance_master_customer_id ON customer_balance_master (customer_id);
+CREATE INDEX ix_account_master_customer_id ON account_master (customer_id);
 
-COMMENT ON TABLE customer_balance_master IS
+COMMENT ON TABLE account_master IS
     'Live balance state, row-locked via @Lock(LockModeType.PESSIMISTIC_WRITE) '
-    '-> SELECT balance_amount FROM customer_balance_master WHERE account_id = ? FOR UPDATE';
+    '-> SELECT balance_amount FROM account_master WHERE account_id = ? FOR UPDATE';
 
 -- ---------------------------------------------------------------------
 -- APP_USER_MASTER
@@ -72,6 +78,7 @@ CREATE TABLE app_user_master (
     customer_id    VARCHAR2(36)   NOT NULL,
     username       VARCHAR2(50)   NOT NULL,
     password_hash  VARCHAR2(255)  NOT NULL,
+    role           VARCHAR2(20)   DEFAULT 'CUSTOMER' NOT NULL,
     active_status  VARCHAR2(20)   DEFAULT 'ACTIVE' NOT NULL,
     created_at     TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
     created_by     VARCHAR2(50)   NOT NULL,
@@ -81,7 +88,8 @@ CREATE TABLE app_user_master (
     CONSTRAINT fk_app_user_master_customer FOREIGN KEY (customer_id)
         REFERENCES customer_master (customer_id),
     CONSTRAINT uq_app_user_master_username UNIQUE (username),
-    CONSTRAINT ck_app_user_master_active_status CHECK (active_status IN ('ACTIVE','SUSPENDED','LOCKED','DISABLED'))
+    CONSTRAINT ck_app_user_master_active_status CHECK (active_status IN ('ACTIVE','SUSPENDED','LOCKED','DISABLED')),
+    CONSTRAINT ck_app_user_master_role CHECK (role IN ('CUSTOMER','ADMIN'))
 );
 
 CREATE INDEX ix_app_user_master_customer_id ON app_user_master (customer_id);
@@ -113,9 +121,9 @@ CREATE TABLE transaction_master (
     updated_by         VARCHAR2(50),
     CONSTRAINT pk_transaction_master PRIMARY KEY (txn_id),
     CONSTRAINT fk_txn_debit_account FOREIGN KEY (debit_account_id)
-        REFERENCES customer_balance_master (account_id),
+        REFERENCES account_master (account_id),
     CONSTRAINT fk_txn_credit_account FOREIGN KEY (credit_account_id)
-        REFERENCES customer_balance_master (account_id),
+        REFERENCES account_master (account_id),
     CONSTRAINT ck_txn_type CHECK (txn_type IN ('WITHDRAWAL','DEPOSIT','TRANSFER')),
     CONSTRAINT ck_txn_status CHECK (txn_status IN ('PENDING','COMMITTED','ROLLED_BACK')),
     -- mirrors controller-level @Positive: negative amounts are blocked
@@ -143,6 +151,4 @@ CREATE INDEX ix_txn_status ON transaction_master (txn_status);
 CREATE INDEX ix_txn_completed_at ON transaction_master (completed_at);
 
 COMMENT ON TABLE transaction_master IS
-    'Requested balance mutations. On PostgreSQL audit-write failure, the '
-    'owning service must roll back this row and throw LedgerPersistenceException '
-    'to prevent an un-audited state change (spec Section C).';
+    'Requested balance mutations. On PostgreSQL audit-write failure, the owning service must roll back this row and throw LedgerPersistenceException to prevent an un-audited state change (spec Section C).';

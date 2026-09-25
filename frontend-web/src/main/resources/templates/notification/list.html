@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Alerts &amp; Notifications')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: demoBar}"></div>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: alerts}"></div>
+
+<main class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h4 class="fw-bold mb-1"><i class="bi bi-bell text-primary me-2"></i>Alerts &amp; Notifications</h4>
+                    <p class="text-muted small mb-0">Asynchronous security and transaction alerts matching NOTIFICATION_AUDIT</p>
+                </div>
+                <span class="badge bg-primary fs-6 px-3" th:text="${notifications.size()} + ' Total'">0 Total</span>
+            </div>
+
+            <div class="card p-3">
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item px-3 py-3 border-bottom d-flex justify-content-between align-items-center"
+                         th:each="n : ${notifications}" th:classappend="${!n.read} ? 'bg-light' : ''">
+                        <div class="d-flex gap-3 align-items-start">
+                            <div class="fs-4 text-primary mt-1">
+                                <i th:class="${n.channel == 'EMAIL' ? 'bi bi-envelope' : (n.channel == 'SMS' ? 'bi bi-chat-text' : 'bi bi-phone')}"></i>
+                            </div>
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="badge bg-secondary-subtle text-secondary border small" th:text="${n.channel}">SMS</span>
+                                    <span th:if="${!n.read}" class="badge bg-primary small">New</span>
+                                    <small class="text-muted" th:text="${#temporals.format(n.sentAt, 'dd MMM yyyy, HH:mm')}"></small>
+                                </div>
+                                <div class="fw-semibold text-dark" th:text="${n.message}">Notification message body</div>
+                            </div>
+                        </div>
+
+                        <div th:if="${!n.read}">
+                            <form th:action="@{/notifications/{id}/read(id=${n.id})}" method="post">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary py-1 px-2" title="Mark as read">
+                                    <i class="bi bi-check2"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="text-center text-muted py-5" th:if="${#lists.isEmpty(notifications)}">
+                        <i class="bi bi-bell-slash display-5 d-block mb-2"></i>
+                        No alerts or notices in your inbox right now.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div th:replace="~{fragments/layout :: footer}"></div>
+</body>
+</html>

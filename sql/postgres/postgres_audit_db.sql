@@ -4,7 +4,7 @@
 --         recon_result_audit
 --
 -- Aligned to CAPSTONE FSE: Core Retail Ledger & Balance Mutation Engine
--- account_id / txn_id here reference customer_balance_master /
+-- account_id / txn_id here reference account_master /
 -- transaction_master in the separate Oracle XE 21c database, so no
 -- cross-engine FK is declared for those columns -- indexed instead.
 -- =====================================================================
@@ -166,3 +166,81 @@ CREATE INDEX ix_recon_result_audit_status ON recon_result_audit (recon_status, e
 CREATE INDEX ix_recon_result_audit_created_at ON recon_result_audit (created_at);
 
 COMMENT ON TABLE recon_result_audit IS 'One row per reconciled ledger leg (or missing/orphan leg) within a recon_run_audit';
+
+
+-- ---------------------------------------------------------------------
+-- FX_CONVERSION_AUDIT
+-- ---------------------------------------------------------------------
+CREATE TABLE fx_conversion_audit (
+    conversion_id      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    txn_id              VARCHAR(36)   NOT NULL,
+    source_currency     CHAR(3)       NOT NULL,
+    dest_currency       CHAR(3)       NOT NULL,
+    source_amount       NUMERIC(18,4) NOT NULL,
+    fx_rate             NUMERIC(18,8) NOT NULL,
+    dest_amount         NUMERIC(18,4) NOT NULL,
+    conversion_status   VARCHAR(20)   NOT NULL DEFAULT 'COMPLETED',
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    CONSTRAINT ck_fx_conversion_status
+        CHECK (conversion_status IN ('COMPLETED','FAILED')),
+    -- mirrors fx_rate_cache's own checks below, applied to the amounts
+    -- actually posted for this conversion rather than the cached rate.
+    CONSTRAINT ck_fx_conversion_positive
+        CHECK (source_amount > 0 AND fx_rate > 0 AND dest_amount > 0),
+    CONSTRAINT ck_fx_conversion_diff_currency
+        CHECK (source_currency <> dest_currency)
+);
+ 
+CREATE INDEX ix_fx_conversion_audit_txn_id ON fx_conversion_audit (txn_id);
+ 
+COMMENT ON TABLE fx_conversion_audit IS 'One row per cross-currency conversion applied to a TRANSFER transaction';
+ 
+-- ---------------------------------------------------------------------
+-- FX_RATE_CACHE (owned by ForEx Service)
+-- Moved here from oracle_main_db.sql: it used PostgreSQL-only types
+-- (UUID, TIMESTAMPTZ, uuid_generate_v4()) and its own comment already
+-- identified it as Postgres-side, so it could not run against Oracle.
+-- Populated by a scheduled poll of api.frankfurter.dev, NOT read live
+-- from the external API during transaction processing -- keeps the
+-- async settlement path independent of third-party API uptime/latency.
+-- ---------------------------------------------------------------------
+CREATE TABLE fx_rate_cache (
+    rate_id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    base_currency    CHAR(3)        NOT NULL,
+    quote_currency   CHAR(3)        NOT NULL,
+    rate             NUMERIC(18,8)  NOT NULL,
+    fetched_at       TIMESTAMPTZ    NOT NULL DEFAULT now(),
+    source           VARCHAR(50)    NOT NULL DEFAULT 'frankfurter.dev',
+    CONSTRAINT uq_fx_rate_cache_pair UNIQUE (base_currency, quote_currency),
+    CONSTRAINT ck_fx_rate_cache_positive CHECK (rate > 0),
+    CONSTRAINT ck_fx_rate_cache_diff_currency CHECK (base_currency <> quote_currency)
+);
+ 
+CREATE INDEX ix_fx_rate_cache_fetched_at ON fx_rate_cache (fetched_at);
+ 
+COMMENT ON TABLE fx_rate_cache IS
+    'Locally cached FX rates, refreshed on a schedule from api.frankfurter.dev. '
+    'fx_conversion_audit.fx_rate is copied from here at conversion time, not looked up live.';
+
+
+-- ---------------------------------------------------------------------
+-- TRANSACTION_OUTBOX (PostgreSQL, owned by Transaction Service)
+-- Written in the SAME local transaction as the ledger_mutation_audit
+-- insert it accompanies -- a separate poller/relay reads PENDING rows
+-- and publishes to Kafka, then marks them PUBLISHED. This is what
+-- makes event publishing atomic with the audit write it reports on,
+-- without needing a distributed transaction across Kafka + Postgres.
+-- ---------------------------------------------------------------------
+CREATE TABLE transaction_outbox (
+    outbox_id       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    aggregate_type  VARCHAR(30)   NOT NULL,   -- e.g. 'TRANSACTION'
+    aggregate_id    VARCHAR(36)   NOT NULL,   -- txn_id
+    event_type      VARCHAR(60)   NOT NULL,   -- e.g. 'transaction.completed', 'forex.conversion.requested'
+    payload         JSONB         NOT NULL,
+    status          VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    published_at    TIMESTAMPTZ,
+    CONSTRAINT ck_transaction_outbox_status CHECK (status IN ('PENDING','PUBLISHED','FAILED'))
+);
+
+CREATE INDEX ix_transaction_outbox_status ON transaction_outbox (status, created_at);

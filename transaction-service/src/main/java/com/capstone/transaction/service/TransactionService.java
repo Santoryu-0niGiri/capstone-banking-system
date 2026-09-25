@@ -10,7 +10,7 @@ import com.capstone.common.exception.IdempotencyConflictException;
 import com.capstone.common.exception.InsufficientBalanceException;
 import com.capstone.common.exception.LedgerPersistenceException;
 import com.capstone.common.exception.ResourceNotFoundException;
-import com.capstone.transaction.entity.oracle.CustomerBalanceMaster;
+import com.capstone.transaction.entity.oracle.AccountMaster;
 import com.capstone.transaction.entity.oracle.TransactionMaster;
 import com.capstone.transaction.entity.postgres.LedgerMutationAudit;
 import com.capstone.transaction.kafka.TransactionEventProducer;
@@ -43,7 +43,7 @@ import java.util.UUID;
  *
  * ── Three-phase write per transaction ────────────────────────────────────────
  * Phase 1 (Oracle): Acquire row lock, validate balance, write
- *          CUSTOMER_BALANCE_MASTER + TRANSACTION_MASTER (txn_status=PENDING).
+ *          ACCOUNT_MASTER + TRANSACTION_MASTER (txn_status=PENDING).
  * Phase 2 (PostgreSQL): Append double-entry rows to ledger_mutation_audit.
  * Phase 3 (Oracle): Update TRANSACTION_MASTER txn_status → COMMITTED.
  *
@@ -87,15 +87,31 @@ public class TransactionService {
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    public TransactionResponse withdraw(TransactionRequest request) {
-        return executeSingleLeg(request, "WITHDRAWAL", "DEBIT");
-    }
+  public TransactionResponse withdraw(
+        TransactionRequest request,
+        UUID txnId) {
 
-    public TransactionResponse deposit(TransactionRequest request) {
-        return executeSingleLeg(request, "DEPOSIT", "CREDIT");
-    }
+    return executeSingleLeg(
+            request,
+            "WITHDRAWAL",
+            "DEBIT",
+            txnId.toString());
+}
 
-    public TransactionResponse transfer(TransactionRequest request) {
+public TransactionResponse deposit(
+        TransactionRequest request,
+        UUID txnId) {
+
+    return executeSingleLeg(
+            request,
+            "DEPOSIT",
+            "CREDIT",
+            txnId.toString());
+}
+
+    public TransactionResponse transfer(
+        TransactionRequest request,
+        UUID txnId) {
 
         if (request.counterpartyAccountId() == null
                 || request.counterpartyAccountId().isBlank()) {
@@ -109,7 +125,9 @@ public class TransactionService {
                     "Source and destination accounts must differ");
         }
 
-        return executeTransfer(request);
+        return executeTransfer(
+        request,
+        txnId.toString());
     }
 
     /**
@@ -141,9 +159,10 @@ public class TransactionService {
     // ── Single-leg (WITHDRAWAL / DEPOSIT) ─────────────────────────────────────
 
     private TransactionResponse executeSingleLeg(
-            TransactionRequest request,
-            String txnType,
-            String mutationType) {
+        TransactionRequest request,
+        String txnType,
+        String mutationType,
+        String txnId) {
 
         Optional<TransactionResponse> cached =
                 idempotencyService.getCached(request.idempotencyKey());
@@ -159,7 +178,6 @@ public class TransactionService {
                             + "' is already being processed");
         }
 
-        String txnId = UUID.randomUUID().toString();
 
         try {
 
@@ -248,7 +266,8 @@ public class TransactionService {
     // ── Transfer ─────────────────────────────────────────────────────────────
 
     private TransactionResponse executeTransfer(
-            TransactionRequest request) {
+        TransactionRequest request,
+        String txnId) {
 
         Optional<TransactionResponse> cached =
                 idempotencyService.getCached(
@@ -267,7 +286,7 @@ public class TransactionService {
                             + "' is already being processed");
         }
 
-        String txnId = UUID.randomUUID().toString();
+       
 
         try {
 
@@ -358,7 +377,7 @@ public class TransactionService {
         MutationResult result =
                 oracleTx.execute(status -> {
 
-                    CustomerBalanceMaster account =
+                    AccountMaster account =
                             accountRepository
                                     .findByIdForUpdate(accountId)
                                     .orElseThrow(() ->
@@ -446,7 +465,7 @@ public class TransactionService {
         TransferResult result =
                 oracleTx.execute(status -> {
 
-                    CustomerBalanceMaster firstAcct =
+                    AccountMaster firstAcct =
                             accountRepository
                                     .findByIdForUpdate(first)
                                     .orElseThrow(() ->
@@ -455,7 +474,7 @@ public class TransactionService {
                                                             + first
                                                             + " not found"));
 
-                    CustomerBalanceMaster secondAcct =
+                    AccountMaster secondAcct =
                             accountRepository
                                     .findByIdForUpdate(second)
                                     .orElseThrow(() ->
@@ -464,12 +483,12 @@ public class TransactionService {
                                                             + second
                                                             + " not found"));
 
-                    CustomerBalanceMaster source =
+                    AccountMaster source =
                             first.equals(sourceId)
                                     ? firstAcct
                                     : secondAcct;
 
-                    CustomerBalanceMaster dest =
+                    AccountMaster dest =
                             first.equals(sourceId)
                                     ? secondAcct
                                     : firstAcct;
@@ -677,7 +696,7 @@ public class TransactionService {
 
             oracleTx.executeWithoutResult(status -> {
 
-                CustomerBalanceMaster account =
+                AccountMaster account =
                         accountRepository
                                 .findByIdForUpdate(accountId)
                                 .orElseThrow(() ->
@@ -749,7 +768,7 @@ public class TransactionService {
     }
 
     private void assertActive(
-            CustomerBalanceMaster account) {
+            AccountMaster account) {
 
         if (!"ACTIVE".equals(
                 account.getAccountStatus())) {

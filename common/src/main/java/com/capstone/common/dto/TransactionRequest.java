@@ -1,6 +1,8 @@
 
 package com.capstone.common.dto;
 
+import java.math.BigDecimal;
+
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -8,10 +10,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
-import java.math.BigDecimal;
-
 /**
- * accountId -> CUSTOMER_BALANCE_MASTER.account_id (String UUID).
+ * accountId -> ACCOUNT_MASTER.account_id (String UUID).
  * counterpartyAccountId -> second account for TRANSFER (nullable).
  * amount precision mirrors TRANSACTION_MASTER.mutation_amount NUMBER(18,4).
  */
