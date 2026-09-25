@@ -98,33 +98,56 @@ When running in mock mode, you can toggle between user perspectives instantly us
 
 ## 4. How to Wire Up with the Real Backend
 
-To wire the frontend to the real backend microservices running in Docker Compose:
+There are three ways to run and test the frontend application:
 
-### Step 1: Start Backend Services
-From the root repository directory:
-```bash
-docker compose up -d
-```
-Verify the gateway is responding:
-```bash
-curl http://localhost:8080/actuator/health
-```
+### Option A: Full-Stack in Docker Compose (All-in-One Deployment)
+Both the backend microservices and `frontend-web` are integrated in [`docker-compose.yml`](../docker-compose.yml).
+1. Compile and package all JARs:
+   ```bash
+   mvn clean package -DskipTests
+   cd frontend-web && mvn clean package -DskipTests && cd ..
+   ```
+2. Start the full stack:
+   ```bash
+   docker compose up -d --build
+   ```
+3. `frontend-web` boots inside the Docker network (`banking-net`) configured with:
+   - `BANKING_BACKEND_MODE: gateway`
+   - `BANKING_GATEWAY_URL: http://api-gateway:8080`
+   Access the web portal directly at **`http://localhost:8090`**.
 
-### Step 2: Switch Frontend Configuration
-In `frontend-web/src/main/resources/application.yml`, change `mode` to `gateway`:
-```yaml
-banking:
-  backend:
-    mode: gateway
-    gateway-url: http://localhost:8080
-```
+### Option B: Local Frontend with Docker Backend (Rapid Dev & Hot-Reload)
+Run the backend in Docker while running `frontend-web` on your host machine for instant Thymeleaf live template reloading:
+1. Start backend services:
+   ```bash
+   docker compose up -d
+   ```
+   Verify gateway health:
+   ```bash
+   curl http://localhost:8080/actuator/health
+   ```
+2. In `frontend-web/src/main/resources/application.yml`, set:
+   ```yaml
+   banking:
+     backend:
+       mode: gateway
+       gateway-url: http://localhost:8080
+   ```
+   *(Or launch via CLI: `mvn spring-boot:run -Dspring-boot.run.arguments="--banking.backend.mode=gateway"`)*
+3. Run `frontend-web`:
+   ```bash
+   cd frontend-web
+   mvn spring-boot:run
+   ```
+   Visit `http://localhost:8090`. Log in with your registered backend credentials. The frontend will authenticate against `/api/auth/login`, acquire the JWT, store it in the HTTP session, and attach `Authorization: Bearer <token>` on subsequent requests to `/api/accounts` and `/api/v1/ledger/mutate`.
 
-### Step 3: Run Frontend Web
+### Option C: Zero-Dependency Standalone Mode (Mock Testing & Grading)
+No Docker, databases, or Kafka required:
 ```bash
 cd frontend-web
 mvn spring-boot:run
 ```
-Visit `http://localhost:8090`. Log in with your registered backend credentials. The frontend will authenticate against `/api/auth/login`, acquire the JWT, store it in the HTTP session, and attach `Authorization: Bearer <token>` on subsequent requests to `/api/accounts` and `/api/v1/ledger/mutate`.
+Visit `http://localhost:8090` to explore with pre-seeded test personas (Admin, Juan, Maria).
 
 ---
 
@@ -214,3 +237,10 @@ In `HttpBankingApiClient.java`, change the `ParameterizedTypeReference`:
 2. **Customer Directory (`/admin/customers`)**: Review submitted KYC identity documentation and click **Approve** or **Reject**.
 3. **Accounts Registry (`/admin/accounts`)**: View all accounts across all customers. Click **Freeze** to immediately lock an account (any subsequent mutation attempts will be blocked with an error).
 4. **Reconciliation Monitor (`/admin/reconciliation`)**: Periodic audit job monitor verifying consistency between Master DB (Oracle XE) and Audit Log (Postgres). Displays flagged variance, posting lag, and severity ratings (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), with a button to trigger batch reconciliation runs on demand.
+
+---
+
+## 7. REST API & Backend Testing Reference
+
+For testing raw REST endpoints directly through Postman or `curl` (including sample request payloads, idempotency key rules, and ledger audit verification), refer to the root [**System README**](../README.md#postman-testing-flow).
+

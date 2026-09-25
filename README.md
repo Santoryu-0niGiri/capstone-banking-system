@@ -1,32 +1,29 @@
-﻿# Capstone Banking System
+# Capstone Banking System
 
-This project is a multi-service banking platform built with Java 21, Spring Boot 3, Spring Cloud Gateway, Oracle, PostgreSQL, Redis, and Kafka.
+This project is an enterprise-grade multi-service retail banking platform and balance mutation engine built with Java 21, Spring Boot 3, Spring Cloud Gateway, Oracle XE 21c, PostgreSQL 15, Redis, Kafka, and a modern Thymeleaf Web Portal.
 
-The app is designed to let you:
-
-- register a customer
-- log in and receive a JWT
-- create accounts for a customer
-- check account balance
-- debit, credit, and transfer money
-- test the transaction audit flow through Postman
+The platform provides both:
+1. **Interactive Web UI Portal (`http://localhost:8090`)**: Role-aware customer and admin portals built with Thymeleaf and Bootstrap 5.3, complete with KYC onboarding, multi-currency accounts, live ForEx conversion, printable receipts, admin freeze/unfreeze governance, and reconciliation audits.
+2. **REST Microservice APIs (`http://localhost:8080`)**: High-throughput ledger engine exposed via Spring Cloud Gateway with JWT stateless security, Redis token blacklisting/caching, row-level pessimistic locking (`SELECT ... FOR UPDATE`), and an immutable PostgreSQL audit trail.
 
 ---
 
 ## System architecture
 
-| Service              | Port | Purpose                              |
-| -------------------- | ---: | ------------------------------------ |
-| api-gateway          | 8080 | API entry point and JWT validation   |
-| registration-service | 8081 | Customer registration                |
-| login-service        | 8082 | Login and JWT issuance               |
-| accounts-service     | 8083 | Account creation and balance lookup  |
-| transaction-service  | 8084 | Debit / credit / transfer processing |
-| notification-service | 8085 | Kafka notification consumer          |
-| oracle-db            | 1521 | Main banking database                |
-| postgres-db          | 5432 | Ledger audit database                |
-| redis                | 6379 | Cache and token/session support      |
-| kafka                | 9092 | Event streaming                      |
+| Service              | Port | Purpose                                                     |
+| -------------------- | ---: | ----------------------------------------------------------- |
+| **frontend-web**     | 8090 | Thymeleaf Web Portal (Customer & Admin Banking UI)          |
+| **api-gateway**      | 8080 | Edge gateway, JWT verification, and Redis token blacklisting|
+| **registration-service** | 8081 | Customer registration & KYC onboarding                  |
+| **login-service**    | 8082 | Authentication and JWT issuance                             |
+| **accounts-service** | 8083 | Multi-currency account provisioning & balance lookup        |
+| **transaction-service** | 8084 | Pessimistic-locked balance mutation (Deposit/Withdraw/Transfer) |
+| **notification-service** | 8085 | Kafka asynchronous notification consumer                 |
+| **oracle-db**        | 1521 | Main banking database (Oracle XE 21c - `XEPDB1`)            |
+| **postgres-db**      | 5432 | Ledger audit database (PostgreSQL 15 - `ledger_audit`)      |
+| **redis**            | 6379 | Token revocation blacklist and balance caching              |
+| **kafka**            | 9092 | Event streaming (`customer.registered`, `transaction.events`)|
+| **zookeeper**        | 2181 | Kafka cluster coordination                                  |
 
 ---
 
@@ -34,11 +31,11 @@ The app is designed to let you:
 
 Before running this project, make sure you have:
 
-- Java 21
-- Maven
+- Java 21 (JDK)
+- Maven 3.9+
 - Docker Desktop (or Docker Engine)
-- Postman
 - Git
+- Postman or `curl` (for API testing)
 
 Check versions:
 
@@ -59,66 +56,48 @@ git clone <your-repo-url>
 cd capstone-banking-system
 ```
 
-### 2) Build the Java services
+### 2) Build all Java modules
+
+The Dockerfiles use lightweight runtime images (`eclipse-temurin:21-jre-alpine`) that copy pre-built JARs from each module's `target/` directory.
+
+Compile and package both the backend services and the frontend web portal from the root:
 
 ```bash
-docker compose up -d oracle-db postgres-db redis zookeeper kafka
-```
-
-From the project root, compile and package all modules:
-
-```bash
+# 1. Build all backend microservices
 mvn clean package -DskipTests
+
+# 2. Build the frontend web portal
+cd frontend-web
+mvn clean package -DskipTests
+cd ..
 ```
 
-This produces a fat jar in `target/` for every service. Run this before starting Docker so the Dockerfiles have fresh jars to copy.
+This generates runnable fat JARs in `*/target/` across all services.
 
 ### 3) Start everything with Docker Compose
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 ```
 
-This builds every service image, then starts the full stack in dependency order:
+This builds every container image and starts the full banking stack in dependency order:
+- `zookeeper`, `kafka`, and `redis` start first
+- `oracle-db` and `postgres-db` start with container healthchecks
+- Application services (`api-gateway`, `registration-service`, `login-service`, `accounts-service`, `transaction-service`, `notification-service`) start once dependencies are healthy
+- `frontend-web` starts on port `8090`, pre-configured to communicate internally with `http://api-gateway:8080`
 
-- `zookeeper` and `kafka` start first
-- `oracle-db`, `postgres-db`, and `redis` start with healthchecks
-- All application services start only after their dependencies are healthy
+> **Note on First Run**: Oracle XE takes **1–2 minutes** on initial startup to create its datafiles and run the init scripts. Docker Compose healthchecks automatically wait for Oracle and PostgreSQL to report healthy before starting the microservices.
 
-Oracle takes **1–2 minutes** on the first run to initialize. The compose healthcheck retries automatically — the application services wait for it.
+### 4) Database Schema Initialization (and Troubleshooting)
 
-> **Important:** The Oracle SQL schema (`sql/oracle/oracle_main_db.sql`) and PostgreSQL schema (`sql/postgres/postgres_audit_db.sql`) are mounted as init scripts via Docker volumes. They run automatically on the **first startup** when the database volume is empty. If you have run the containers before without a fresh volume, the schema may already exist — or you may need to apply it manually (see step 4 below).
+The database schemas are mounted as container init scripts and execute automatically on first volume startup:
+- **Oracle XE 21c**: [`sql/oracle/oracle_main_db.sql`](sql/oracle/oracle_main_db.sql) switches to pluggable database `XEPDB1` under schema `LEDGER_APP`, creating `customer_master`, `customer_balance_master` (with `version NUMBER(19)`), `app_user_master`, and `transaction_master`.
+- **PostgreSQL 15**: [`sql/postgres/postgres_audit_db.sql`](sql/postgres/postgres_audit_db.sql) initializes the immutable audit tables in database `ledger_audit`.
 
-### 4) Apply the database schema (if needed)
-
-If the application services log `Schema-validation: missing table` on startup, the init scripts did not run. This happens when the database container was previously started with an existing volume.
-
-**For Oracle:**
-
+**If you ever need to manually re-apply the Oracle schema on an existing container:**
 ```bash
-docker cp sql/oracle/oracle_main_db.sql oracle-db:/tmp/oracle_main_db.sql
-docker exec oracle-db bash -c "sqlplus -S ledger_app/LedgerAppPass123@localhost:1521/XEPDB1 @/tmp/oracle_main_db.sql"
-```
-
-Also add the `version` column required by Hibernate optimistic locking:
-
-```bash
-docker exec oracle-db bash -c "sqlplus -S ledger_app/LedgerAppPass123@localhost:1521/XEPDB1 <<'EOF'
-ALTER TABLE account_master ADD (version NUMBER DEFAULT 0 NOT NULL);
-EXIT;
-EOF"
-```
-
-**For PostgreSQL** (usually initializes automatically):
-
-```bash
-docker exec postgres-db bash -c "psql -U ledger_audit -d ledger_audit -f /docker-entrypoint-initdb.d/postgres_audit_db.sql"
-```
-
-After applying the schema, restart the crashed services:
-
-```bash
-docker compose up -d registration-service login-service accounts-service transaction-service
+docker exec -i oracle-db bash -c "echo 'exit' | sqlplus -s / as sysdba @/container-entrypoint-initdb.d/oracle_main_db.sql"
+docker compose restart registration-service login-service accounts-service transaction-service
 ```
 
 ### 5) Verify all services are running
@@ -127,48 +106,47 @@ docker compose up -d registration-service login-service accounts-service transac
 docker ps --format "{{.Names}}\t{{.Status}}"
 ```
 
-Expected output — all containers `Up` with no restarts:
+Expected output — all 12 containers `Up` with zero unexpected restarts:
 
 ```
-accounts-service      Up X seconds
-transaction-service   Up X seconds
-login-service         Up X seconds
-registration-service  Up X seconds
-notification-service  Up X seconds
-api-gateway           Up X seconds
-postgres-db           Up X seconds (healthy)
-oracle-db             Up X seconds (healthy)
-redis                 Up X seconds (healthy)
-kafka                 Up X seconds
-zookeeper             Up X seconds
+frontend-web          Up X minutes
+api-gateway           Up X minutes
+transaction-service   Up X minutes
+registration-service  Up X minutes
+login-service         Up X minutes
+accounts-service      Up X minutes
+notification-service  Up X minutes
+postgres-db           Up X minutes (healthy)
+redis                 Up X minutes (healthy)
+oracle-db             Up X minutes (healthy)
+kafka                 Up X minutes
+zookeeper             Up X minutes
 ```
 
-You can also hit the health endpoints:
+Verify service connectivity:
 
-```
-http://localhost:8080/actuator/health   ← gateway
-http://localhost:8081/actuator/health   ← registration-service
-http://localhost:8082/actuator/health   ← login-service
-http://localhost:8083/actuator/health   ← accounts-service
-http://localhost:8084/actuator/health   ← transaction-service
+```bash
+curl http://localhost:8090/login             # ← Frontend Web Portal (HTTP 200)
+curl http://localhost:8080/actuator/health   # ← API Gateway (status: UP)
+curl http://localhost:8083/actuator/health   # ← Accounts Service (status: UP)
 ```
 
 ### 6) Watch logs (optional)
 
-To tail all service logs at once:
+To tail all service logs:
 
 ```bash
 docker compose logs -f
 ```
 
-To watch a specific service:
+To watch a specific microservice:
 
 ```bash
-docker compose logs -f registration-service
+docker compose logs -f api-gateway
+docker compose logs -f transaction-service
+docker compose logs -f frontend-web
 docker compose logs -f notification-service
 ```
-
-The notification-service logs a line every time a Kafka event is consumed — useful to confirm the event pipeline is working after a transaction.
 
 ### 7) Stop everything
 
@@ -176,23 +154,46 @@ The notification-service logs a line every time a Kafka event is consumed — us
 docker compose down
 ```
 
-To also wipe the database volumes (full reset):
+To wipe the database volumes for a completely clean slate (full reset):
 
 ```bash
 docker compose down -v
 ```
 
-> After `down -v`, the next `docker compose up --build` will re-initialize the databases from the init scripts automatically.
-
 ---
 
-For standalone testing instructions and a quick reference of mock payloads, please see the [**Testing Instructions**](TESTING_INSTRUCTIONS.md) document.
+## Web UI Portal (`frontend-web`)
+
+The frontend application provides a full-featured, responsive banking portal accessible at **`http://localhost:8090`**.
+
+### Two Ways to Run the Frontend:
+
+| Mode | Command | When to Use |
+| :--- | :--- | :--- |
+| **Full-Stack Integrated** | `docker compose up -d --build` | Full end-to-end integration. The frontend talks to `http://api-gateway:8080` and uses live database records. |
+| **Zero-Dependency Standalone (Mock)** | `cd frontend-web && mvn spring-boot:run` | Instant local UI testing, defenses, or grading without starting Docker or databases. Pre-seeded with realistic customer and admin personas. |
+
+### Demo Personas (Instant One-Click Testing in Standalone Mode):
+When running standalone, use the **Quick Switcher** bar at the top of the screen to jump between roles:
+- **Bank Administrator** (`admin@ledgerbank.com` / `admin123`):
+  - Executive KPI summary (consolidated liquidity across currencies, customer count, active vs frozen accounts).
+  - Customer directory with KYC verification (Approve / Reject identity documents).
+  - Account registry (Freeze / Unfreeze accounts with real-time balance mutation locks).
+  - Reconciliation monitor (Audit log vs. Master ledger discrepancy inspector).
+- **Customer: Juan Dela Cruz** (`juan.delacruz@example.com` / `password123`):
+  - Dual-currency portfolio: PHP Savings (₱45,250.00) & USD Checking ($1,500.00).
+  - Deposit, withdrawal, account statements, and printable transaction receipts.
+- **Customer: Maria Santos** (`maria.santos@example.com` / `password123`):
+  - Multi-currency portfolio (PHP, USD, EUR, Digital Wallet).
+  - Cross-currency transfer with dynamic real-time ForEx exchange rate calculation.
+
+For full architectural details, Anti-Corruption Layer (ACL) design, and instructions on adapting to backend API contract changes, refer to the [**Frontend Wiring & Contract Guide**](frontend-web/WIRING_AND_CONTRACT_GUIDE.md).
 
 ---
 
 ## API entry point
 
-All tests go through the gateway. Never call service ports directly.
+All REST calls go through the API Gateway at port `8080`. Never call downstream microservice ports directly.
 
 ```
 http://localhost:8080
