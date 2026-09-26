@@ -14,7 +14,8 @@ public class BackendDtos {
             String email,
             String contactNo,
             LocalDate birthDate,
-            String password
+            String password,
+            String role
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -37,7 +38,8 @@ public class BackendDtos {
             String tokenType,
             long expiresInSeconds,
             String customerId,
-            String email
+            String email,
+            String role
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -76,6 +78,16 @@ public class BackendDtos {
             BigDecimal balanceAfter,
             String txnStatus,
             String timestamp
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record CustomerRes(
+            String customerId,
+            String firstName,
+            String lastName,
+            String email,
+            String contactNo,
+            LocalDate birthDate
     ) {}
 }
 

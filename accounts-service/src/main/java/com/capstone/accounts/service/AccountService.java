@@ -101,6 +101,45 @@ public class AccountService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<AccountDTO> getAllAccounts() {
+        return accountRepository.findAll().stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    /**
+     * Admin governance: freeze, unfreeze, or close an account.
+     *
+     * Allowed statuses: ACTIVE | FROZEN | CLOSED
+     * Any in-flight mutation on a non-ACTIVE account will be rejected
+     * by TransactionService (assertActive guard) before touching balances.
+     */
+    @Transactional
+    public AccountDTO updateAccountStatus(String accountId, String newStatus) {
+        if (!java.util.Set.of("ACTIVE", "FROZEN", "CLOSED").contains(newStatus)) {
+            throw new IllegalArgumentException(
+                    "Invalid account status '" + newStatus
+                            + "'. Allowed: ACTIVE, FROZEN, CLOSED");
+        }
+
+        AccountMaster account = findOrThrow(accountId);
+        LocalDateTime now = LocalDateTime.now();
+
+        account.setAccountStatus(newStatus);
+        account.setUpdatedAt(now);
+        account.setUpdatedBy("ADMIN");
+
+        AccountMaster saved = accountRepository.save(account);
+
+        // Evict cached balance so stale data is not served after a status change.
+        balanceCacheService.evict(accountId);
+
+        log.info("Admin updated account {} status to {}", accountId, newStatus);
+        return toDto(saved);
+    }
+
+
     /**
      * Cache-aside read:
      * Redis hit returns immediately.
