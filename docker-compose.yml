@@ -198,6 +198,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+      accounts-service:
+        condition: service_started
     environment:
       ORACLE_URL: jdbc:oracle:thin:@oracle-db:1521/XEPDB1
       ORACLE_USERNAME: ledger_app
@@ -208,6 +210,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      ACCOUNTS_SERVICE_URL: http://accounts-service:8083
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
     networks:
       - banking-net
