@@ -46,5 +46,13 @@ public record TransactionRequest(
         BigDecimal feeAmount,
         Boolean isCrossCurrency
 ) {
+    public TransactionRequest(
+            String accountId,
+            String counterpartyAccountId,
+            String txnType,
+            BigDecimal amount,
+            String idempotencyKey) {
+        this(accountId, counterpartyAccountId, txnType, amount, idempotencyKey, null, null, null, null, false);
+    }
 }
 

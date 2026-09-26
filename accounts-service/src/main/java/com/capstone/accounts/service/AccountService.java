@@ -5,7 +5,9 @@ import com.capstone.accounts.repository.AccountRepository;
 import com.capstone.accounts.repository.CustomerRepository;
 import com.capstone.common.constants.KafkaTopics;
 import com.capstone.common.dto.AccountDTO;
+import com.capstone.common.dto.AccountMutationResponse;
 import com.capstone.common.dto.CreateAccountRequest;
+import com.capstone.common.exception.InsufficientBalanceException;
 import com.capstone.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -139,7 +141,6 @@ public class AccountService {
         return toDto(saved);
     }
 
-
     /**
      * Cache-aside read:
      * Redis hit returns immediately.
@@ -160,9 +161,92 @@ public class AccountService {
                 });
     }
 
+    /**
+     * Atomically debits the account under a PESSIMISTIC_WRITE row lock (SELECT ... FOR UPDATE).
+     * Serializes concurrent debits and ensures balance never drops below zero.
+     * Updates Redis balance cache immediately.
+     */
+    @Transactional
+    public AccountMutationResponse debit(String accountId, BigDecimal amount, String txnId, String txnType) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Debit amount must be greater than zero");
+        }
+
+        AccountMaster account = accountRepository.findByIdForUpdate(accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Account " + accountId + " not found"));
+
+        assertActive(account);
+
+        BigDecimal before = account.getBalanceAmount();
+        BigDecimal after = before.subtract(amount);
+
+        if (after.compareTo(BigDecimal.ZERO) < 0) {
+            throw new InsufficientBalanceException("Account " + accountId + " has insufficient balance");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        account.setBalanceAmount(after);
+        account.setUpdatedAt(now);
+        account.setUpdatedBy("SYSTEM");
+
+        accountRepository.save(account);
+
+        balanceCacheService.put(accountId, after);
+
+        return new AccountMutationResponse(
+                accountId,
+                before,
+                after,
+                amount.negate(),
+                account.getCurrencyCode()
+        );
+    }
+
+    /**
+     * Atomically credits the account under a PESSIMISTIC_WRITE row lock (SELECT ... FOR UPDATE).
+     * Updates Redis balance cache immediately.
+     */
+    @Transactional
+    public AccountMutationResponse credit(String accountId, BigDecimal amount, String txnId, String txnType) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Credit amount must be greater than zero");
+        }
+
+        AccountMaster account = accountRepository.findByIdForUpdate(accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Account " + accountId + " not found"));
+
+        assertActive(account);
+
+        BigDecimal before = account.getBalanceAmount();
+        BigDecimal after = before.add(amount);
+
+        LocalDateTime now = LocalDateTime.now();
+        account.setBalanceAmount(after);
+        account.setUpdatedAt(now);
+        account.setUpdatedBy("SYSTEM");
+
+        accountRepository.save(account);
+
+        balanceCacheService.put(accountId, after);
+
+        return new AccountMutationResponse(
+                accountId,
+                before,
+                after,
+                amount,
+                account.getCurrencyCode()
+        );
+    }
+
     // ----------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------
+
+    private void assertActive(AccountMaster account) {
+        if (!"ACTIVE".equalsIgnoreCase(account.getAccountStatus())) {
+            throw new IllegalStateException("Account " + account.getAccountId() + " is " + account.getAccountStatus());
+        }
+    }
 
     private AccountMaster findOrThrow(String accountId) {
         return accountRepository.findById(accountId)

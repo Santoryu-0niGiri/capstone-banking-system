@@ -7,19 +7,20 @@ import com.capstone.common.event.TransactionCompletedEvent;
 import com.capstone.common.event.TransactionCreatedEvent;
 import com.capstone.common.event.TransactionFailedEvent;
 import com.capstone.common.exception.IdempotencyConflictException;
+import com.capstone.common.dto.AccountMutationResponse;
 import com.capstone.common.exception.InsufficientBalanceException;
 import com.capstone.common.exception.LedgerPersistenceException;
 import com.capstone.common.exception.ResourceNotFoundException;
-import com.capstone.transaction.entity.oracle.AccountMaster;
+import com.capstone.transaction.client.AccountsServiceClient;
 import com.capstone.transaction.entity.oracle.TransactionMaster;
 import com.capstone.transaction.entity.postgres.LedgerMutationAudit;
 import com.capstone.transaction.kafka.TransactionEventProducer;
 import com.capstone.transaction.model.MutationResult;
 import com.capstone.transaction.model.TransferResult;
-import com.capstone.transaction.repository.oracle.AccountRepository;
 import com.capstone.transaction.repository.oracle.TransactionMasterRepository;
 import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -35,26 +36,24 @@ import java.util.UUID;
 /**
  * Core balance mutation engine: WITHDRAWAL, DEPOSIT, TRANSFER.
  *
- * ── Concurrency ──────────────────────────────────────────────────────────────
- * Every balance read that feeds a mutation uses PESSIMISTIC_WRITE
- * (AccountRepository#findByIdForUpdate → SELECT … FOR UPDATE with a 5-second
- * timeout). Concurrent requests against the same account(s) serialize at the
- * Oracle row level; balance_amount can never go below 0.
+ * ── Architecture ─────────────────────────────────────────────────────────────
+ * Delegates balance mutations to AccountsServiceClient (FC-38/39/40), which
+ * enforces PESSIMISTIC_WRITE locking at the Oracle row level in Accounts Service.
  *
  * ── Three-phase write per transaction ────────────────────────────────────────
- * Phase 1 (Oracle): Acquire row lock, validate balance, write
- *          ACCOUNT_MASTER + TRANSACTION_MASTER (txn_status=PENDING).
+ * Phase 1: Accounts Service applies balance mutation under row lock;
+ *          Transaction Service records TRANSACTION_MASTER (txn_status=PENDING).
  * Phase 2 (PostgreSQL): Append double-entry rows to ledger_mutation_audit.
  * Phase 3 (Oracle): Update TRANSACTION_MASTER txn_status → COMMITTED.
  *
- * If Phase 2 fails → compensating Oracle transaction reverses the balance
- * delta AND sets txn_status=ROLLED_BACK, then throws LedgerPersistenceException.
+ * If Phase 2 fails → compensating mutation reverses the balance in Accounts
+ * Service AND sets txn_status=ROLLED_BACK, then throws LedgerPersistenceException.
  */
 @Service
 @Slf4j
 public class TransactionService {
 
-    private final AccountRepository accountRepository;
+    private final AccountsServiceClient accountsServiceClient;
     private final TransactionMasterRepository txnMasterRepository;
     private final LedgerMutationAuditRepository auditRepository;
     private final TransactionTemplate oracleTx;
@@ -67,8 +66,9 @@ public class TransactionService {
     private final FxRateService fxRateService;
     private final com.capstone.transaction.repository.postgres.FxConversionAuditRepository fxConversionAuditRepository;
 
+    @Autowired
     public TransactionService(
-            AccountRepository accountRepository,
+            AccountsServiceClient accountsServiceClient,
             TransactionMasterRepository txnMasterRepository,
             LedgerMutationAuditRepository auditRepository,
             @Qualifier("oracleTransactionManager")
@@ -78,12 +78,16 @@ public class TransactionService {
             IdempotencyService idempotencyService,
             TransactionEventProducer eventProducer,
             BalanceCacheInvalidator balanceCacheInvalidator,
+            @Autowired(required = false)
             com.capstone.transaction.repository.postgres.TransactionOutboxRepository outboxRepository,
+            @Autowired(required = false)
             com.fasterxml.jackson.databind.ObjectMapper objectMapper,
+            @Autowired(required = false)
             FxRateService fxRateService,
+            @Autowired(required = false)
             com.capstone.transaction.repository.postgres.FxConversionAuditRepository fxConversionAuditRepository) {
 
-        this.accountRepository = accountRepository;
+        this.accountsServiceClient = accountsServiceClient;
         this.txnMasterRepository = txnMasterRepository;
         this.auditRepository = auditRepository;
         this.oracleTx = new TransactionTemplate(oracleTxManager);
@@ -95,6 +99,21 @@ public class TransactionService {
         this.objectMapper = objectMapper;
         this.fxRateService = fxRateService;
         this.fxConversionAuditRepository = fxConversionAuditRepository;
+    }
+
+    public TransactionService(
+            AccountsServiceClient accountsServiceClient,
+            TransactionMasterRepository txnMasterRepository,
+            LedgerMutationAuditRepository auditRepository,
+            PlatformTransactionManager oracleTxManager,
+            PlatformTransactionManager postgresTxManager,
+            IdempotencyService idempotencyService,
+            TransactionEventProducer eventProducer,
+            BalanceCacheInvalidator balanceCacheInvalidator) {
+
+        this(accountsServiceClient, txnMasterRepository, auditRepository,
+                oracleTxManager, postgresTxManager, idempotencyService,
+                eventProducer, balanceCacheInvalidator, null, null, null, null);
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -261,6 +280,18 @@ public TransactionResponse deposit(
             idempotencyService.release(
                     request.idempotencyKey());
 
+            rollbackTxnStatus(txnId);
+
+            eventProducer.publishFailed(
+                    new TransactionFailedEvent(
+                            UUID.fromString(txnId),
+                            request.accountId(),
+                            null,
+                            txnType,
+                            request.amount(),
+                            ex.getMessage(),
+                            Instant.now()));
+
             saveOutbox(txnId, "TRANSACTION_FAILED",
                 new TransactionFailedEvent(
                     UUID.fromString(txnId),
@@ -298,12 +329,9 @@ public TransactionResponse deposit(
                             + "' is already being processed");
         }
 
-       
-
         try {
 
-            // Phase 1:
-            // Oracle — debit source + credit destination
+            // Phase 1: Accounts Service debits source + credits destination
             TransferResult transferResult =
                     applyTransfer(
                             request.accountId(),
@@ -377,6 +405,18 @@ public TransactionResponse deposit(
             idempotencyService.release(
                     request.idempotencyKey());
 
+            rollbackTxnStatus(txnId);
+
+            eventProducer.publishFailed(
+                    new TransactionFailedEvent(
+                            UUID.fromString(txnId),
+                            request.accountId(),
+                            request.counterpartyAccountId(),
+                            "TRANSFER",
+                            request.amount(),
+                            ex.getMessage(),
+                            Instant.now()));
+
             saveOutbox(txnId, "TRANSACTION_FAILED",
                 new TransactionFailedEvent(
                     UUID.fromString(txnId),
@@ -394,6 +434,9 @@ public TransactionResponse deposit(
     // ── Helper ──────────────────────────────────────────────────────────────
 
     private void saveOutbox(String aggregateId, String eventType, Object event) {
+        if (outboxRepository == null || objectMapper == null) {
+            return;
+        }
         try {
             outboxRepository.save(
                     com.capstone.transaction.entity.postgres.TransactionOutbox.builder()
@@ -410,7 +453,7 @@ public TransactionResponse deposit(
         }
     }
 
-    // ── Oracle Phase 1 ────────────────────────────────────────────────────────
+    // ── Phase 1 Mutations ───────────────────────────────────────────────────
 
     private MutationResult applyDelta(
             String accountId,
@@ -420,76 +463,34 @@ public TransactionResponse deposit(
             String debitAccountId,
             String creditAccountId) {
 
-        MutationResult result =
-                oracleTx.execute(status -> {
-
-                    AccountMaster account =
-                            accountRepository
-                                    .findByIdForUpdate(accountId)
-                                    .orElseThrow(() ->
-                                            new ResourceNotFoundException(
-                                                    "Account "
-                                                            + accountId
-                                                            + " not found"));
-
-                    assertActive(account);
-
-                    BigDecimal before =
-                            account.getBalanceAmount();
-
-                    BigDecimal after =
-                            before.add(delta);
-
-                    if (after.compareTo(
-                            BigDecimal.ZERO) < 0) {
-
-                        throw new InsufficientBalanceException(
-                                "Account "
-                                        + accountId
-                                        + " has insufficient balance");
-                    }
-
-                    LocalDateTime now =
-                            LocalDateTime.now();
-
-                    account.setBalanceAmount(after);
-                    account.setUpdatedAt(now);
-                    account.setUpdatedBy("SYSTEM");
-
-                    accountRepository.save(account);
-
-                    TransactionMaster txnMaster =
-                            TransactionMaster.builder()
-                                    .txnId(txnId)
-                                    .txnType(txnType)
-                                    .debitAccountId(
-                                            debitAccountId)
-                                    .creditAccountId(
-                                            creditAccountId)
-                                    .mutationAmount(
-                                            delta.abs())
-                                    .txnStatus("PENDING")
-                                    .initiatedAt(now)
-                                    .createdAt(now)
-                                    .createdBy("SYSTEM")
-                                    .build();
-
-                    txnMasterRepository.save(txnMaster);
-
-                    return new MutationResult(
-                            before,
-                            after,
-                            delta);
-                });
-
-        if (result == null) {
-            throw new IllegalStateException(
-                    "Oracle transaction for account "
-                            + accountId
-                            + " returned no result");
+        AccountMutationResponse mutationResponse;
+        if ("DEBIT".equals(txnType) || "WITHDRAWAL".equals(txnType) || delta.compareTo(BigDecimal.ZERO) < 0) {
+            mutationResponse = accountsServiceClient.debit(accountId, delta.abs(), txnId, txnType);
+        } else {
+            mutationResponse = accountsServiceClient.credit(accountId, delta.abs(), txnId, txnType);
         }
 
-        return result;
+        LocalDateTime now = LocalDateTime.now();
+        oracleTx.executeWithoutResult(status -> {
+            TransactionMaster txnMaster = TransactionMaster.builder()
+                    .txnId(txnId)
+                    .txnType(txnType)
+                    .debitAccountId(debitAccountId)
+                    .creditAccountId(creditAccountId)
+                    .mutationAmount(delta.abs())
+                    .txnStatus("PENDING")
+                    .initiatedAt(now)
+                    .createdAt(now)
+                    .createdBy("SYSTEM")
+                    .build();
+
+            txnMasterRepository.save(txnMaster);
+        });
+
+        return new MutationResult(
+                mutationResponse.balanceBefore(),
+                mutationResponse.balanceAfter(),
+                delta);
     }
 
     private TransferResult applyTransfer(
@@ -498,133 +499,67 @@ public TransactionResponse deposit(
             BigDecimal amount,
             String txnId) {
 
-        String first =
-                sourceId.compareTo(destId) <= 0
-                        ? sourceId
-                        : destId;
+        AccountMutationResponse sourceResp =
+                accountsServiceClient.debit(sourceId, amount, txnId, "TRANSFER");
 
-        String second =
-                sourceId.compareTo(destId) <= 0
-                        ? destId
-                        : sourceId;
-
-        TransferResult result =
-                oracleTx.execute(status -> {
-
-                    AccountMaster firstAcct =
-                            accountRepository
-                                    .findByIdForUpdate(first)
-                                    .orElseThrow(() ->
-                                            new ResourceNotFoundException(
-                                                    "Account "
-                                                            + first
-                                                            + " not found"));
-
-                    AccountMaster secondAcct =
-                            accountRepository
-                                    .findByIdForUpdate(second)
-                                    .orElseThrow(() ->
-                                            new ResourceNotFoundException(
-                                                    "Account "
-                                                            + second
-                                                            + " not found"));
-
-                    AccountMaster source =
-                            first.equals(sourceId)
-                                    ? firstAcct
-                                    : secondAcct;
-
-                    AccountMaster dest =
-                            first.equals(sourceId)
-                                    ? secondAcct
-                                    : firstAcct;
-
-                    assertActive(source);
-                    assertActive(dest);
-
-                    BigDecimal sourceBefore =
-                            source.getBalanceAmount();
-
-                    BigDecimal sourceAfter =
-                            sourceBefore.subtract(amount);
-
-                    if (sourceAfter.compareTo(
-                            BigDecimal.ZERO) < 0) {
-
-                        throw new InsufficientBalanceException(
-                                "Account "
-                                        + sourceId
-                                        + " has insufficient balance for this transfer");
-                    }
-
-                    BigDecimal destBefore =
-                            dest.getBalanceAmount();
-
-                    boolean isCrossCurrency = !source.getCurrencyCode().equalsIgnoreCase(dest.getCurrencyCode());
-                    BigDecimal fxRate = isCrossCurrency 
-                            ? fxRateService.getExchangeRate(source.getCurrencyCode(), dest.getCurrencyCode()) 
-                            : null;
-                    BigDecimal destAmount = isCrossCurrency
-                            ? amount.multiply(fxRate).setScale(4, java.math.RoundingMode.HALF_UP)
-                            : amount;
-
-                    BigDecimal destAfter =
-                            destBefore.add(destAmount); // use converted amount
-
-                    LocalDateTime now =
-                            LocalDateTime.now();
-
-                    source.setBalanceAmount(sourceAfter);
-                    source.setUpdatedAt(now);
-                    source.setUpdatedBy("SYSTEM");
-
-                    dest.setBalanceAmount(destAfter);
-                    dest.setUpdatedAt(now);
-                    dest.setUpdatedBy("SYSTEM");
-
-                    accountRepository.save(source);
-                    accountRepository.save(dest);
-
-                    TransactionMaster txnMaster =
-                            TransactionMaster.builder()
-                                    .txnId(txnId)
-                                    .txnType("TRANSFER")
-                                    .debitAccountId(sourceId)
-                                    .creditAccountId(destId)
-                                    .mutationAmount(amount)
-                                    .isCrossCurrency(isCrossCurrency ? "Y" : "N")
-                                    .fxRate(fxRate)
-                                    .destAmount(isCrossCurrency ? destAmount : null)
-                                    .txnStatus("PENDING")
-                                    .initiatedAt(now)
-                                    .createdAt(now)
-                                    .createdBy("SYSTEM")
-                                    .build();
-
-                    txnMasterRepository.save(txnMaster);
-
-                    return new TransferResult(
-                            new MutationResult(
-                                    sourceBefore,
-                                    sourceAfter,
-                                    amount.negate()),
-                            new MutationResult(
-                                    destBefore,
-                                    destAfter,
-                                    destAmount), // pass the correct credit amount
-                            isCrossCurrency,
-                            fxRate,
-                            isCrossCurrency ? destAmount : null,
-                            source.getCurrencyCode(),
-                            dest.getCurrencyCode());
-                });
-
-        if (result == null) {
-            throw new IllegalStateException(
-                    "Oracle transfer transaction returned no result");
+        AccountMutationResponse destResp;
+        try {
+            destResp = accountsServiceClient.credit(destId, amount, txnId, "TRANSFER");
+        } catch (RuntimeException creditEx) {
+            log.error("Transfer failed crediting destination {}; compensating source {}", destId, sourceId);
+            try {
+                accountsServiceClient.credit(sourceId, amount, txnId, "TRANSFER_COMPENSATION");
+            } catch (Exception compEx) {
+                log.error("CRITICAL: Failed to compensate source account {} after destination credit failure", sourceId, compEx);
+            }
+            throw creditEx;
         }
 
-        return result;
+        boolean isCrossCurrency = sourceResp.currencyCode() != null
+                && destResp.currencyCode() != null
+                && !sourceResp.currencyCode().equalsIgnoreCase(destResp.currencyCode());
+
+        BigDecimal fxRate = null;
+        BigDecimal destAmount = amount;
+        if (isCrossCurrency && fxRateService != null) {
+            fxRate = fxRateService.getExchangeRate(sourceResp.currencyCode(), destResp.currencyCode());
+            if (fxRate != null) {
+                destAmount = amount.multiply(fxRate).setScale(4, java.math.RoundingMode.HALF_UP);
+            }
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        final BigDecimal finalFxRate = fxRate;
+        final BigDecimal finalDestAmount = destAmount;
+        final boolean finalIsCrossCurrency = isCrossCurrency;
+
+        oracleTx.executeWithoutResult(status -> {
+            TransactionMaster txnMaster = TransactionMaster.builder()
+                    .txnId(txnId)
+                    .txnType("TRANSFER")
+                    .debitAccountId(sourceId)
+                    .creditAccountId(destId)
+                    .mutationAmount(amount)
+                    .isCrossCurrency(finalIsCrossCurrency ? "Y" : "N")
+                    .fxRate(finalFxRate)
+                    .destAmount(finalIsCrossCurrency ? finalDestAmount : null)
+                    .txnStatus("PENDING")
+                    .initiatedAt(now)
+                    .createdAt(now)
+                    .createdBy("SYSTEM")
+                    .build();
+
+            txnMasterRepository.save(txnMaster);
+        });
+
+        return new TransferResult(
+                new MutationResult(sourceResp.balanceBefore(), sourceResp.balanceAfter(), sourceResp.appliedDelta()),
+                new MutationResult(destResp.balanceBefore(), destResp.balanceAfter(), destResp.appliedDelta()),
+                isCrossCurrency,
+                fxRate,
+                isCrossCurrency ? destAmount : null,
+                sourceResp.currencyCode(),
+                destResp.currencyCode());
     }
 
     // ── Dual-write Phase 2 + 3 ────────────────────────────────────────────────
@@ -640,38 +575,38 @@ public TransactionResponse deposit(
         try {
 
             postgresTx.executeWithoutResult(status -> {
-                    
-                    auditRepository.save(
-                            LedgerMutationAudit.builder()
-                                    .txnId(txnId)
-                                    .accountId(accountId)
-                                    .mutationAmount(amount)
-                                    .mutationType(mutationType)
-                                    .txnType(txnType)
-                                    .auditState("COMMITTED")
-                                    .createdAt(Instant.now())
-                                    .build());
 
-                    // Save outbox events within the same transaction
-                    saveOutbox(txnId, "TRANSACTION_CREATED",
+                auditRepository.save(
+                        LedgerMutationAudit.builder()
+                                .txnId(txnId)
+                                .accountId(accountId)
+                                .mutationAmount(amount)
+                                .mutationType(mutationType)
+                                .txnType(txnType)
+                                .auditState("COMMITTED")
+                                .createdAt(Instant.now())
+                                .build());
+
+                // Save outbox events within the same transaction
+                saveOutbox(txnId, "TRANSACTION_CREATED",
                         new com.capstone.common.event.TransactionCreatedEvent(
-                            UUID.fromString(txnId),
-                            accountId,
-                            null,
-                            txnType,
-                            amount,
-                            Instant.now()));
+                                UUID.fromString(txnId),
+                                accountId,
+                                null,
+                                txnType,
+                                amount,
+                                Instant.now()));
 
-                    saveOutbox(txnId, "TRANSACTION_COMPLETED",
+                saveOutbox(txnId, "TRANSACTION_COMPLETED",
                         new com.capstone.common.event.TransactionCompletedEvent(
-                            UUID.fromString(txnId),
-                            accountId,
-                            null,
-                            txnType,
-                            amount,
-                            result.balanceAfter(),
-                            Instant.now()));
-                });
+                                UUID.fromString(txnId),
+                                accountId,
+                                null,
+                                txnType,
+                                amount,
+                                result.balanceAfter(),
+                                Instant.now()));
+            });
 
             commitTxnStatus(txnId);
 
@@ -681,7 +616,7 @@ public TransactionResponse deposit(
 
             log.error(
                     "Ledger audit write failed for txn {}; "
-                            + "compensating Oracle on account {}",
+                            + "compensating on account {}",
                     txnId,
                     accountId,
                     ex);
@@ -689,7 +624,8 @@ public TransactionResponse deposit(
             compensate(
                     accountId,
                     result.appliedDelta(),
-                    txnId);
+                    txnId,
+                    "COMPENSATION");
 
             throw new LedgerPersistenceException(
                     "Failed to persist ledger audit for txn "
@@ -728,14 +664,14 @@ public TransactionResponse deposit(
                                 .accountId(
                                         request.counterpartyAccountId())
                                 .mutationAmount(
-                                        result.destResult().appliedDelta()) // uses actual destination amount!
+                                        result.destResult().appliedDelta().abs()) // positive amount for audit
                                 .mutationType("CREDIT")
                                 .txnType("TRANSFER")
                                 .auditState("COMMITTED")
                                 .createdAt(Instant.now())
                                 .build());
 
-                if (Boolean.TRUE.equals(result.isCrossCurrency())) {
+                if (Boolean.TRUE.equals(result.isCrossCurrency()) && fxConversionAuditRepository != null) {
                     fxConversionAuditRepository.save(
                             com.capstone.transaction.entity.postgres.FxConversionAudit.builder()
                                     .txnId(txnId)
@@ -750,23 +686,23 @@ public TransactionResponse deposit(
                 }
 
                 saveOutbox(txnId, "TRANSACTION_CREATED",
-                    new com.capstone.common.event.TransactionCreatedEvent(
-                        java.util.UUID.fromString(txnId),
-                        request.accountId(),
-                        request.counterpartyAccountId(),
-                        "TRANSFER",
-                        request.amount(),
-                        java.time.Instant.now()));
+                        new com.capstone.common.event.TransactionCreatedEvent(
+                                java.util.UUID.fromString(txnId),
+                                request.accountId(),
+                                request.counterpartyAccountId(),
+                                "TRANSFER",
+                                request.amount(),
+                                java.time.Instant.now()));
 
                 saveOutbox(txnId, "TRANSACTION_COMPLETED",
-                    new com.capstone.common.event.TransactionCompletedEvent(
-                        java.util.UUID.fromString(txnId),
-                        request.accountId(),
-                        request.counterpartyAccountId(),
-                        "TRANSFER",
-                        request.amount(),
-                        result.sourceResult().balanceAfter(),
-                        java.time.Instant.now()));
+                        new com.capstone.common.event.TransactionCompletedEvent(
+                                java.util.UUID.fromString(txnId),
+                                request.accountId(),
+                                request.counterpartyAccountId(),
+                                "TRANSFER",
+                                request.amount(),
+                                result.sourceResult().balanceAfter(),
+                                java.time.Instant.now()));
             });
 
             commitTxnStatus(txnId);
@@ -788,12 +724,14 @@ public TransactionResponse deposit(
             compensate(
                     request.accountId(),
                     result.sourceResult().appliedDelta(),
-                    txnId);
+                    txnId,
+                    "COMPENSATION");
 
             compensate(
                     request.counterpartyAccountId(),
                     result.destResult().appliedDelta(),
-                    txnId);
+                    txnId,
+                    "COMPENSATION");
 
             throw new LedgerPersistenceException(
                     "Failed to persist ledger audit for transfer txn "
@@ -808,51 +746,20 @@ public TransactionResponse deposit(
     private void compensate(
             String accountId,
             BigDecimal appliedDelta,
-            String txnId) {
+            String txnId,
+            String reason) {
 
         try {
+            if (appliedDelta.compareTo(BigDecimal.ZERO) < 0) {
+                accountsServiceClient.credit(accountId, appliedDelta.abs(), txnId, reason != null ? reason : "COMPENSATION");
+            } else if (appliedDelta.compareTo(BigDecimal.ZERO) > 0) {
+                accountsServiceClient.debit(accountId, appliedDelta.abs(), txnId, reason != null ? reason : "COMPENSATION");
+            }
 
-            oracleTx.executeWithoutResult(status -> {
-
-                AccountMaster account =
-                        accountRepository
-                                .findByIdForUpdate(accountId)
-                                .orElseThrow(() ->
-                                        new ResourceNotFoundException(
-                                                "Account "
-                                                        + accountId
-                                                        + " not found during compensation"));
-
-                LocalDateTime now =
-                        LocalDateTime.now();
-
-                account.setBalanceAmount(
-                        account.getBalanceAmount()
-                                .add(appliedDelta.negate()));
-
-                account.setUpdatedAt(now);
-                account.setUpdatedBy("SYSTEM");
-
-                accountRepository.save(account);
-
-                txnMasterRepository.findById(txnId)
-                        .ifPresent(txn -> {
-
-                            txn.setTxnStatus(
-                                    "ROLLED_BACK");
-
-                            txn.setCompletedAt(now);
-                            txn.setUpdatedAt(now);
-                            txn.setUpdatedBy("SYSTEM");
-
-                            txnMasterRepository.save(txn);
-                        });
-            });
-
+            rollbackTxnStatus(txnId);
             balanceCacheInvalidator.evict(accountId);
 
         } catch (RuntimeException compensationEx) {
-
             log.error(
                     "CRITICAL: compensation failed for account {} "
                             + "(delta {}, txnId {}). Manual reconciliation required.",
@@ -862,6 +769,23 @@ public TransactionResponse deposit(
                     compensationEx);
 
             throw compensationEx;
+        }
+    }
+
+    private void rollbackTxnStatus(String txnId) {
+        try {
+            oracleTx.executeWithoutResult(status ->
+                    txnMasterRepository.findById(txnId)
+                            .ifPresent(txn -> {
+                                LocalDateTime now = LocalDateTime.now();
+                                txn.setTxnStatus("ROLLED_BACK");
+                                txn.setCompletedAt(now);
+                                txn.setUpdatedAt(now);
+                                txn.setUpdatedBy("SYSTEM");
+                                txnMasterRepository.save(txn);
+                            }));
+        } catch (Exception e) {
+            log.warn("Failed to update txn {} status to ROLLED_BACK: {}", txnId, e.getMessage());
         }
     }
 
@@ -884,19 +808,4 @@ public TransactionResponse deposit(
                             txnMasterRepository.save(txn);
                         }));
     }
-
-    private void assertActive(
-            AccountMaster account) {
-
-        if (!"ACTIVE".equals(
-                account.getAccountStatus())) {
-
-            throw new IllegalStateException(
-                    "Account "
-                            + account.getAccountId()
-                            + " is not ACTIVE (status="
-                            + account.getAccountStatus()
-                            + ")");
-        }
-    }
-}
+}
