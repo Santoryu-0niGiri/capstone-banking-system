@@ -30,10 +30,26 @@ spring:
           filters:
             - JwtAuthentication
 
+        # Admin account governance (freeze/unfreeze/list) — routed to accounts-service
+        - id: admin-accounts-service
+          uri: http://accounts-service:8083
+          predicates:
+            - Path=/api/admin/accounts/**
+          filters:
+            - JwtAuthentication
+
+        # Admin customer directory — routed to registration-service
+        - id: admin-customers-service
+          uri: http://registration-service:8081
+          predicates:
+            - Path=/api/admin/customers/**
+          filters:
+            - JwtAuthentication
+
         - id: transaction-service
           uri: http://transaction-service:8084
           predicates:
-            - Path=/api/v1/ledger/**
+            - Path=/api/v1/ledger/**,/api/v1/fx-rate/**
           filters:
             - JwtAuthentication
 

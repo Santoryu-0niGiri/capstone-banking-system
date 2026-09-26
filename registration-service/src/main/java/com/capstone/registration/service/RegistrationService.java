@@ -65,6 +65,7 @@ public class RegistrationService {
                 .customerId(customerId)
                 .username(request.email())
                 .passwordHash(passwordEncoder.encode(request.password()))
+                .role(request.role() != null ? request.role() : "CUSTOMER")
                 .activeStatus("ACTIVE")
                 .createdAt(now)
                 .createdBy("SYSTEM")

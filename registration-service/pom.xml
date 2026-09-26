@@ -45,6 +45,12 @@
         <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
 
+    <!-- Redis for JWT token blacklist check in JwtAuthenticationFilter (admin endpoints) -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+
     <!-- Version is managed by the parent POM -->
     <dependency>
         <groupId>com.oracle.database.jdbc</groupId>

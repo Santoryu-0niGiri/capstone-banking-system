@@ -1,4 +1,7 @@
 package com.capstone.ledger.frontend.adapter;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.capstone.ledger.frontend.adapter.dto.ApiResponseDto;
 import com.capstone.ledger.frontend.adapter.dto.BackendDtos.*;
@@ -29,6 +32,8 @@ import java.util.Optional;
 @ConditionalOnProperty(name = "banking.backend.mode", havingValue = "gateway")
 public class HttpBankingApiClient implements BankingApiClient {
 
+    private static final Logger log = LoggerFactory.getLogger(HttpBankingApiClient.class);
+
     private final RestClient restClient;
     private final String gatewayUrl;
 
@@ -51,7 +56,15 @@ public class HttpBankingApiClient implements BankingApiClient {
 
             if (response != null && response.isSuccess() && response.getData() != null) {
                 LoginRes res = response.getData();
-                UserRole role = email.toLowerCase().contains("admin") ? UserRole.ADMIN : UserRole.CUSTOMER;
+                UserRole role = UserRole.CUSTOMER;
+                if (res.role() != null) {
+                    if (res.role().contains("ADMIN")) {
+                        role = UserRole.ADMIN;
+                    } 
+                } else if (email.toLowerCase().contains("admin")) { 
+                    role = UserRole.ADMIN; 
+                }
+
                 UserSession session = new UserSession(
                         res.customerId(), res.customerId(), res.email(), res.email(),
                         res.email(), role, res.token()
@@ -66,9 +79,12 @@ public class HttpBankingApiClient implements BankingApiClient {
 
     @Override
     public CustomerView registerCustomer(RegisterForm form) {
+        // Automatically determine role derived from email to allow creating admins easily via web form
+        String roleStr = form.getEmail() != null && form.getEmail().toLowerCase().contains("admin") ? "ADMIN" : "CUSTOMER";
+        
         RegisterReq req = new RegisterReq(
                 form.getFirstName(), form.getLastName(), form.getEmail(),
-                form.getContactNo(), form.getBirthDate(), form.getPassword()
+                form.getContactNo(), form.getBirthDate(), form.getPassword(), roleStr
         );
 
         ApiResponseDto<RegisterRes> response = restClient.post()
@@ -108,12 +124,32 @@ public class HttpBankingApiClient implements BankingApiClient {
 
     @Override
     public List<CustomerView> getAllCustomers() {
+        try {
+            ApiResponseDto<List<CustomerRes>> response = restClient.get()
+                    .uri("/api/admin/customers")
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponseDto<List<CustomerRes>>>() {});
+
+            if (response != null && response.getData() != null) {
+                return response.getData().stream().map(c -> {
+                    CustomerView view = new CustomerView();
+                    view.setCustomerId(c.customerId());
+                    view.setFirstName(c.firstName());
+                    view.setLastName(c.lastName());
+                    view.setEmail(c.email());
+                    view.setContactNo(c.contactNo());
+                    view.setBirthDate(c.birthDate());
+                    view.setKycStatus(KycStatus.VERIFIED);
+                    return view;
+                }).toList();
+            }
+        } catch (Exception ignored) {}
         return Collections.emptyList();
     }
 
     @Override
     public void updateKycStatus(String customerId, KycStatus status) {
-        // Hook for future Admin KYC service endpoint
+        // Hook for future Admin KYC verification endpoint
     }
 
     @Override
@@ -148,6 +184,16 @@ public class HttpBankingApiClient implements BankingApiClient {
 
     @Override
     public List<AccountView> getAllAccounts() {
+        try {
+            ApiResponseDto<List<AccountRes>> response = restClient.get()
+                    .uri("/api/admin/accounts")
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponseDto<List<AccountRes>>>() {});
+
+            if (response != null && response.getData() != null) {
+                return response.getData().stream().map(this::mapAccount).toList();
+            }
+        } catch (Exception ignored) {}
         return Collections.emptyList();
     }
 
@@ -181,7 +227,15 @@ public class HttpBankingApiClient implements BankingApiClient {
 
     @Override
     public void updateAccountStatus(String accountId, AccountStatus status) {
-        // Hook for accounts-service admin endpoint
+        try {
+            restClient.patch()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/admin/accounts/{accountId}/status")
+                            .queryParam("status", status != null ? status.name() : "ACTIVE")
+                            .build(accountId))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception ignored) {}
     }
 
     @Override
@@ -234,11 +288,28 @@ public class HttpBankingApiClient implements BankingApiClient {
 
     @Override
     public BigDecimal getExchangeRate(String fromCurrency, String toCurrency) {
-        if (fromCurrency.equalsIgnoreCase(toCurrency)) return BigDecimal.ONE;
-        if ("USD".equalsIgnoreCase(fromCurrency) && "PHP".equalsIgnoreCase(toCurrency)) return new BigDecimal("56.50");
-        if ("PHP".equalsIgnoreCase(fromCurrency) && "USD".equalsIgnoreCase(toCurrency)) return new BigDecimal("0.0177");
-        if ("EUR".equalsIgnoreCase(fromCurrency) && "PHP".equalsIgnoreCase(toCurrency)) return new BigDecimal("61.20");
-        return BigDecimal.ONE;
+        if (fromCurrency.equalsIgnoreCase(toCurrency)) {
+            return BigDecimal.ONE;
+        }
+
+        try {
+            Map<String, Object> response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/v1/fx-rate")
+                            .queryParam("sourceCurrency", fromCurrency)
+                            .queryParam("targetCurrency", toCurrency)
+                            .build())
+                    .retrieve()
+                    .body(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {});
+
+            if (response != null && response.containsKey("exchangeRate")) {
+                return new BigDecimal(response.get("exchangeRate").toString());
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch exchange rate for {} to {}", fromCurrency, toCurrency, e);
+        }
+
+        return BigDecimal.ONE; // Fallback
     }
 
     @Override

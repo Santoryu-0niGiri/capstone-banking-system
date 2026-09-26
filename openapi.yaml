@@ -2,11 +2,16 @@ openapi: 3.0.3
 info:
   title: Core Retail Ledger & Balance Mutation Engine API
   description: |
-    Comprehensive OpenAPI specification for the Capstone Banking System.
+    Comprehensive OpenAPI specification for the Capstone Banking System (Architecture v5 / ERD v3).
     This multi‑service banking platform provides customer onboarding, JWT‑based authentication,
     multi‑currency bank account management, atomic double‑entry balance mutation (DEPOSIT, WITHDRAWAL, TRANSFER),
-    pessimistic row locking, and an append‑only ledger audit trail.
-  version: 1.0.0
+    pessimistic row locking (`SELECT … FOR UPDATE`), an append‑only ledger audit trail (PostgreSQL),
+    a Transactional Outbox pattern (OUTBOX_MAIN on Oracle + OUTBOX_AUDIT on PostgreSQL),
+    and admin governance endpoints for account freeze/unfreeze and customer directory management.
+
+    **Admin endpoints** (`/api/admin/**`) require a JWT with `ROLE_ADMIN` claim.
+    All other protected endpoints require `ROLE_CUSTOMER` or `ROLE_ADMIN`.
+  version: 2.0.0
   contact:
     name: Capstone Banking Engineering Team
     email: dev@capstone.bank
@@ -23,11 +28,21 @@ servers:
     description: Transaction Service (Direct microservice port)
 tags:
   - name: Authentication & Registration
-    description: Customer registration, credential verification, JWT token issuance, and logout/blacklisting.
+    description: Customer registration, credential verification, JWT token issuance, and logout/token blacklisting.
   - name: Accounts Management
-    description: Creation and retrieval of savings, checking, and wallet accounts and real‑time balance inquiries.
+    description: Creation and retrieval of savings, checking, and wallet accounts with real‑time balance inquiries.
   - name: Ledger & Transactions
     description: High‑concurrency balance mutations (Deposit, Withdrawal, Transfer) and double‑entry audit trail lookup.
+  - name: Admin — Account Governance
+    description: |
+      **ADMIN only.** Freeze, unfreeze, and close accounts. List all accounts system-wide or filtered by customer.
+      Routes to **accounts-service** (port 8083) via API Gateway at `/api/admin/accounts/**`.
+      Requires `ROLE_ADMIN` JWT claim — requests from `ROLE_CUSTOMER` tokens are rejected by the gateway.
+  - name: Admin — Customer Directory
+    description: |
+      **ADMIN only.** Read-only access to `CUSTOMER_MASTER` for KYC review and customer lookup.
+      Routes to **registration-service** (port 8081) via API Gateway at `/api/admin/customers/**`.
+      Requires `ROLE_ADMIN` JWT claim.
 
 paths:
   /api/auth/register:
@@ -383,6 +398,180 @@ paths:
         "200":
           description: Audit rows.
           content:
+
+  /api/admin/accounts:
+    get:
+      tags:
+        - Admin — Account Governance
+      summary: List all accounts system-wide
+      description: |
+        Retrieves all registered bank accounts across all customers.
+        Supports optional filtering by customer ID for admin drill‑down views.
+      operationId: adminListAllAccounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: customerId
+          in: query
+          required: false
+          description: Filter results to a specific customer's UUID.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of accounts retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountListApiResponse"
+        "401":
+          description: Unauthorized / Missing token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "403":
+          description: Forbidden (Caller does not have `ROLE_ADMIN`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/admin/accounts/{accountId}/status:
+    patch:
+      tags:
+        - Admin — Account Governance
+      summary: Freeze or unfreeze an account
+      description: |
+        Updates `ACCOUNT_MASTER.account_status` (e.g. from `ACTIVE` to `FROZEN`) and evicts the corresponding Redis balance cache.
+        Mutations requested on `FROZEN` accounts are rejected by the transaction engine.
+      operationId: adminUpdateAccountStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [ACTIVE, FROZEN, CLOSED]
+      responses:
+        "200":
+          description: Account status updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountApiResponse"
+        "400":
+          description: Invalid status value provided.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "401":
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "403":
+          description: Forbidden (Caller does not have `ROLE_ADMIN`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Account not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/admin/customers:
+    get:
+      tags:
+        - Admin — Customer Directory
+      summary: List all registered customers
+      description: |
+        Retrieves the complete customer directory for KYC review and administrative actions.
+      operationId: adminListAllCustomers
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of customers retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerListApiResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "403":
+          description: Forbidden (Caller does not have `ROLE_ADMIN`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/admin/customers/{customerId}:
+    get:
+      tags:
+        - Admin — Customer Directory
+      summary: Retrieve a single customer's profile
+      description: |
+        Retrieves the profile of a single customer by their UUID.
+      operationId: adminGetCustomer
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Customer profile retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerApiResponse"
+        "401":
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "403":
+          description: Forbidden (Caller does not have `ROLE_ADMIN`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+        role:
+          type: string
+          description: Optional role to assign (defaults to CUSTOMER). Can be used to seed admin accounts.
+          enum: [CUSTOMER, ADMIN]
+          example: "ADMIN"
+          description: Customer not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
             application/json:
               schema:
                 $ref: "#/components/schemas/AuditListApiResponse"
@@ -422,6 +611,10 @@ components:
           type: string
           maxLength: 100
           example: "Reyes"
+        role:
+          type: string
+          description: Granted role authority claim (e.g. ROLE_CUSTOMER, ROLE_ADMIN).
+          example: "ROLE_ADMIN"
         email:
           type: string
           format: email
@@ -574,6 +767,121 @@ components:
 
     TransactionResponse:
       type: object
+
+    CustomerDTO:
+      type: object
+      properties:
+        customerId:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        firstName:
+          type: string
+          example: "Alice"
+        lastName:
+          type: string
+          example: "Reyes"
+        email:
+          type: string
+          format: email
+          example: "alice.reyes@example.com"
+        contactNo:
+          type: string
+          nullable: true
+          example: "+63-917-555-0100"
+        birthDate:
+          type: string
+          format: date
+          example: "1990-04-12"
+
+    CustomerApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation successful"
+        data:
+          $ref: "#/components/schemas/CustomerDTO"
+
+    CustomerListApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation successful"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomerDTO"
+
+    OutboxMainEvent:
+      type: object
+      description: |
+        Schema for events written to `OUTBOX_MAIN` (Oracle XE 21c).
+        Written atomically with `TRANSACTION_MASTER` mutations and relayed to Kafka.
+      properties:
+        outboxId:
+          type: string
+          format: uuid
+        aggregateType:
+          type: string
+          example: "TRANSACTION"
+        aggregateId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          example: "transaction.completed"
+        payload:
+          type: object
+        status:
+          type: string
+          enum: [PENDING, PUBLISHED, FAILED]
+        createdAt:
+          type: string
+          format: date-time
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    OutboxAuditEvent:
+      type: object
+      description: |
+        Schema for events written to `OUTBOX_AUDIT` (PostgreSQL 15+).
+        Written atomically with `LEDGER_MUTATION_AUDIT` double-entry rows and relayed to Kafka.
+      properties:
+        outboxId:
+          type: string
+          format: uuid
+        aggregateType:
+          type: string
+          example: "TRANSACTION"
+        aggregateId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          example: "ledger.mutation.posted"
+        payload:
+          type: object
+        status:
+          type: string
+          enum: [PENDING, PUBLISHED, FAILED]
+        createdAt:
+          type: string
+          format: date-time
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+
       properties:
         txnId:
           type: string
