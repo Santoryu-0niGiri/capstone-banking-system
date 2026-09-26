@@ -1,5 +1,9 @@
 server:
   port: 8083
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 20
 
 spring:
   application:
@@ -41,5 +45,4 @@ management:
 
 logging:
   level:
-<<<<<<< Updated upstream
     com.capstone: INFO
