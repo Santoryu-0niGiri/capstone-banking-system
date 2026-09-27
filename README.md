@@ -1,4 +1,4 @@
-﻿# Capstone Banking System
+# Capstone Banking System
 
 This project is a multi-service banking platform built with Java 21, Spring Boot 3, Spring Cloud Gateway, Oracle, PostgreSQL, Redis, and Kafka.
 
@@ -187,6 +187,15 @@ docker compose down -v
 ---
 
 For standalone testing instructions and a quick reference of mock payloads, please see the [**Testing Instructions**](TESTING_INSTRUCTIONS.md) document.
+
+### Automated Test Suite & Acceptance Verification
+
+All test suites and verification artifacts are available in the project root:
+
+- **1-Click Test Suite Runner**: Run `.\run_test_suite.ps1` in PowerShell to execute all 17 integration tests and generate `test_results_report.csv`.
+- **Excel Test Cases Specification**: [**`capstone_test_cases.csv`**](capstone_test_cases.csv) (21 test cases ready to open in Excel).
+- **Terminal Commands Guide**: [**`TEST_CASES_COMMANDS.md`**](TEST_CASES_COMMANDS.md) (Individual copy-pasteable commands for every test case).
+- **Concurrency & Deadlock Test**: Run `mvn test -pl transaction-service -Dtest=ParallelWithdrawalConcurrencyTest` to test 10 parallel threads against row locks.
 
 ---
 
