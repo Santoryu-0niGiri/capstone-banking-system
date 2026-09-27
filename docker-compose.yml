@@ -119,8 +119,6 @@ services:
       context: .
       dockerfile: registration-service/Dockerfile
     container_name: registration-service
-    ports:
-      - "8081:8081"
     depends_on:
       oracle-db:
         condition: service_healthy
@@ -140,8 +138,6 @@ services:
       context: .
       dockerfile: login-service/Dockerfile
     container_name: login-service
-    ports:
-      - "8082:8082"
     depends_on:
       oracle-db:
         condition: service_healthy
@@ -162,8 +158,6 @@ services:
       context: .
       dockerfile: accounts-service/Dockerfile
     container_name: accounts-service
-    ports:
-      - "8083:8083"
     depends_on:
       oracle-db:
         condition: service_healthy
@@ -187,8 +181,6 @@ services:
       context: .
       dockerfile: transaction-service/Dockerfile
     container_name: transaction-service
-    ports:
-      - "8084:8084"
     depends_on:
       oracle-db:
         condition: service_healthy
@@ -220,12 +212,29 @@ services:
       context: .
       dockerfile: notification-service/Dockerfile
     container_name: notification-service
-    ports:
-      - "8085:8085"
     depends_on:
       kafka:
         condition: service_started
     environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+    networks:
+      - banking-net
+
+  forex-service:
+    build:
+      context: .
+      dockerfile: forex-service/Dockerfile
+    container_name: forex-service
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      POSTGRES_URL: jdbc:postgresql://postgres-db:5432/ledger_audit
+      POSTGRES_USERNAME: ledger_audit
+      POSTGRES_PASSWORD: LedgerAuditPass123
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
     networks:

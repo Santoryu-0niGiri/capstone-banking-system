@@ -1,4 +1,4 @@
-package com.capstone.transaction.entity.postgres;
+package com.capstone.forex.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -52,6 +52,4 @@ public class FxConversionAudit {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
-
 }
-

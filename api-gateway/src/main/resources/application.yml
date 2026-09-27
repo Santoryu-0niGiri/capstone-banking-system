@@ -49,7 +49,14 @@ spring:
         - id: transaction-service
           uri: http://transaction-service:8084
           predicates:
-            - Path=/api/v1/ledger/**,/api/v1/fx-rate/**
+            - Path=/api/v1/ledger/**
+          filters:
+            - JwtAuthentication
+
+        - id: forex-service
+          uri: http://forex-service:8086
+          predicates:
+            - Path=/api/v1/fx-rate/**,/api/v1/forex/**
           filters:
             - JwtAuthentication
 

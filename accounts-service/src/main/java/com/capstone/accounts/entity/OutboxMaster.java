@@ -1,4 +1,4 @@
-package com.capstone.transaction.entity.oracle;
+package com.capstone.accounts.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,33 +13,28 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * Maps to OUTBOX_MAIN (Oracle XE 21c).
+ * Maps to OUTBOX_MASTER (Oracle XE 21c) for Accounts Service.
  *
- * Written atomically in the SAME Oracle transaction as the TRANSACTION_MASTER and
- * ACCOUNT_MASTER writes it describes. A scheduled relay (OutboxMainRelayService)
- * polls PENDING rows, publishes the event to Kafka, then marks them PUBLISHED.
- *
- * This guarantees that if the application crashes between the DB commit and the
- * Kafka publish, the event is never silently lost — the relay will republish it
- * on the next poll cycle.
- *
- * aggregate_type : "TRANSACTION"
- * aggregate_id   : txn_id
- * event_type     : e.g. "transaction.completed", "forex.conversion.requested"
- * status         : PENDING | PUBLISHED | FAILED  (DEFAULT 'PENDING')
+ * Persisted atomically in the same local Oracle transaction as ACCOUNT_MASTER mutations.
+ * A background relay (OutboxMasterRelayService) polls PENDING records, publishes to Kafka,
+ * and marks them PUBLISHED.
  */
 @Entity
-@Table(name = "outbox_main")
+@Table(name = "outbox_master")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class OutboxMain {
+public class OutboxMaster {
 
     @Id
     @Column(name = "outbox_id", length = 36, updatable = false, nullable = false)
     private String outboxId;
+
+    @Builder.Default
+    @Column(name = "source_service", nullable = false, length = 50)
+    private String sourceService = "accounts-service";
 
     @Column(name = "aggregate_type", nullable = false, length = 30)
     private String aggregateType;
@@ -50,7 +45,6 @@ public class OutboxMain {
     @Column(name = "event_type", nullable = false, length = 60)
     private String eventType;
 
-    /** JSON payload stored as a CLOB-compatible String in Oracle. */
     @Column(name = "payload", nullable = false)
     private String payload;
 

@@ -37,8 +37,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public: customer self-registration and actuator health
                         .requestMatchers("/api/auth/register/**", "/actuator/**").permitAll()
-                        // Admin endpoints: authenticated (JWT validated by gateway; inner filter confirms)
-                        .requestMatchers("/api/admin/customers/**").authenticated()
+                        // Admin endpoints: requires ROLE_ADMIN
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/customers/**").hasAnyRole("CUSTOMER", "ADMIN", "INTERNAL")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
