@@ -1,4 +1,4 @@
-package com.capstone.transaction.entity.postgres;
+package com.capstone.forex.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -44,4 +44,3 @@ public class FxRateCache {
     @Column(name = "source", nullable = false, length = 50)
     private String source;
 }
-

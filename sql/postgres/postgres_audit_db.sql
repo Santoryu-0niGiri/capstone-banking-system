@@ -233,7 +233,8 @@ COMMENT ON TABLE fx_rate_cache IS
 -- ---------------------------------------------------------------------
 CREATE TABLE outbox_audit (
     outbox_id       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    aggregate_type  VARCHAR(30)   NOT NULL,   -- e.g. 'TRANSACTION'
+    source_service  VARCHAR(50)   NOT NULL DEFAULT 'transaction-service',
+    aggregate_type  VARCHAR(30)   NOT NULL,   -- e.g. 'TRANSACTION', 'FOREX', 'LEDGER_MUTATION'
     aggregate_id    VARCHAR(36)   NOT NULL,   -- txn_id
     event_type      VARCHAR(60)   NOT NULL,   -- e.g. 'transaction.completed', 'forex.conversion.requested'
     payload         JSONB         NOT NULL,

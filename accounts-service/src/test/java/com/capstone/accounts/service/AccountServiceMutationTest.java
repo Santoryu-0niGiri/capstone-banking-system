@@ -1,11 +1,17 @@
 package com.capstone.accounts.service;
 
 import com.capstone.accounts.entity.AccountMaster;
+import com.capstone.accounts.entity.OutboxMaster;
 import com.capstone.accounts.repository.AccountRepository;
 import com.capstone.accounts.repository.CustomerRepository;
+import com.capstone.accounts.repository.OutboxMasterRepository;
+import com.capstone.common.constants.KafkaTopics;
 import com.capstone.common.dto.AccountMutationResponse;
+import com.capstone.common.event.CrossCurrencySettlementCompletedEvent;
+import com.capstone.common.event.ForexConversionCompletedEvent;
 import com.capstone.common.exception.InsufficientBalanceException;
 import com.capstone.common.exception.ResourceNotFoundException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,8 +22,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -38,6 +46,8 @@ class AccountServiceMutationTest {
     private BalanceCacheService balanceCacheService;
     @Mock
     private KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock
+    private OutboxMasterRepository outboxMasterRepository;
 
     private AccountService accountService;
 
@@ -47,12 +57,14 @@ class AccountServiceMutationTest {
                 accountRepository,
                 customerRepository,
                 balanceCacheService,
-                kafkaTemplate
+                kafkaTemplate,
+                outboxMasterRepository,
+                new ObjectMapper().findAndRegisterModules()
         );
     }
 
     @Test
-    @DisplayName("debit: succeeds when balance is sufficient")
+    @DisplayName("debit: succeeds when balance is sufficient, updates cache and writes OutboxMaster")
     void debit_sufficientBalance_success() {
         String accountId = "acct-123";
         AccountMaster account = AccountMaster.builder()
@@ -84,6 +96,7 @@ class AccountServiceMutationTest {
         assertThat(captor.getValue().getBalanceAmount()).isEqualByComparingTo("600.0000");
 
         verify(balanceCacheService).put(eq(accountId), eq(new BigDecimal("600.0000")));
+        verify(outboxMasterRepository).save(any(OutboxMaster.class));
     }
 
     @Test
@@ -128,7 +141,7 @@ class AccountServiceMutationTest {
     }
 
     @Test
-    @DisplayName("credit: increases balance and updates Redis cache")
+    @DisplayName("credit: increases balance, updates Redis cache, and writes OutboxMaster")
     void credit_success() {
         String accountId = "acct-456";
         AccountMaster account = AccountMaster.builder()
@@ -157,6 +170,102 @@ class AccountServiceMutationTest {
 
         verify(accountRepository).save(any());
         verify(balanceCacheService).put(eq(accountId), eq(new BigDecimal("1000.0000")));
+        verify(outboxMasterRepository).save(any(OutboxMaster.class));
+    }
+
+    @Test
+    @DisplayName("FC-47: settleCrossCurrency succeeds, locks and updates both accounts, writes outbox row")
+    void settleCrossCurrency_success() {
+        UUID txnId = UUID.randomUUID();
+        String sourceId = "acct-src-php";
+        String destId = "acct-dest-usd";
+        BigDecimal sourceAmt = new BigDecimal("5800.0000");
+        BigDecimal fxRate = new BigDecimal("0.01724138");
+        BigDecimal destAmt = new BigDecimal("100.0000");
+
+        ForexConversionCompletedEvent event = new ForexConversionCompletedEvent(
+                txnId,
+                sourceId,
+                destId,
+                "PHP",
+                "USD",
+                sourceAmt,
+                fxRate,
+                destAmt,
+                Instant.now()
+        );
+
+        AccountMaster source = AccountMaster.builder()
+                .accountId(sourceId)
+                .customerId("cust-1")
+                .accountStatus("ACTIVE")
+                .currencyCode("PHP")
+                .balanceAmount(new BigDecimal("10000.0000"))
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        AccountMaster dest = AccountMaster.builder()
+                .accountId(destId)
+                .customerId("cust-2")
+                .accountStatus("ACTIVE")
+                .currencyCode("USD")
+                .balanceAmount(new BigDecimal("50.0000"))
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        when(accountRepository.findByIdForUpdate(sourceId)).thenReturn(Optional.of(source));
+        when(accountRepository.findByIdForUpdate(destId)).thenReturn(Optional.of(dest));
+        when(accountRepository.save(any(AccountMaster.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CrossCurrencySettlementCompletedEvent settlement = accountService.settleCrossCurrency(event);
+
+        assertThat(settlement.txnId()).isEqualTo(txnId);
+        assertThat(settlement.sourceBalanceAfter()).isEqualByComparingTo("4200.0000");
+        assertThat(settlement.destBalanceAfter()).isEqualByComparingTo("150.0000");
+
+        verify(balanceCacheService).put(eq(sourceId), eq(new BigDecimal("4200.0000")));
+        verify(balanceCacheService).put(eq(destId), eq(new BigDecimal("150.0000")));
+
+        ArgumentCaptor<OutboxMaster> outboxCaptor = ArgumentCaptor.forClass(OutboxMaster.class);
+        verify(outboxMasterRepository).save(outboxCaptor.capture());
+        assertThat(outboxCaptor.getValue().getEventType()).isEqualTo(KafkaTopics.CROSSCURRENCY_SETTLEMENT_COMPLETED);
+        assertThat(outboxCaptor.getValue().getAggregateId()).isEqualTo(txnId.toString());
+    }
+
+    @Test
+    @DisplayName("FC-47: settleCrossCurrency throws InsufficientBalanceException when source balance too low")
+    void settleCrossCurrency_insufficientBalance_throwsException() {
+        UUID txnId = UUID.randomUUID();
+        String sourceId = "acct-src-php";
+        String destId = "acct-dest-usd";
+
+        ForexConversionCompletedEvent event = new ForexConversionCompletedEvent(
+                txnId,
+                sourceId,
+                destId,
+                "PHP",
+                "USD",
+                new BigDecimal("50000.0000"),
+                new BigDecimal("0.01724138"),
+                new BigDecimal("862.0000"),
+                Instant.now()
+        );
+
+        AccountMaster source = AccountMaster.builder()
+                .accountId(sourceId)
+                .customerId("cust-1")
+                .accountStatus("ACTIVE")
+                .currencyCode("PHP")
+                .balanceAmount(new BigDecimal("1000.0000"))
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        when(accountRepository.findByIdForUpdate(sourceId)).thenReturn(Optional.of(source));
+
+        assertThatThrownBy(() -> accountService.settleCrossCurrency(event))
+                .isInstanceOf(InsufficientBalanceException.class);
+
+        verify(accountRepository, never()).save(any());
+        verify(outboxMasterRepository, never()).save(any());
     }
 }
-

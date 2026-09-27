@@ -1,5 +1,13 @@
 server:
   port: 8084
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 20
+
+accounts:
+  service:
+    url: ${ACCOUNTS_SERVICE_URL:http://localhost:8083}
 
 spring:
   application:

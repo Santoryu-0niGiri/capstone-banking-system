@@ -112,6 +112,9 @@ CREATE TABLE transaction_master (
     debit_account_id   VARCHAR2(36),
     credit_account_id  VARCHAR2(36),
     mutation_amount    NUMBER(18,4)   NOT NULL,
+    is_cross_currency  VARCHAR2(1)    DEFAULT 'N' NOT NULL,
+    fx_rate            NUMBER(18,8),
+    dest_amount        NUMBER(18,4),
     txn_status         VARCHAR2(20)   DEFAULT 'PENDING' NOT NULL,
     initiated_at       TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
     completed_at       TIMESTAMP,
@@ -160,7 +163,8 @@ COMMENT ON TABLE transaction_master IS
 -- =====================================================================
 CREATE TABLE outbox_main (
     outbox_id       VARCHAR2(36)  NOT NULL,   -- app-generated, same convention as txn_id/account_id
-    aggregate_type  VARCHAR2(30)  NOT NULL,   -- e.g. 'TRANSACTION'
+    source_service  VARCHAR2(50)  DEFAULT 'transaction-service' NOT NULL,
+    aggregate_type  VARCHAR2(30)  NOT NULL,   -- e.g. 'TRANSACTION', 'ACCOUNT', 'CROSS_CURRENCY'
     aggregate_id    VARCHAR2(36)  NOT NULL,   -- txn_id
     event_type      VARCHAR2(60)  NOT NULL,   -- e.g. 'transaction.completed', 'forex.conversion.requested'
     payload         JSON          NOT NULL,

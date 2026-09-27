@@ -1,5 +1,7 @@
 package com.capstone.transaction.service;
 
+import com.capstone.common.constants.KafkaTopics;
+import com.capstone.common.dto.AccountDTO;
 import com.capstone.common.dto.AccountMutationResponse;
 import com.capstone.common.dto.TransactionRequest;
 import com.capstone.common.dto.TransactionResponse;
@@ -7,11 +9,14 @@ import com.capstone.common.exception.InsufficientBalanceException;
 import com.capstone.common.exception.LedgerPersistenceException;
 import com.capstone.common.exception.ResourceNotFoundException;
 import com.capstone.transaction.client.AccountsServiceClient;
+import com.capstone.transaction.entity.oracle.OutboxMain;
 import com.capstone.transaction.entity.oracle.TransactionMaster;
 import com.capstone.transaction.entity.postgres.LedgerMutationAudit;
 import com.capstone.transaction.kafka.TransactionEventProducer;
+import com.capstone.transaction.repository.oracle.OutboxMainRepository;
 import com.capstone.transaction.repository.oracle.TransactionMasterRepository;
 import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,6 +28,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -59,6 +65,11 @@ class TransactionServiceRefactorTest {
     @Mock
     private BalanceCacheInvalidator balanceCacheInvalidator;
 
+    @Mock
+    private OutboxMainRepository outboxMainRepository;
+
+    private ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+
     private TransactionService transactionService;
 
     @BeforeEach
@@ -75,7 +86,9 @@ class TransactionServiceRefactorTest {
                 postgresTxManager,
                 idempotencyService,
                 eventProducer,
-                balanceCacheInvalidator
+                balanceCacheInvalidator,
+                outboxMainRepository,
+                objectMapper
         );
     }
 
@@ -383,6 +396,77 @@ class TransactionServiceRefactorTest {
         verify(balanceCacheInvalidator, atLeastOnce()).evict(accountId);
         verify(idempotencyService).release(idemKey);
         verify(eventProducer).publishFailed(any());
+    }
+
+    @Test
+    @DisplayName("transfer: cross-currency transfer initiates outbox event, creates PENDING transaction, and returns 200 with PENDING status")
+    void transfer_crossCurrency_initiatesOutboxEventAndReturnsPending() {
+        UUID txnId = UUID.randomUUID();
+        String sourceId = "acct-usd";
+        String destId = "acct-php";
+        BigDecimal amount = new BigDecimal("100.0000");
+        String idemKey = "idem-cross-1";
+
+        TransactionRequest request = new TransactionRequest(
+                sourceId,
+                destId,
+                "TRANSFER",
+                amount,
+                idemKey
+        );
+
+        when(idempotencyService.getCached(idemKey)).thenReturn(Optional.empty());
+        when(idempotencyService.tryLock(idemKey)).thenReturn(true);
+
+        AccountDTO srcAccount = new AccountDTO(
+                sourceId, "cust-1", "SAVINGS", "ACTIVE",
+                new BigDecimal("500.0000"), "USD", LocalDateTime.now()
+        );
+        AccountDTO destAccount = new AccountDTO(
+                destId, "cust-2", "SAVINGS", "ACTIVE",
+                new BigDecimal("25000.0000"), "PHP", LocalDateTime.now()
+        );
+
+        when(accountsServiceClient.getAccount(sourceId)).thenReturn(srcAccount);
+        when(accountsServiceClient.getAccount(destId)).thenReturn(destAccount);
+
+        TransactionResponse response = transactionService.transfer(request, txnId);
+
+        assertThat(response.txnId()).isEqualTo(txnId);
+        assertThat(response.accountId()).isEqualTo(sourceId);
+        assertThat(response.txnType()).isEqualTo("TRANSFER");
+        assertThat(response.amount()).isEqualByComparingTo(amount);
+        assertThat(response.txnStatus()).isEqualTo("PENDING");
+        assertThat(response.isCrossCurrency()).isTrue();
+        assertThat(response.targetCurrency()).isEqualTo("PHP");
+
+        // Verify TRANSACTION_MASTER saved with is_cross_currency = Y and txn_status = PENDING
+        ArgumentCaptor<TransactionMaster> masterCaptor = ArgumentCaptor.forClass(TransactionMaster.class);
+        verify(txnMasterRepository).save(masterCaptor.capture());
+        TransactionMaster savedMaster = masterCaptor.getValue();
+        assertThat(savedMaster.getTxnId()).isEqualTo(txnId.toString());
+        assertThat(savedMaster.getDebitAccountId()).isEqualTo(sourceId);
+        assertThat(savedMaster.getCreditAccountId()).isEqualTo(destId);
+        assertThat(savedMaster.getIsCrossCurrency()).isEqualTo("Y");
+        assertThat(savedMaster.getTxnStatus()).isEqualTo("PENDING");
+
+        // Verify OUTBOX_MAIN saved with FOREX_CONVERSION_REQUESTED
+        ArgumentCaptor<OutboxMain> outboxCaptor = ArgumentCaptor.forClass(OutboxMain.class);
+        verify(outboxMainRepository).save(outboxCaptor.capture());
+        OutboxMain savedOutbox = outboxCaptor.getValue();
+        assertThat(savedOutbox.getSourceService()).isEqualTo("transaction-service");
+        assertThat(savedOutbox.getAggregateType()).isEqualTo("TRANSACTION");
+        assertThat(savedOutbox.getAggregateId()).isEqualTo(txnId.toString());
+        assertThat(savedOutbox.getEventType()).isEqualTo(KafkaTopics.FOREX_CONVERSION_REQUESTED);
+        assertThat(savedOutbox.getStatus()).isEqualTo("PENDING");
+        assertThat(savedOutbox.getPayload()).contains("USD").contains("PHP").contains("100.0000");
+
+        // Verify idempotency stored and event produced
+        verify(idempotencyService).storeResult(eq(idemKey), eq(response));
+        verify(eventProducer).publishCreated(any());
+        // Verify no direct mutation called against accounts service yet (async loop will do it)
+        verify(accountsServiceClient, never()).debit(any(), any(), any(), any());
+        verify(accountsServiceClient, never()).credit(any(), any(), any(), any());
     }
 }
 

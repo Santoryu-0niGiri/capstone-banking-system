@@ -1,27 +1,33 @@
 package com.capstone.accounts.service;
 
 import com.capstone.accounts.entity.AccountMaster;
+import com.capstone.accounts.entity.OutboxMaster;
 import com.capstone.accounts.repository.AccountRepository;
 import com.capstone.accounts.repository.CustomerRepository;
+import com.capstone.accounts.repository.OutboxMasterRepository;
 import com.capstone.common.constants.KafkaTopics;
 import com.capstone.common.dto.AccountDTO;
 import com.capstone.common.dto.AccountMutationResponse;
 import com.capstone.common.dto.CreateAccountRequest;
+import com.capstone.common.event.BalanceUpdatedEvent;
+import com.capstone.common.event.CrossCurrencySettlementCompletedEvent;
+import com.capstone.common.event.ForexConversionCompletedEvent;
 import com.capstone.common.exception.InsufficientBalanceException;
 import com.capstone.common.exception.ResourceNotFoundException;
-import lombok.RequiredArgsConstructor;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AccountService {
 
@@ -29,6 +35,32 @@ public class AccountService {
     private final CustomerRepository customerRepository;
     private final BalanceCacheService balanceCacheService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OutboxMasterRepository outboxMasterRepository;
+    private final ObjectMapper objectMapper;
+
+    @Autowired
+    public AccountService(
+            AccountRepository accountRepository,
+            CustomerRepository customerRepository,
+            BalanceCacheService balanceCacheService,
+            KafkaTemplate<String, Object> kafkaTemplate,
+            @Autowired(required = false) OutboxMasterRepository outboxMasterRepository,
+            @Autowired(required = false) ObjectMapper objectMapper) {
+        this.accountRepository = accountRepository;
+        this.customerRepository = customerRepository;
+        this.balanceCacheService = balanceCacheService;
+        this.kafkaTemplate = kafkaTemplate;
+        this.outboxMasterRepository = outboxMasterRepository;
+        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper().findAndRegisterModules();
+    }
+
+    public AccountService(
+            AccountRepository accountRepository,
+            CustomerRepository customerRepository,
+            BalanceCacheService balanceCacheService,
+            KafkaTemplate<String, Object> kafkaTemplate) {
+        this(accountRepository, customerRepository, balanceCacheService, kafkaTemplate, null, null);
+    }
 
     /**
      * Creates an account for an existing customer.
@@ -74,19 +106,22 @@ public class AccountService {
 
         AccountDTO dto = toDto(saved);
 
-        kafkaTemplate.send(
-                KafkaTopics.ACCOUNT_CREATED,
-                saved.getAccountId(),
-                dto
-        ).whenComplete((result, ex) -> {
-            if (ex != null) {
-                log.warn(
-                        "Failed to publish account.created for accountId={}",
-                        saved.getAccountId(),
-                        ex
-                );
-            }
-        });
+        // Save to transactional outbox in Oracle (atomic with account creation)
+        saveOutbox("ACCOUNT", saved.getAccountId(), KafkaTopics.ACCOUNT_CREATED, dto);
+
+        // Immediate direct publish attempt for fast notification
+        if (kafkaTemplate != null) {
+            kafkaTemplate.send(
+                    KafkaTopics.ACCOUNT_CREATED,
+                    saved.getAccountId(),
+                    dto
+            ).whenComplete((result, ex) -> {
+                if (ex != null) {
+                    log.warn("Direct publish account.created failed for accountId={}; outbox relay will guarantee delivery",
+                            saved.getAccountId());
+                }
+            });
+        }
 
         return dto;
     }
@@ -151,12 +186,10 @@ public class AccountService {
         return balanceCacheService.get(accountId)
                 .orElseGet(() -> {
                     AccountMaster acct = findOrThrow(accountId);
-
                     balanceCacheService.put(
                             accountId,
                             acct.getBalanceAmount()
                     );
-
                     return acct.getBalanceAmount();
                 });
     }
@@ -192,6 +225,19 @@ public class AccountService {
         accountRepository.save(account);
 
         balanceCacheService.put(accountId, after);
+
+        // Atomic outbox write
+        saveOutbox("ACCOUNT", accountId, KafkaTopics.BALANCE_UPDATED,
+                new BalanceUpdatedEvent(
+                        accountId,
+                        before,
+                        after,
+                        amount.negate(),
+                        account.getCurrencyCode(),
+                        txnId,
+                        txnType,
+                        Instant.now()
+                ));
 
         return new AccountMutationResponse(
                 accountId,
@@ -229,6 +275,19 @@ public class AccountService {
 
         balanceCacheService.put(accountId, after);
 
+        // Atomic outbox write
+        saveOutbox("ACCOUNT", accountId, KafkaTopics.BALANCE_UPDATED,
+                new BalanceUpdatedEvent(
+                        accountId,
+                        before,
+                        after,
+                        amount,
+                        account.getCurrencyCode(),
+                        txnId,
+                        txnType,
+                        Instant.now()
+                ));
+
         return new AccountMutationResponse(
                 accountId,
                 before,
@@ -238,9 +297,92 @@ public class AccountService {
         );
     }
 
+    /**
+     * Settles a cross-currency transfer leg under pessimistic locks (FC-47).
+     * Debits the source account and credits destination account with converted amount,
+     * then queues a CrossCurrencySettlementCompletedEvent into OUTBOX_MAIN.
+     */
+    @Transactional
+    public CrossCurrencySettlementCompletedEvent settleCrossCurrency(ForexConversionCompletedEvent event) {
+        log.info("Settling cross-currency transfer txnId={} src={} dest={} srcAmt={} destAmt={}",
+                event.txnId(), event.sourceAccountId(), event.destAccountId(), event.sourceAmount(), event.destAmount());
+
+        AccountMaster source = accountRepository.findByIdForUpdate(event.sourceAccountId())
+                .orElseThrow(() -> new ResourceNotFoundException("Source account " + event.sourceAccountId() + " not found"));
+        assertActive(source);
+
+        if (source.getBalanceAmount().compareTo(event.sourceAmount()) < 0) {
+            log.error("Insufficient balance for cross-currency txnId={} on account={}", event.txnId(), source.getAccountId());
+            throw new InsufficientBalanceException("Account " + source.getAccountId() + " has insufficient balance");
+        }
+
+        AccountMaster dest = accountRepository.findByIdForUpdate(event.destAccountId())
+                .orElseThrow(() -> new ResourceNotFoundException("Destination account " + event.destAccountId() + " not found"));
+        assertActive(dest);
+
+        BigDecimal srcBefore = source.getBalanceAmount();
+        BigDecimal srcAfter = srcBefore.subtract(event.sourceAmount());
+        source.setBalanceAmount(srcAfter);
+        source.setUpdatedAt(LocalDateTime.now());
+        source.setUpdatedBy("SYSTEM");
+        accountRepository.save(source);
+        balanceCacheService.put(source.getAccountId(), srcAfter);
+
+        BigDecimal destBefore = dest.getBalanceAmount();
+        BigDecimal destAfter = destBefore.add(event.destAmount());
+        dest.setBalanceAmount(destAfter);
+        dest.setUpdatedAt(LocalDateTime.now());
+        dest.setUpdatedBy("SYSTEM");
+        accountRepository.save(dest);
+        balanceCacheService.put(dest.getAccountId(), destAfter);
+
+        CrossCurrencySettlementCompletedEvent settlementEvent = new CrossCurrencySettlementCompletedEvent(
+                event.txnId(),
+                source.getAccountId(),
+                dest.getAccountId(),
+                event.sourceCurrency(),
+                event.destCurrency(),
+                event.sourceAmount(),
+                event.fxRate(),
+                event.destAmount(),
+                srcAfter,
+                destAfter,
+                Instant.now()
+        );
+
+        saveOutbox("CROSS_CURRENCY", event.txnId().toString(), KafkaTopics.CROSSCURRENCY_SETTLEMENT_COMPLETED, settlementEvent);
+
+        log.info("Successfully settled cross-currency transfer txnId={} srcAfter={} destAfter={}",
+                event.txnId(), srcAfter, destAfter);
+
+        return settlementEvent;
+    }
+
     // ----------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------
+
+    private void saveOutbox(String aggregateType, String aggregateId, String eventType, Object payload) {
+        if (outboxMasterRepository == null) {
+            return;
+        }
+        try {
+            String json = payload instanceof String s ? s : objectMapper.writeValueAsString(payload);
+            OutboxMaster outbox = OutboxMaster.builder()
+                    .outboxId(UUID.randomUUID().toString())
+                    .sourceService("accounts-service")
+                    .aggregateType(aggregateType)
+                    .aggregateId(aggregateId)
+                    .eventType(eventType)
+                    .payload(json)
+                    .status("PENDING")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            outboxMasterRepository.save(outbox);
+        } catch (Exception e) {
+            log.error("Failed to save to OutboxMaster: aggregateId={}, eventType={}", aggregateId, eventType, e);
+        }
+    }
 
     private void assertActive(AccountMaster account) {
         if (!"ACTIVE".equalsIgnoreCase(account.getAccountStatus())) {

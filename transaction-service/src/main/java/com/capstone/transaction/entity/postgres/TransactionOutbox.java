@@ -42,6 +42,10 @@ public class TransactionOutbox {
     @Column(name = "outbox_id", updatable = false, nullable = false)
     private UUID outboxId;
 
+    @Builder.Default
+    @Column(name = "source_service", nullable = false, length = 50)
+    private String sourceService = "transaction-service";
+
     @Column(name = "aggregate_type", nullable = false, length = 30)
     private String aggregateType;
 

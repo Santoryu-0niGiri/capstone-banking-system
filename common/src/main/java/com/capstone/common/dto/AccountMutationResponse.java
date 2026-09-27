@@ -2,9 +2,6 @@ package com.capstone.common.dto;
 
 import java.math.BigDecimal;
 
-/**
- * Result returned by Accounts Service after a successful debit or credit mutation.
- */
 public record AccountMutationResponse(
         String accountId,
         BigDecimal balanceBefore,
@@ -12,3 +9,4 @@ public record AccountMutationResponse(
         BigDecimal appliedDelta,
         String currencyCode
 ) {}
+

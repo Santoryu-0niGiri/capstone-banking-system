@@ -231,6 +231,27 @@ services:
     networks:
       - banking-net
 
+  forex-service:
+    build:
+      context: .
+      dockerfile: forex-service/Dockerfile
+    container_name: forex-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      POSTGRES_URL: jdbc:postgresql://postgres-db:5432/ledger_audit
+      POSTGRES_USERNAME: ledger_audit
+      POSTGRES_PASSWORD: LedgerAuditPass123
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+    networks:
+      - banking-net
+
   frontend-web:
     build:
       context: .
