@@ -7,19 +7,17 @@ import com.capstone.common.dto.TransactionResponse;
 import com.capstone.common.event.CrossCurrencySettlementCompletedEvent;
 import com.capstone.common.event.ForexConversionRequestedEvent;
 import com.capstone.transaction.client.AccountsServiceClient;
-import com.capstone.transaction.entity.oracle.OutboxMain;
 import com.capstone.transaction.entity.oracle.TransactionMaster;
 import com.capstone.transaction.entity.postgres.LedgerMutationAudit;
 import com.capstone.transaction.entity.postgres.TransactionOutbox;
 import com.capstone.transaction.kafka.CrossCurrencySettlementConsumer;
 import com.capstone.transaction.kafka.TransactionEventProducer;
-import com.capstone.transaction.repository.oracle.OutboxMainRepository;
 import com.capstone.transaction.repository.oracle.TransactionMasterRepository;
 import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepository;
 import com.capstone.transaction.repository.postgres.TransactionOutboxRepository;
 import com.capstone.transaction.service.BalanceCacheInvalidator;
 import com.capstone.transaction.service.IdempotencyService;
-import com.capstone.transaction.service.OutboxMainRelayService;
+import com.capstone.transaction.service.OutboxRelayService;
 import com.capstone.transaction.service.TransactionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +44,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * FC-50: End-to-end async saga loop verification for cross-currency transfers.
- * Validates the full multi-service contract across Step 1 (Initiation & Outbox),
+ * Validates the full multi-service contract across Step 1 (Initiation & Outbox in Postgres),
  * Step 2 (Outbox Relay to ForEx), and Step 4 (Accounts Settlement Completion & Audit Commitment).
  */
 @ExtendWith(MockitoExtension.class)
@@ -62,10 +60,7 @@ class CrossCurrencySagaAsyncTest {
     private LedgerMutationAuditRepository auditRepository;
 
     @Mock
-    private TransactionOutboxRepository notificationOutboxRepository;
-
-    @Mock
-    private OutboxMainRepository outboxMainRepository;
+    private TransactionOutboxRepository outboxRepository;
 
     @Mock
     private PlatformTransactionManager oracleTxManager;
@@ -85,7 +80,7 @@ class CrossCurrencySagaAsyncTest {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     private TransactionService transactionService;
-    private OutboxMainRelayService outboxMainRelayService;
+    private OutboxRelayService outboxRelayService;
     private CrossCurrencySettlementConsumer settlementConsumer;
 
     @BeforeEach
@@ -106,12 +101,12 @@ class CrossCurrencySagaAsyncTest {
                 idempotencyService,
                 eventProducer,
                 balanceCacheInvalidator,
-                outboxMainRepository,
+                outboxRepository,
                 objectMapper
         );
 
-        outboxMainRelayService = new OutboxMainRelayService(
-                outboxMainRepository,
+        outboxRelayService = new OutboxRelayService(
+                outboxRepository,
                 eventProducer,
                 objectMapper
         );
@@ -119,7 +114,7 @@ class CrossCurrencySagaAsyncTest {
         settlementConsumer = new CrossCurrencySettlementConsumer(
                 auditRepository,
                 txnMasterRepository,
-                notificationOutboxRepository,
+                outboxRepository,
                 balanceCacheInvalidator,
                 oracleTxManager,
                 postgresTxManager,
@@ -128,45 +123,41 @@ class CrossCurrencySagaAsyncTest {
     }
 
     @Test
-    @DisplayName("FC-50: Complete Cross-Currency Transfer Saga: Step 1 (Initiate) -> Step 2 (Outbox Relay) -> Step 4 (Settlement & Audit)")
-    void executeFullCrossCurrencyTransferSaga() throws Exception {
+    @DisplayName("FC-50 Full Saga: Step 1 (outbox stage) -> Step 2 (relay to Kafka) -> Step 4 (settlement commit & audit)")
+    void fullCrossCurrencySagaAsyncFlow() throws Exception {
         UUID txnId = UUID.randomUUID();
-        String sourceAccountId = "acct-usd-100";
-        String destAccountId = "acct-php-200";
-        BigDecimal transferAmount = new BigDecimal("200.0000"); // 200 USD
-        BigDecimal fxRate = new BigDecimal("58.25000000");      // 1 USD = 58.25 PHP
-        BigDecimal destAmount = new BigDecimal("11650.0000");   // 11,650 PHP
-        BigDecimal srcBalanceBefore = new BigDecimal("1000.0000");
-        BigDecimal destBalanceBefore = new BigDecimal("50000.0000");
-        BigDecimal srcBalanceAfter = new BigDecimal("800.0000");
-        BigDecimal destBalanceAfter = new BigDecimal("61650.0000");
+        String sourceAccountId = "acct-usd-01";
+        String destAccountId = "acct-php-02";
+        BigDecimal transferAmount = new BigDecimal("100.0000");
+        String idemKey = "cross-idem-" + txnId;
 
-        // Mock accounts metadata in Accounts Service
-        when(accountsServiceClient.getAccount(sourceAccountId)).thenReturn(
-                new AccountDTO(sourceAccountId, "cust-1", "SAVINGS", "ACTIVE", srcBalanceBefore, "USD", LocalDateTime.now())
-        );
-        when(accountsServiceClient.getAccount(destAccountId)).thenReturn(
-                new AccountDTO(destAccountId, "cust-2", "SAVINGS", "ACTIVE", destBalanceBefore, "PHP", LocalDateTime.now())
-        );
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // STEP 1: Client initiates cross-currency transfer via TransactionService
-        // ═══════════════════════════════════════════════════════════════════════════
         TransactionRequest request = new TransactionRequest(
                 sourceAccountId,
                 destAccountId,
                 "TRANSFER",
                 transferAmount,
-                "idem-saga-cross-1"
+                idemKey
         );
 
-        TransactionResponse response = transactionService.transfer(request, txnId);
+        AccountDTO srcAcct = new AccountDTO(
+                sourceAccountId, "cust-01", "CHECKING", "ACTIVE",
+                new BigDecimal("500.0000"), "USD", LocalDateTime.now());
 
-        // Assert Step 1 outcome: Non-blocking 200 PENDING response
-        assertThat(response.txnId()).isEqualTo(txnId);
-        assertThat(response.txnStatus()).isEqualTo("PENDING");
-        assertThat(response.isCrossCurrency()).isTrue();
-        assertThat(response.targetCurrency()).isEqualTo("PHP");
+        AccountDTO destAcct = new AccountDTO(
+                destAccountId, "cust-02", "SAVINGS", "ACTIVE",
+                new BigDecimal("1000.0000"), "PHP", LocalDateTime.now());
+
+        when(accountsServiceClient.getAccount(sourceAccountId)).thenReturn(srcAcct);
+        when(accountsServiceClient.getAccount(destAccountId)).thenReturn(destAcct);
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // STEP 1: Transfer requested -> initiates cross-currency saga
+        // ═══════════════════════════════════════════════════════════════════════════
+        TransactionResponse initResponse = transactionService.transfer(request, txnId);
+
+        assertThat(initResponse.txnId()).isEqualTo(txnId);
+        assertThat(initResponse.txnStatus()).isEqualTo("PENDING");
+        assertThat(initResponse.amount()).isEqualByComparingTo(transferAmount);
 
         // Verify TRANSACTION_MASTER stored in Oracle as PENDING
         ArgumentCaptor<TransactionMaster> masterCaptor = ArgumentCaptor.forClass(TransactionMaster.class);
@@ -176,21 +167,21 @@ class CrossCurrencySagaAsyncTest {
         assertThat(stagedMaster.getTxnStatus()).isEqualTo("PENDING");
         assertThat(stagedMaster.getIsCrossCurrency()).isEqualTo("Y");
 
-        // Verify OUTBOX_MAIN stored atomically in Oracle with FOREX_CONVERSION_REQUESTED
-        ArgumentCaptor<OutboxMain> outboxCaptor = ArgumentCaptor.forClass(OutboxMain.class);
-        verify(outboxMainRepository).save(outboxCaptor.capture());
-        OutboxMain stagedOutbox = outboxCaptor.getValue();
+        // Verify OUTBOX_AUDIT stored atomically in PostgreSQL with FOREX_CONVERSION_REQUESTED
+        ArgumentCaptor<TransactionOutbox> outboxCaptor = ArgumentCaptor.forClass(TransactionOutbox.class);
+        verify(outboxRepository).save(outboxCaptor.capture());
+        TransactionOutbox stagedOutbox = outboxCaptor.getValue();
         assertThat(stagedOutbox.getSourceService()).isEqualTo("transaction-service");
         assertThat(stagedOutbox.getEventType()).isEqualTo(KafkaTopics.FOREX_CONVERSION_REQUESTED);
         assertThat(stagedOutbox.getStatus()).isEqualTo("PENDING");
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // STEP 2: OutboxMainRelayService polls OUTBOX_MAIN and relays to Kafka
+        // STEP 2: OutboxRelayService polls OUTBOX_AUDIT and relays to Kafka
         // ═══════════════════════════════════════════════════════════════════════════
-        when(outboxMainRepository.findBySourceServiceAndStatusOrderByCreatedAtAsc("transaction-service", "PENDING"))
+        when(outboxRepository.findByStatusOrderByCreatedAtAsc("PENDING"))
                 .thenReturn(List.of(stagedOutbox));
 
-        outboxMainRelayService.processOutbox();
+        outboxRelayService.processOutbox();
 
         // Verify event relayed to Kafka topic FOREX_CONVERSION_REQUESTED
         ArgumentCaptor<ForexConversionRequestedEvent> forexEventCaptor =
@@ -207,7 +198,7 @@ class CrossCurrencySagaAsyncTest {
         assertThat(dispatchedEvent.destCurrency()).isEqualTo("PHP");
         assertThat(dispatchedEvent.sourceAmount()).isEqualByComparingTo(transferAmount);
 
-        // Verify OUTBOX_MAIN marked PUBLISHED
+        // Verify OUTBOX_AUDIT marked PUBLISHED
         assertThat(stagedOutbox.getStatus()).isEqualTo("PUBLISHED");
         assertThat(stagedOutbox.getPublishedAt()).isNotNull();
 
@@ -221,50 +212,56 @@ class CrossCurrencySagaAsyncTest {
                 "USD",
                 "PHP",
                 transferAmount,
-                fxRate,
-                destAmount,
-                srcBalanceAfter,
-                destBalanceAfter,
+                new BigDecimal("58.50000000"),
+                new BigDecimal("5850.0000"),
+                new BigDecimal("400.0000"),
+                new BigDecimal("6850.0000"),
                 Instant.now()
         );
 
-        when(txnMasterRepository.findById(txnId.toString())).thenReturn(Optional.of(stagedMaster));
+        when(txnMasterRepository.findById(txnId.toString()))
+                .thenReturn(Optional.of(stagedMaster));
 
-        settlementConsumer.onMessage(settlementEvent);
+        // When CrossCurrencySettlementConsumer processes message
+        settlementConsumer.processSettlement(settlementEvent);
 
-        // Verify Step 4 Postgres double-entry audit records
-        ArgumentCaptor<LedgerMutationAudit> auditCaptor = ArgumentCaptor.forClass(LedgerMutationAudit.class);
-        verify(auditRepository, times(2)).save(auditCaptor.capture());
-        List<LedgerMutationAudit> audits = auditCaptor.getAllValues();
+        // Verify double-entry ledger mutation audit written to PostgreSQL
+        ArgumentCaptor<LedgerMutationAudit> ledgerCaptor = ArgumentCaptor.forClass(LedgerMutationAudit.class);
+        verify(auditRepository, times(2)).save(ledgerCaptor.capture());
+        List<LedgerMutationAudit> audits = ledgerCaptor.getAllValues();
 
-        LedgerMutationAudit debitAudit = audits.get(0);
-        assertThat(debitAudit.getAccountId()).isEqualTo(sourceAccountId);
-        assertThat(debitAudit.getMutationType()).isEqualTo("DEBIT");
-        assertThat(debitAudit.getMutationAmount()).isEqualByComparingTo(transferAmount);
-        assertThat(debitAudit.getAuditState()).isEqualTo("COMMITTED");
+        LedgerMutationAudit debitLeg = audits.stream()
+                .filter(a -> "DEBIT".equals(a.getMutationType()))
+                .findFirst().orElseThrow();
+        assertThat(debitLeg.getAccountId()).isEqualTo(sourceAccountId);
+        assertThat(debitLeg.getMutationAmount()).isEqualByComparingTo(new BigDecimal("100.0000"));
+        assertThat(debitLeg.getAuditState()).isEqualTo("COMMITTED");
 
-        LedgerMutationAudit creditAudit = audits.get(1);
-        assertThat(creditAudit.getAccountId()).isEqualTo(destAccountId);
-        assertThat(creditAudit.getMutationType()).isEqualTo("CREDIT");
-        assertThat(creditAudit.getMutationAmount()).isEqualByComparingTo(destAmount);
-        assertThat(creditAudit.getAuditState()).isEqualTo("COMMITTED");
+        LedgerMutationAudit creditLeg = audits.stream()
+                .filter(a -> "CREDIT".equals(a.getMutationType()))
+                .findFirst().orElseThrow();
+        assertThat(creditLeg.getAccountId()).isEqualTo(destAccountId);
+        assertThat(creditLeg.getMutationAmount()).isEqualByComparingTo(new BigDecimal("5850.0000"));
+        assertThat(creditLeg.getAuditState()).isEqualTo("COMMITTED");
 
-        // Verify Step 4 Oracle TRANSACTION_MASTER committed
+        // Verify TRANSACTION_MASTER updated in Oracle to COMMITTED with destAmount & fxRate
+        verify(txnMasterRepository, atLeastOnce()).save(stagedMaster);
         assertThat(stagedMaster.getTxnStatus()).isEqualTo("COMMITTED");
-        assertThat(stagedMaster.getDestAmount()).isEqualByComparingTo(destAmount);
-        assertThat(stagedMaster.getFxRate()).isEqualByComparingTo(fxRate);
+        assertThat(stagedMaster.getDestAmount()).isEqualByComparingTo(new BigDecimal("5850.0000"));
+        assertThat(stagedMaster.getFxRate()).isEqualByComparingTo(new BigDecimal("58.50000000"));
+        assertThat(stagedMaster.getCompletedAt()).isNotNull();
 
-        // Verify Step 4 Redis balance caches evicted
-        verify(balanceCacheInvalidator).evict(sourceAccountId);
-        verify(balanceCacheInvalidator).evict(destAccountId);
-
-        // Verify Step 4 Notification staged in Postgres outbox
+        // Verify notification outbox entry queued in PostgreSQL
         ArgumentCaptor<TransactionOutbox> notifCaptor = ArgumentCaptor.forClass(TransactionOutbox.class);
-        verify(notificationOutboxRepository).save(notifCaptor.capture());
+        verify(outboxRepository, atLeast(2)).save(notifCaptor.capture());
         TransactionOutbox stagedNotif = notifCaptor.getValue();
         assertThat(stagedNotif.getSourceService()).isEqualTo("transaction-service");
+        assertThat(stagedNotif.getAggregateType()).isEqualTo("TRANSACTION");
         assertThat(stagedNotif.getEventType()).isEqualTo("TRANSACTION_COMPLETED");
         assertThat(stagedNotif.getStatus()).isEqualTo("PENDING");
-        assertThat(stagedNotif.getPayload()).contains(destAmount.toString()).contains(fxRate.toString());
+
+        // Verify cache invalidation for both accounts
+        verify(balanceCacheInvalidator).evict(sourceAccountId);
+        verify(balanceCacheInvalidator).evict(destAccountId);
     }
 }

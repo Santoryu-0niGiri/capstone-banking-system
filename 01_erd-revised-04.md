@@ -5,7 +5,7 @@ erDiagram
     CUSTOMER_MASTER ||--o{ APP_USER_MASTER : has
     ACCOUNT_MASTER ||--o{ TRANSACTION_MASTER : "debit leg"
     ACCOUNT_MASTER ||--o{ TRANSACTION_MASTER : "credit leg"
-    TRANSACTION_MASTER ||--o{ OUTBOX_MAIN : "raises event"
+    ACCOUNT_MASTER ||--o{ OUTBOX_MASTER : "raises event"
 
     %% ===== cross-database (logical, not enforced FKs) =====
     CUSTOMER_MASTER ||--o{ NOTIFICATION_AUDIT : "has history in"
@@ -18,6 +18,7 @@ erDiagram
     LEDGER_MUTATION_AUDIT ||--o| RECON_RESULT_AUDIT : "matched by"
     LEDGER_MUTATION_AUDIT ||--o| RECON_RESULT_AUDIT : "flagged as duplicate of"
     LEDGER_MUTATION_AUDIT ||--o{ OUTBOX_AUDIT : "raises event"
+    FX_CONVERSION_AUDIT ||--o{ OUTBOX_AUDIT : "raises event"
     RECON_RESULT_AUDIT ||--o{ OUTBOX_AUDIT : "raises event"
 
     CUSTOMER_MASTER {
@@ -77,11 +78,12 @@ erDiagram
         string updated_by
     }
 
-    OUTBOX_MAIN {
+    OUTBOX_MASTER {
         string outbox_id PK "app-generated VARCHAR2(36)"
-        string aggregate_type "e.g. TRANSACTION"
-        string aggregate_id "txn_id"
-        string event_type "e.g. transaction.completed"
+        string source_service "VARCHAR2(50) DEFAULT 'accounts-service'"
+        string aggregate_type "e.g. ACCOUNT, CROSS_CURRENCY"
+        string aggregate_id "account_id or txn_id"
+        string event_type "e.g. account.created, balance.updated, crosscurrency.settlement.completed"
         json payload
         string status "PENDING, PUBLISHED, FAILED"
         datetime created_at
@@ -163,9 +165,10 @@ erDiagram
 
     OUTBOX_AUDIT {
         string outbox_id PK
-        string aggregate_type "e.g. LEDGER_MUTATION, RECON_RESULT"
+        string source_service "VARCHAR(50) DEFAULT 'transaction-service'"
+        string aggregate_type "e.g. TRANSACTION, FOREX, LEDGER_MUTATION"
         string aggregate_id "txn_id or mutation_uuid"
-        string event_type "e.g. ledger.mutation.posted"
+        string event_type "e.g. transaction.completed, forex.conversion.requested"
         json payload
         string status "PENDING, PUBLISHED, FAILED"
         datetime created_at
@@ -183,7 +186,7 @@ erDiagram
     class ACCOUNT_MASTER ledgerSvc
     class APP_USER_MASTER ledgerSvc
     class TRANSACTION_MASTER ledgerSvc
-    class OUTBOX_MAIN ledgerSvc
+    class OUTBOX_MASTER ledgerSvc
     class LEDGER_MUTATION_AUDIT ledgerSvc
 
     class FX_CONVERSION_AUDIT forexSvc

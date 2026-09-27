@@ -13,15 +13,15 @@ import com.capstone.common.dto.AccountDTO;
 import com.capstone.common.dto.AccountMutationResponse;
 import com.capstone.common.event.ForexConversionRequestedEvent;
 import com.capstone.transaction.client.AccountsServiceClient;
-import com.capstone.transaction.entity.oracle.OutboxMain;
 import com.capstone.transaction.entity.oracle.TransactionMaster;
 import com.capstone.transaction.entity.postgres.LedgerMutationAudit;
+import com.capstone.transaction.entity.postgres.TransactionOutbox;
 import com.capstone.transaction.kafka.TransactionEventProducer;
 import com.capstone.transaction.model.MutationResult;
 import com.capstone.transaction.model.TransferResult;
-import com.capstone.transaction.repository.oracle.OutboxMainRepository;
 import com.capstone.transaction.repository.oracle.TransactionMasterRepository;
 import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepository;
+import com.capstone.transaction.repository.postgres.TransactionOutboxRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -32,6 +32,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -55,7 +56,7 @@ public class TransactionService {
     private final IdempotencyService idempotencyService;
     private final TransactionEventProducer eventProducer;
     private final BalanceCacheInvalidator balanceCacheInvalidator;
-    private final OutboxMainRepository outboxMainRepository;
+    private final TransactionOutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -71,7 +72,7 @@ public class TransactionService {
             TransactionEventProducer eventProducer,
             BalanceCacheInvalidator balanceCacheInvalidator,
             @org.springframework.beans.factory.annotation.Autowired(required = false)
-            OutboxMainRepository outboxMainRepository,
+            TransactionOutboxRepository outboxRepository,
             @org.springframework.beans.factory.annotation.Autowired(required = false)
             ObjectMapper objectMapper) {
 
@@ -83,7 +84,7 @@ public class TransactionService {
         this.idempotencyService = idempotencyService;
         this.eventProducer = eventProducer;
         this.balanceCacheInvalidator = balanceCacheInvalidator;
-        this.outboxMainRepository = outboxMainRepository;
+        this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper().findAndRegisterModules();
     }
 
@@ -425,7 +426,7 @@ public TransactionResponse deposit(
                     Instant.now()
             );
 
-            // Phase 1: Oracle — Record TRANSACTION_MASTER (PENDING, cross-currency) and OUTBOX_MAIN
+            // Phase 1: Oracle — Record TRANSACTION_MASTER (PENDING, cross-currency)
             oracleTx.executeWithoutResult(status -> {
                 TransactionMaster txnMaster = TransactionMaster.builder()
                         .txnId(txnId.toString())
@@ -441,28 +442,28 @@ public TransactionResponse deposit(
                         .build();
 
                 txnMasterRepository.save(txnMaster);
+            });
 
-                if (outboxMainRepository != null) {
+            // Phase 2: PostgreSQL — Queue FOREX_CONVERSION_REQUESTED to outbox_audit
+            if (outboxRepository != null) {
+                postgresTx.executeWithoutResult(status -> {
                     try {
-                        OutboxMain outboxMain = OutboxMain.builder()
-                                .outboxId(UUID.randomUUID().toString())
+                        TransactionOutbox outbox = TransactionOutbox.builder()
                                 .sourceService("transaction-service")
                                 .aggregateType("TRANSACTION")
                                 .aggregateId(txnId.toString())
                                 .eventType(KafkaTopics.FOREX_CONVERSION_REQUESTED)
                                 .payload(objectMapper.writeValueAsString(outboxEvent))
                                 .status("PENDING")
-                                .createdAt(now)
+                                .createdAt(OffsetDateTime.now())
                                 .build();
 
-                        outboxMainRepository.save(outboxMain);
+                        outboxRepository.save(outbox);
                     } catch (Exception e) {
-                        throw new RuntimeException("Failed to serialize ForexConversionRequestedEvent to outbox_main", e);
+                        throw new RuntimeException("Failed to serialize ForexConversionRequestedEvent to outbox_audit", e);
                     }
-                }
-            });
-
-            if (outboxMainRepository == null) {
+                });
+            } else {
                 eventProducer.publishToTopic(
                         KafkaTopics.FOREX_CONVERSION_REQUESTED,
                         txnId.toString(),

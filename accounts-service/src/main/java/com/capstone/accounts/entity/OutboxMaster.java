@@ -13,14 +13,14 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * Maps to OUTBOX_MAIN (Oracle XE 21c) for Accounts Service.
+ * Maps to OUTBOX_MASTER (Oracle XE 21c) for Accounts Service.
  *
  * Persisted atomically in the same local Oracle transaction as ACCOUNT_MASTER mutations.
  * A background relay (OutboxMasterRelayService) polls PENDING records, publishes to Kafka,
  * and marks them PUBLISHED.
  */
 @Entity
-@Table(name = "outbox_main")
+@Table(name = "outbox_master")
 @Getter
 @Setter
 @NoArgsConstructor

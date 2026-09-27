@@ -90,8 +90,8 @@ class CrossCurrencySettlementConsumerTest {
                 "USD",
                 "PHP",
                 srcAmount,
-                destAmount,
                 fxRate,
+                destAmount,
                 srcBalanceAfter,
                 destBalanceAfter,
                 Instant.now()

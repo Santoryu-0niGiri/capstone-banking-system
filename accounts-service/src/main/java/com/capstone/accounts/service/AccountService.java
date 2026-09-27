@@ -300,7 +300,7 @@ public class AccountService {
     /**
      * Settles a cross-currency transfer leg under pessimistic locks (FC-47).
      * Debits the source account and credits destination account with converted amount,
-     * then queues a CrossCurrencySettlementCompletedEvent into OUTBOX_MAIN.
+     * then queues a CrossCurrencySettlementCompletedEvent into OUTBOX_MASTER.
      */
     @Transactional
     public CrossCurrencySettlementCompletedEvent settleCrossCurrency(ForexConversionCompletedEvent event) {

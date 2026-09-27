@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Polls OUTBOX_MAIN (Oracle XE 21c) for PENDING events owned by Accounts Service
+ * Polls OUTBOX_MASTER (Oracle XE 21c) for PENDING events owned by Accounts Service
  * and relays them to Kafka.
  */
 @Service

@@ -9,13 +9,13 @@ import com.capstone.common.exception.InsufficientBalanceException;
 import com.capstone.common.exception.LedgerPersistenceException;
 import com.capstone.common.exception.ResourceNotFoundException;
 import com.capstone.transaction.client.AccountsServiceClient;
-import com.capstone.transaction.entity.oracle.OutboxMain;
 import com.capstone.transaction.entity.oracle.TransactionMaster;
 import com.capstone.transaction.entity.postgres.LedgerMutationAudit;
+import com.capstone.transaction.entity.postgres.TransactionOutbox;
 import com.capstone.transaction.kafka.TransactionEventProducer;
-import com.capstone.transaction.repository.oracle.OutboxMainRepository;
 import com.capstone.transaction.repository.oracle.TransactionMasterRepository;
 import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepository;
+import com.capstone.transaction.repository.postgres.TransactionOutboxRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -66,7 +66,7 @@ class TransactionServiceRefactorTest {
     private BalanceCacheInvalidator balanceCacheInvalidator;
 
     @Mock
-    private OutboxMainRepository outboxMainRepository;
+    private TransactionOutboxRepository outboxRepository;
 
     private ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
@@ -87,7 +87,7 @@ class TransactionServiceRefactorTest {
                 idempotencyService,
                 eventProducer,
                 balanceCacheInvalidator,
-                outboxMainRepository,
+                outboxRepository,
                 objectMapper
         );
     }
@@ -450,10 +450,10 @@ class TransactionServiceRefactorTest {
         assertThat(savedMaster.getIsCrossCurrency()).isEqualTo("Y");
         assertThat(savedMaster.getTxnStatus()).isEqualTo("PENDING");
 
-        // Verify OUTBOX_MAIN saved with FOREX_CONVERSION_REQUESTED
-        ArgumentCaptor<OutboxMain> outboxCaptor = ArgumentCaptor.forClass(OutboxMain.class);
-        verify(outboxMainRepository).save(outboxCaptor.capture());
-        OutboxMain savedOutbox = outboxCaptor.getValue();
+        // Verify OUTBOX_AUDIT saved with FOREX_CONVERSION_REQUESTED
+        ArgumentCaptor<TransactionOutbox> outboxCaptor = ArgumentCaptor.forClass(TransactionOutbox.class);
+        verify(outboxRepository).save(outboxCaptor.capture());
+        TransactionOutbox savedOutbox = outboxCaptor.getValue();
         assertThat(savedOutbox.getSourceService()).isEqualTo("transaction-service");
         assertThat(savedOutbox.getAggregateType()).isEqualTo("TRANSACTION");
         assertThat(savedOutbox.getAggregateId()).isEqualTo(txnId.toString());
