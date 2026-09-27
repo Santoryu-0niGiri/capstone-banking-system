@@ -33,7 +33,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * Implemented in pure Java:
  * 1. Contains a main() method to run directly as a standalone Java script.
- * 2. Contains a JUnit 5 @Test method to run within Maven or the IDE test runner.
+ * 2. Contains a JUnit 5 @Test method to run within Maven or the IDE test
+ * runner.
  */
 public class ParallelWithdrawalConcurrencyTest {
 
@@ -62,7 +63,7 @@ public class ParallelWithdrawalConcurrencyTest {
     /**
      * Standalone Java entry point to run as a script.
      * Usage:
-     *   java ... ParallelWithdrawalConcurrencyTest [accountId] [token]
+     * java ... ParallelWithdrawalConcurrencyTest [accountId] [token]
      */
     public static void main(String[] args) throws Exception {
         System.out.println("======================================================================");
@@ -336,14 +337,16 @@ public class ParallelWithdrawalConcurrencyTest {
 
             // Ensure customer exists
             String customerId = UUID.randomUUID().toString();
-            try (PreparedStatement checkCust = conn.prepareStatement("SELECT customer_id FROM customer_master WHERE email = ?")) {
+            try (PreparedStatement checkCust = conn
+                    .prepareStatement("SELECT customer_id FROM customer_master WHERE email = ?")) {
                 checkCust.setString(1, DEFAULT_EMAIL);
                 try (ResultSet rs = checkCust.executeQuery()) {
                     if (rs.next()) {
                         customerId = rs.getString("customer_id");
                     } else {
                         try (PreparedStatement insCust = conn.prepareStatement(
-                                "INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, created_at, created_by) " +
+                                "INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, created_at, created_by) "
+                                        +
                                         "VALUES (?, 'Concurrency', 'Tester', ?, '+1234567890', SYSTIMESTAMP, 'SYSTEM')")) {
                             insCust.setString(1, customerId);
                             insCust.setString(2, DEFAULT_EMAIL);
@@ -357,7 +360,8 @@ public class ParallelWithdrawalConcurrencyTest {
             String newAccountId = UUID.randomUUID().toString();
             for (String tName : tables) {
                 String insertSql = "INSERT INTO " + tName + " " +
-                        "(account_id, customer_id, account_type, currency_code, account_status, balance_amount, created_at, created_by, version) " +
+                        "(account_id, customer_id, account_type, currency_code, account_status, balance_amount, created_at, created_by, version) "
+                        +
                         "VALUES (?, ?, 'SAVINGS', 'USD', 'ACTIVE', 1000.00, SYSTIMESTAMP, 'SYSTEM', 0)";
                 try (PreparedStatement insAcct = conn.prepareStatement(insertSql)) {
                     insAcct.setString(1, newAccountId);
@@ -433,7 +437,8 @@ public class ParallelWithdrawalConcurrencyTest {
                             return rs.getBigDecimal("balance_amount");
                         }
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch balance for account " + accountId, e);
