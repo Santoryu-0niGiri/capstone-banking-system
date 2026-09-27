@@ -24,6 +24,10 @@ import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepositor
 import com.capstone.transaction.repository.postgres.TransactionOutboxRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import com.capstone.common.security.SecurityUtils;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -106,31 +110,39 @@ public class TransactionService {
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-  public TransactionResponse withdraw(
-        TransactionRequest request,
-        UUID txnId) {
+    public TransactionResponse withdraw(
+            TransactionRequest request,
+            UUID txnId) {
 
-    return executeSingleLeg(
-            request,
-            "WITHDRAWAL",
-            "DEBIT",
-            txnId.toString());
-}
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !SecurityUtils.isPrivileged()) {
+            AccountDTO acct = accountsServiceClient.getAccount(request.accountId());
+            if (acct != null) {
+                SecurityUtils.checkCustomerAccess(acct.customerId(), "withdraw from account " + request.accountId());
+            }
+        }
 
-public TransactionResponse deposit(
-        TransactionRequest request,
-        UUID txnId) {
+        return executeSingleLeg(
+                request,
+                "WITHDRAWAL",
+                "DEBIT",
+                txnId.toString());
+    }
 
-    return executeSingleLeg(
-            request,
-            "DEPOSIT",
-            "CREDIT",
-            txnId.toString());
-}
+    public TransactionResponse deposit(
+            TransactionRequest request,
+            UUID txnId) {
+
+        return executeSingleLeg(
+                request,
+                "DEPOSIT",
+                "CREDIT",
+                txnId.toString());
+    }
 
     public TransactionResponse transfer(
-        TransactionRequest request,
-        UUID txnId) {
+            TransactionRequest request,
+            UUID txnId) {
 
         if (request.counterpartyAccountId() == null
                 || request.counterpartyAccountId().isBlank()) {
@@ -146,6 +158,10 @@ public TransactionResponse deposit(
 
         AccountDTO srcAcct = accountsServiceClient.getAccount(request.accountId());
         AccountDTO destAcct = accountsServiceClient.getAccount(request.counterpartyAccountId());
+
+        if (srcAcct != null) {
+            SecurityUtils.checkCustomerAccess(srcAcct.customerId(), "transfer from account " + request.accountId());
+        }
 
         boolean isCrossCurrency = srcAcct != null && destAcct != null
                 && srcAcct.currencyCode() != null && destAcct.currencyCode() != null
@@ -183,7 +199,25 @@ public TransactionResponse deposit(
                     "Invalid transaction ID: " + txnId, ex);
         }
 
-        return auditRepository.findByTxnId(txnId);
+        List<LedgerMutationAudit> audits = auditRepository.findByTxnId(txnId);
+        if (!audits.isEmpty() && !SecurityUtils.isPrivileged()) {
+            String currentCustId = SecurityUtils.getCurrentCustomerId().orElse(null);
+            if (currentCustId != null) {
+                boolean ownsLeg = audits.stream().anyMatch(a -> {
+                    try {
+                        AccountDTO acct = accountsServiceClient.getAccount(a.getAccountId());
+                        return acct != null && currentCustId.equalsIgnoreCase(acct.customerId());
+                    } catch (Exception ignored) {
+                        return false;
+                    }
+                });
+                if (!ownsLeg) {
+                    throw new AccessDeniedException("Access denied: You do not have permission to view audit for transaction " + txnId);
+                }
+            }
+        }
+
+        return audits;
     }
 
     // ── Single-leg (WITHDRAWAL / DEPOSIT) ─────────────────────────────────────

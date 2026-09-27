@@ -14,6 +14,7 @@ import com.capstone.common.event.CrossCurrencySettlementCompletedEvent;
 import com.capstone.common.event.ForexConversionCompletedEvent;
 import com.capstone.common.exception.InsufficientBalanceException;
 import com.capstone.common.exception.ResourceNotFoundException;
+import com.capstone.common.security.SecurityUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -44,22 +46,14 @@ public class AccountService {
             CustomerRepository customerRepository,
             BalanceCacheService balanceCacheService,
             KafkaTemplate<String, Object> kafkaTemplate,
-            @Autowired(required = false) OutboxMasterRepository outboxMasterRepository,
-            @Autowired(required = false) ObjectMapper objectMapper) {
+            OutboxMasterRepository outboxMasterRepository,
+            ObjectMapper objectMapper) {
         this.accountRepository = accountRepository;
         this.customerRepository = customerRepository;
         this.balanceCacheService = balanceCacheService;
         this.kafkaTemplate = kafkaTemplate;
-        this.outboxMasterRepository = outboxMasterRepository;
+        this.outboxMasterRepository = Objects.requireNonNull(outboxMasterRepository, "outboxMasterRepository must not be null");
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper().findAndRegisterModules();
-    }
-
-    public AccountService(
-            AccountRepository accountRepository,
-            CustomerRepository customerRepository,
-            BalanceCacheService balanceCacheService,
-            KafkaTemplate<String, Object> kafkaTemplate) {
-        this(accountRepository, customerRepository, balanceCacheService, kafkaTemplate, null, null);
     }
 
     /**
@@ -70,6 +64,8 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO createAccount(CreateAccountRequest request) {
+
+        SecurityUtils.checkCustomerAccess(request.customerId(), "create account");
 
         /*
          * Validate the parent customer before inserting into
@@ -128,11 +124,14 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public AccountDTO getAccount(String accountId) {
-        return toDto(findOrThrow(accountId));
+        AccountMaster account = findOrThrow(accountId);
+        SecurityUtils.checkCustomerAccess(account.getCustomerId(), "view account " + accountId);
+        return toDto(account);
     }
 
     @Transactional(readOnly = true)
     public List<AccountDTO> getAccountsForCustomer(String customerId) {
+        SecurityUtils.checkCustomerAccess(customerId, "view accounts");
         return accountRepository.findByCustomerId(customerId).stream()
                 .map(this::toDto)
                 .toList();
@@ -183,9 +182,10 @@ public class AccountService {
      */
     @Transactional(readOnly = true)
     public BigDecimal getBalance(String accountId) {
+        AccountMaster acct = findOrThrow(accountId);
+        SecurityUtils.checkCustomerAccess(acct.getCustomerId(), "view balance of account " + accountId);
         return balanceCacheService.get(accountId)
                 .orElseGet(() -> {
-                    AccountMaster acct = findOrThrow(accountId);
                     balanceCacheService.put(
                             accountId,
                             acct.getBalanceAmount()
@@ -207,6 +207,8 @@ public class AccountService {
 
         AccountMaster account = accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Account " + accountId + " not found"));
+
+        SecurityUtils.checkCustomerAccess(account.getCustomerId(), "debit account " + accountId);
 
         assertActive(account);
 
@@ -363,9 +365,6 @@ public class AccountService {
     // ----------------------------------------------------------------
 
     private void saveOutbox(String aggregateType, String aggregateId, String eventType, Object payload) {
-        if (outboxMasterRepository == null) {
-            return;
-        }
         try {
             String json = payload instanceof String s ? s : objectMapper.writeValueAsString(payload);
             OutboxMaster outbox = OutboxMaster.builder()
@@ -381,6 +380,7 @@ public class AccountService {
             outboxMasterRepository.save(outbox);
         } catch (Exception e) {
             log.error("Failed to save to OutboxMaster: aggregateId={}, eventType={}", aggregateId, eventType, e);
+            throw new RuntimeException("Failed to persist outbox event for aggregate " + aggregateId, e);
         }
     }
 

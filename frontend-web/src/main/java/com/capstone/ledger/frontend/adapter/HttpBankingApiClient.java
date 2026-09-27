@@ -9,6 +9,8 @@ import com.capstone.ledger.frontend.form.RegisterForm;
 import com.capstone.ledger.frontend.form.TransactionForm;
 import com.capstone.ledger.frontend.model.*;
 import com.capstone.ledger.frontend.model.enums.*;
+import com.capstone.ledger.frontend.config.SessionAuthInterceptor;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
@@ -16,6 +18,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -42,7 +46,31 @@ public class HttpBankingApiClient implements BankingApiClient {
         this.restClient = RestClient.builder()
                 .baseUrl(gatewayUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .requestInterceptor((request, body, execution) -> {
+                    String token = resolveBearerToken();
+                    if (token != null && !request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
+                        request.getHeaders().set(HttpHeaders.AUTHORIZATION, token);
+                    }
+                    return execution.execute(request, body);
+                })
                 .build();
+    }
+
+    private String resolveBearerToken() {
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                HttpSession session = attributes.getRequest().getSession(false);
+                if (session != null) {
+                    UserSession userSession = (UserSession) session.getAttribute(SessionAuthInterceptor.SESSION_USER);
+                    if (userSession != null && userSession.getToken() != null && !userSession.getToken().isBlank()) {
+                        return "Bearer " + userSession.getToken();
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     @Override

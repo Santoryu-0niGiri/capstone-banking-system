@@ -17,6 +17,7 @@ import com.capstone.transaction.repository.oracle.TransactionMasterRepository;
 import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepository;
 import com.capstone.transaction.repository.postgres.TransactionOutboxRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,11 +25,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -90,6 +96,18 @@ class TransactionServiceRefactorTest {
                 outboxRepository,
                 objectMapper
         );
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void authenticate(String customerId, String role) {
+        UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken(customerId, null,
+                        List.of(new SimpleGrantedAuthority(role.startsWith("ROLE_") ? role : "ROLE_" + role)));
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     @Test
@@ -467,6 +485,86 @@ class TransactionServiceRefactorTest {
         // Verify no direct mutation called against accounts service yet (async loop will do it)
         verify(accountsServiceClient, never()).debit(any(), any(), any(), any());
         verify(accountsServiceClient, never()).credit(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Security: Customer A attempting to withdraw from Customer B account throws 403 AccessDeniedException")
+    void withdraw_customerA_hitsCustomerBAccount_throwsAccessDenied() {
+        authenticate("cust-A", "ROLE_CUSTOMER");
+
+        UUID txnId = UUID.randomUUID();
+        String accountId = "acct-B";
+        BigDecimal amount = new BigDecimal("100.0000");
+        String idemKey = "idem-sec-withdraw-1";
+
+        TransactionRequest request = new TransactionRequest(
+                accountId,
+                null,
+                "WITHDRAWAL",
+                amount,
+                idemKey
+        );
+
+        AccountDTO accountB = new AccountDTO(
+                accountId,
+                "cust-B",
+                "SAVINGS",
+                "ACTIVE",
+                new BigDecimal("1000.0000"),
+                "PHP",
+                LocalDateTime.now()
+        );
+        when(accountsServiceClient.getAccount(accountId)).thenReturn(accountB);
+
+        assertThatThrownBy(() -> transactionService.withdraw(request, txnId))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("cust-B");
+    }
+
+    @Test
+    @DisplayName("Security: Customer A attempting to transfer from Customer B account throws 403 AccessDeniedException")
+    void transfer_customerA_transfersFromCustomerBAccount_throwsAccessDenied() {
+        authenticate("cust-A", "ROLE_CUSTOMER");
+
+        UUID txnId = UUID.randomUUID();
+        String sourceId = "acct-B";
+        String destId = "acct-C";
+        BigDecimal amount = new BigDecimal("200.0000");
+        String idemKey = "idem-sec-transfer-1";
+
+        TransactionRequest request = new TransactionRequest(
+                sourceId,
+                destId,
+                "TRANSFER",
+                amount,
+                idemKey
+        );
+
+        AccountDTO srcAccount = new AccountDTO(
+                sourceId,
+                "cust-B",
+                "SAVINGS",
+                "ACTIVE",
+                new BigDecimal("1000.0000"),
+                "PHP",
+                LocalDateTime.now()
+        );
+        AccountDTO destAccount = new AccountDTO(
+                destId,
+                "cust-C",
+                "CHECKING",
+                "ACTIVE",
+                new BigDecimal("500.0000"),
+                "PHP",
+                LocalDateTime.now()
+        );
+
+        when(accountsServiceClient.getAccount(sourceId)).thenReturn(srcAccount);
+        when(accountsServiceClient.getAccount(destId)).thenReturn(destAccount);
+
+        assertThatThrownBy(() -> transactionService.transfer(request, txnId))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("cust-B");
     }
 }
 
