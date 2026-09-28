@@ -44,6 +44,7 @@ public class HttpBankingApiClient implements BankingApiClient {
 
     public HttpBankingApiClient(@Value("${banking.backend.gateway-url:http://localhost:8080}") String gatewayUrl) {
         this.gatewayUrl = gatewayUrl;
+        log.info("Initialized HttpBankingApiClient in LIVE GATEWAY MODE targeting Spring Cloud Gateway at: {}", gatewayUrl);
         this.restClient = RestClient.builder()
                 .baseUrl(gatewayUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
