@@ -222,6 +222,27 @@ public class TransactionService {
                 return audits;
         }
 
+        /**
+         * Finds all PostgreSQL audit records belonging to an account.
+         */
+        public List<LedgerMutationAudit> findAuditByAccountId(String accountId) {
+                if (accountId == null || accountId.isBlank()) {
+                        throw new IllegalArgumentException("Account ID is required");
+                }
+                if (!SecurityUtils.isPrivileged()) {
+                        String currentCustId = SecurityUtils.getCurrentCustomerId().orElse(null);
+                        if (currentCustId != null) {
+                                AccountDTO acct = accountsServiceClient.getAccount(accountId);
+                                if (acct != null && !currentCustId.equalsIgnoreCase(acct.customerId())) {
+                                        throw new AccessDeniedException(
+                                                        "Access denied: You do not have permission to view audit for account "
+                                                                        + accountId);
+                                }
+                        }
+                }
+                return auditRepository.findByAccountId(accountId);
+        }
+
         // ── Single-leg (WITHDRAWAL / DEPOSIT) ─────────────────────────────────────
 
         private TransactionResponse executeSingleLeg(
