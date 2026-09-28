@@ -24,7 +24,10 @@
         <module>transaction-service</module>
         <module>notification-service</module>
         <module>frontend-web</module>
+<<<<<<< HEAD
         <module>reconciliation-service</module>
+=======
+>>>>>>> e058e062c3d03f5ddac5c11fae48ec2f73ae9d40
     </modules>
 
     <properties>

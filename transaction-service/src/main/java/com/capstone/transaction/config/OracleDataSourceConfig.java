@@ -74,3 +74,4 @@ public class OracleDataSourceConfig {
         return new JpaTransactionManager(entityManagerFactory);
     }
 }
+
