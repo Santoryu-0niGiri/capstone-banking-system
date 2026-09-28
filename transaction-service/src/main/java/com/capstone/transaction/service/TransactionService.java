@@ -199,7 +199,40 @@ public class TransactionService {
                     "Invalid transaction ID: " + txnId, ex);
         }
 
-        List<LedgerMutationAudit> audits = auditRepository.findByTxnId(txnId);
+        List<LedgerMutationAudit> audits = new java.util.ArrayList<>(auditRepository.findByTxnId(txnId));
+        if (audits.isEmpty()) {
+            TransactionMaster master = txnMasterRepository.findById(txnId).orElse(null);
+            if (master != null) {
+                Instant ts = master.getInitiatedAt() != null
+                        ? master.getInitiatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant()
+                        : Instant.now();
+                if (master.getDebitAccountId() != null) {
+                    audits.add(LedgerMutationAudit.builder()
+                            .mutationUuid(UUID.randomUUID())
+                            .txnId(master.getTxnId())
+                            .accountId(master.getDebitAccountId())
+                            .mutationAmount(master.getMutationAmount())
+                            .mutationType("DEBIT")
+                            .txnType(master.getTxnType())
+                            .auditState(master.getTxnStatus())
+                            .createdAt(ts)
+                            .build());
+                }
+                if (master.getCreditAccountId() != null) {
+                    audits.add(LedgerMutationAudit.builder()
+                            .mutationUuid(UUID.randomUUID())
+                            .txnId(master.getTxnId())
+                            .accountId(master.getCreditAccountId())
+                            .mutationAmount(master.getDestAmount() != null ? master.getDestAmount() : master.getMutationAmount())
+                            .mutationType("CREDIT")
+                            .txnType(master.getTxnType())
+                            .auditState(master.getTxnStatus())
+                            .createdAt(ts)
+                            .build());
+                }
+            }
+        }
+
         if (!audits.isEmpty() && !SecurityUtils.isPrivileged()) {
             String currentCustId = SecurityUtils.getCurrentCustomerId().orElse(null);
             if (currentCustId != null) {

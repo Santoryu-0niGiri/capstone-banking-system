@@ -400,6 +400,17 @@ public class HttpBankingApiClient implements BankingApiClient {
                     .retrieve()
                     .body(new ParameterizedTypeReference<ApiResponseDto<List<Map<String, Object>>>>() {});
 
+            if (response == null || response.getData() == null || response.getData().isEmpty()) {
+                // Short wait and retry once to accommodate distributed ledger replication
+                try {
+                    Thread.sleep(400);
+                } catch (InterruptedException ignored) {}
+                response = restClient.get()
+                        .uri("/api/v1/ledger/audit/{txnId}", txnId)
+                        .retrieve()
+                        .body(new ParameterizedTypeReference<ApiResponseDto<List<Map<String, Object>>>>() {});
+            }
+
             if (response != null && response.getData() != null && !response.getData().isEmpty()) {
                 List<Map<String, Object>> audits = response.getData();
                 Map<String, Object> first = audits.get(0);
@@ -428,8 +439,37 @@ public class HttpBankingApiClient implements BankingApiClient {
                     tv.setCounterpartyAccountId(second.get("accountId") != null ? second.get("accountId").toString() : null);
                 }
 
-                tv.setAuditState(AuditState.COMMITTED);
+                String stateStr = first.get("auditState") != null ? first.get("auditState").toString() : "COMMITTED";
+                try {
+                    tv.setAuditState(AuditState.valueOf(stateStr.toUpperCase()));
+                } catch (Exception e) {
+                    tv.setAuditState(AuditState.COMMITTED);
+                }
+
                 tv.setTimestamp(LocalDateTime.now());
+
+                // Enrich with account currencies and cross-currency metadata
+                if (tv.getAccountId() != null && !tv.getAccountId().isBlank()) {
+                    getAccountById(tv.getAccountId()).ifPresent(acct -> {
+                        tv.setCurrencyCode(acct.getCurrencyCode());
+                    });
+                }
+                if (tv.getCounterpartyAccountId() != null && !tv.getCounterpartyAccountId().isBlank()) {
+                    getAccountById(tv.getCounterpartyAccountId()).ifPresent(destAcct -> {
+                        tv.setDestCurrencyCode(destAcct.getCurrencyCode());
+                        if (tv.getCurrencyCode() != null && !tv.getCurrencyCode().equalsIgnoreCase(destAcct.getCurrencyCode())) {
+                            tv.setCrossCurrency(true);
+                            if (audits.size() > 1 && audits.get(1).get("mutationAmount") != null) {
+                                BigDecimal destAmt = new BigDecimal(audits.get(1).get("mutationAmount").toString());
+                                tv.setDestAmount(destAmt);
+                                if (tv.getAmount() != null && tv.getAmount().compareTo(BigDecimal.ZERO) > 0) {
+                                    tv.setFxRate(destAmt.divide(tv.getAmount(), 6, java.math.RoundingMode.HALF_UP));
+                                }
+                            }
+                        }
+                    });
+                }
+
                 return Optional.of(tv);
             }
         } catch (Exception ex) {
