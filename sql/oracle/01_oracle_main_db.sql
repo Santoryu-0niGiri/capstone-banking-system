@@ -1,4 +1,4 @@
-CONNECT ledger_app/LedgerAppPass123@//localhost:1521/XEPDB1
+-- CONNECT ledger_app/LedgerAppPass123@//localhost:1521/XEPDB1
 
 -- =====================================================================
 -- ORACLE XE 21c - MASTER DB
