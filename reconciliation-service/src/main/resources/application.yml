@@ -18,8 +18,8 @@ spring:
   oracle:
     datasource:
       jdbc-url: ${ORACLE_URL:jdbc:oracle:thin:@//localhost:1521/XEPDB1}
-      username: ${ORACLE_USERNAME:recon_ro}
-      password: ${ORACLE_PASSWORD:changeme}
+      username: ${ORACLE_USERNAME:ledger_app}
+      password: ${ORACLE_PASSWORD:LedgerAppPass123}
       driver-class-name: oracle.jdbc.OracleDriver
       hikari:
         pool-name: oracle-ro-pool
@@ -28,9 +28,9 @@ spring:
 
   postgres:
     datasource:
-      jdbc-url: ${PG_URL:jdbc:postgresql://localhost:5432/audit_db}
-      username: ${PG_USERNAME:recon_audit}
-      password: ${PG_PASSWORD:changeme}
+      jdbc-url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/ledger_audit}
+      username: ${POSTGRES_USERNAME:ledger_audit}
+      password: ${POSTGRES_PASSWORD:LedgerAuditPass123}
       driver-class-name: org.postgresql.Driver
       hikari:
         pool-name: postgres-audit-pool
