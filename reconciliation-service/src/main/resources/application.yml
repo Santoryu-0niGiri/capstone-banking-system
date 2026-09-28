@@ -6,34 +6,30 @@ spring:
     name: reconciliation-service
 
   # ---------------------------------------------------------------
-  # Two independent datasources, NEITHER managed by this service's
-  # schema tooling. Both ORACLE_URL and PG_URL point at databases
-  # that are already fully provisioned by 01_oracle_main_db.sql and
-  # 01_postgres_audit_db.sql (run those against a fresh Oracle XE /
-  # Postgres instance before starting this app). Hibernate is set to
-  # ddl-auto: validate on both sides, so this service only ever
-  # confirms its entities match what's already there - it never
-  # creates, alters, or drops a single table or column.
+  # Two independent datasources — neither owned by this service.
+  # Both databases are pre-provisioned by the SQL init scripts.
+  # Hibernate is ddl-auto: validate on both sides — read-only
+  # reconciliation, never creates or alters tables.
   # ---------------------------------------------------------------
   oracle:
     datasource:
-      jdbc-url: ${ORACLE_URL:jdbc:oracle:thin:@//localhost:1521/XEPDB1}
+      jdbc-url: ${ORACLE_URL:jdbc:oracle:thin:@localhost:1521/XEPDB1}
       username: ${ORACLE_USERNAME:ledger_app}
       password: ${ORACLE_PASSWORD:LedgerAppPass123}
       driver-class-name: oracle.jdbc.OracleDriver
       hikari:
-        pool-name: oracle-ro-pool
+        pool-name: recon-oracle-pool
         maximum-pool-size: 5
         read-only: true
 
   postgres:
     datasource:
-      jdbc-url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/ledger_audit}
-      username: ${POSTGRES_USERNAME:ledger_audit}
-      password: ${POSTGRES_PASSWORD:LedgerAuditPass123}
+      jdbc-url: ${PG_URL:jdbc:postgresql://localhost:5432/ledger_audit}
+      username: ${PG_USERNAME:ledger_audit}
+      password: ${PG_PASSWORD:LedgerAuditPass123}
       driver-class-name: org.postgresql.Driver
       hikari:
-        pool-name: postgres-audit-pool
+        pool-name: recon-postgres-pool
         maximum-pool-size: 10
 
   jpa:
@@ -59,20 +55,12 @@ spring:
       auto-offset-reset: earliest
 
 recon:
-  # how far back each scheduled run looks
   window-minutes: 60
-  # cron: every 15 minutes, matches "near-real-time" recon; end-of-day
-  # full-window run can be triggered separately via the admin endpoint
   schedule-cron: "0 */15 * * * *"
   topics:
     discrepancy: reconciliation.discrepancy
     run-completed: reconciliation.run.completed
   matching:
-    # transaction_master.mutation_amount and ledger_mutation_audit.mutation_amount
-    # are both NUMBER/NUMERIC(18,4), copied verbatim end-to-end with no FX
-    # rounding in play (FX conversion, if any, already happened upstream) -
-    # so an exact match is the expectation. Raise this only if you have a
-    # concrete reason to expect drift (e.g. a rounding step you added).
     amount-tolerance: 0.0000
     late-posting-threshold-seconds: 300
   outbox-relay:
@@ -83,7 +71,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,prometheus,metrics
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: always
+    prometheus:
+      enabled: true
