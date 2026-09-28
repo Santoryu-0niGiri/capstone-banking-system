@@ -1,0 +1,58 @@
+{
+  "title": "JVM & System Observability",
+  "uid": "jvm-system-observability",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "JVM Live Threads",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [{ "datasource": "Prometheus", "expr": "jvm_threads_live_threads", "legendFormat": "{{job}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "id": 2,
+      "title": "JVM Daemon Threads",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [{ "datasource": "Prometheus", "expr": "jvm_threads_daemon_threads", "legendFormat": "{{job}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "id": 3,
+      "title": "JVM Non-Heap Memory (MB)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [{ "datasource": "Prometheus", "expr": "jvm_memory_used_bytes{area=\"nonheap\"} / 1024 / 1024", "legendFormat": "{{job}}" }],
+      "fieldConfig": { "defaults": { "unit": "MiB" } }
+    },
+    {
+      "id": 4,
+      "title": "JVM GC Pause Time (s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [{ "datasource": "Prometheus", "expr": "rate(jvm_gc_pause_seconds_sum[1m])", "legendFormat": "{{job}} {{action}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 5,
+      "title": "System CPU Usage (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [{ "datasource": "Prometheus", "expr": "system_cpu_usage * 100", "legendFormat": "{{job}}" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } }
+    },
+    {
+      "id": 6,
+      "title": "Disk Free Space (GB)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [{ "datasource": "Prometheus", "expr": "disk_free_bytes / 1024 / 1024 / 1024", "legendFormat": "{{job}} {{path}}" }],
+      "fieldConfig": { "defaults": { "unit": "GiB" } }
+    }
+  ]
+}

@@ -28,6 +28,11 @@ spring:
     consumer:
       group-id: notification-service
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
 jwt:
   secret: ${JWT_SECRET:CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
 
@@ -35,12 +40,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus,metrics
   endpoint:
     health:
       show-details: always
-
-logging:
-  level:
-    com.capstone: INFO
-
+    prometheus:
+      enabled: true

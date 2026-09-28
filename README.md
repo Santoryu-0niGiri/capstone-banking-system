@@ -459,6 +459,26 @@ Save `data.txnId` to check the audit record in Step 9.
 
 To confirm the non-negative balance guard works, try withdrawing more than the current balance — you should get a `409 Conflict` error.
 
+## Observability and Monitoring
+
+This project includes a comprehensive observability stack based on Prometheus and Grafana.
+
+### Components
+- **Prometheus (`http://localhost:9090`)**: Scrapes metrics from all microservices, the API gateway, and the frontend web portal via Spring Boot Actuator endpoints (`/actuator/prometheus`).
+- **Grafana (`http://localhost:3000`)**: Visualizes key metrics, provides pre-provisioned dashboards for system overview, JVM health, and service latency.
+
+### Access
+- **Prometheus**: Accessible at `http://localhost:9090`. Alert rules are pre-configured.
+- **Grafana**: Accessible at `http://localhost:3000` (Login: `admin` / `admin`). Pre-provisioned dashboards are available in the "Banking System" folder.
+
+### Metrics
+All microservices are configured to expose metrics automatically via Micrometer. Metrics include:
+- HTTP request rates and errors (5xx/4xx)
+- Request latency (P50, P95)
+- JVM Memory, CPU, Thread, and GC activity
+- HikariCP connection pool health.
+
+
 ---
 
 ### Step 8 — Transfer from Account 1 to Account 2
@@ -689,3 +709,4 @@ docker compose logs -f oracle-db postgres-db redis kafka
 | Audit — WITHDRAWAL | 1 row, `mutationType: "DEBIT"`, `auditState: "COMMITTED"` |
 | Audit — TRANSFER | 2 rows: `"DEBIT"` for source + `"CREDIT"` for destination |
 | Logout | `200 OK`, subsequent call with same token returns `401` |
+

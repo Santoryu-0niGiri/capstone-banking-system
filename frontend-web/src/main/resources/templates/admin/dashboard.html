@@ -29,7 +29,7 @@
     <!-- Executive KPI Row -->
     <div class="row g-3 mb-4">
         <div class="col-md-3">
-            <div class="card p-3 border-start border-primary border-4 h-100">
+            <div class="card executive-kpi-card p-3 border-start border-primary border-4 h-100">
                 <div class="text-muted small text-uppercase fw-semibold">Total Customers</div>
                 <div class="balance-figure mt-1" th:text="${customerCount}">0</div>
                 <div class="small mt-1 text-muted">
@@ -39,7 +39,7 @@
         </div>
 
         <div class="col-md-3">
-            <div class="card p-3 border-start border-info border-4 h-100">
+            <div class="card executive-kpi-card p-3 border-start border-info border-4 h-100">
                 <div class="text-muted small text-uppercase fw-semibold">Total Accounts</div>
                 <div class="balance-figure mt-1" th:text="${accountCount}">0</div>
                 <div class="small mt-1 text-muted">
@@ -50,7 +50,7 @@
         </div>
 
         <div class="col-md-3">
-            <div class="card p-3 border-start border-success border-4 h-100">
+            <div class="card executive-kpi-card p-3 border-start border-success border-4 h-100">
                 <div class="text-muted small text-uppercase fw-semibold">Total System Liquidity</div>
                 <div class="balance-figure mt-1" th:text="${'₱' + #numbers.formatDecimal(totalBalance, 1, 'COMMA', 2, 'POINT')}">₱0.00</div>
                 <div class="small mt-1 text-muted">Consolidated PHP equivalent across all currencies</div>
@@ -58,7 +58,7 @@
         </div>
 
         <div class="col-md-3">
-            <div class="card p-3 border-start border-danger border-4 h-100">
+            <div class="card executive-kpi-card p-3 border-start border-danger border-4 h-100">
                 <div class="text-muted small text-uppercase fw-semibold">Active Ledger Mutations</div>
                 <div class="balance-figure mt-1" th:text="${recentTransactions.size()}">0</div>
                 <div class="small mt-1 text-muted">Logged in LEDGER_MUTATION_AUDIT</div>

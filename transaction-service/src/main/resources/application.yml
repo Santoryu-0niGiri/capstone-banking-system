@@ -52,12 +52,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus,metrics
   endpoint:
     health:
       show-details: always
-
-logging:
-  level:
- 
-    com.capstone: INFO
+    prometheus:
+      enabled: true

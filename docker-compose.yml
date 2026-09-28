@@ -212,11 +212,22 @@ services:
       context: .
       dockerfile: notification-service/Dockerfile
     container_name: notification-service
+    ports:
+      - "8085:8085"
     depends_on:
       kafka:
         condition: service_started
+      postgres-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      POSTGRES_URL: jdbc:postgresql://postgres-db:5432/ledger_audit
+      POSTGRES_USERNAME: ledger_audit
+      POSTGRES_PASSWORD: LedgerAuditPass123
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
     networks:
       - banking-net
@@ -226,6 +237,8 @@ services:
       context: .
       dockerfile: forex-service/Dockerfile
     container_name: forex-service
+    ports:
+      - "8087:8087"
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -236,6 +249,8 @@ services:
       POSTGRES_USERNAME: ledger_audit
       POSTGRES_PASSWORD: LedgerAuditPass123
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
     networks:
       - banking-net
@@ -272,10 +287,34 @@ services:
       ORACLE_USERNAME: ledger_app
       ORACLE_PASSWORD: LedgerAppPass123
       ORACLE_SCHEMA: LEDGER_APP
-      PG_URL: jdbc:postgresql://postgres-db:5432/ledger_audit
-      PG_USERNAME: ledger_audit
-      PG_PASSWORD: LedgerAuditPass123
+      POSTGRES_URL: jdbc:postgresql://postgres-db:5432/ledger_audit
+      POSTGRES_USERNAME: ledger_audit
+      POSTGRES_PASSWORD: LedgerAuditPass123
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
     networks:
       - banking-net
+
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+    networks:
+      - banking-net
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - banking-net
+    depends_on:
+      - prometheus
