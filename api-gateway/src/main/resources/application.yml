@@ -67,11 +67,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
-
+        include: health,info,prometheus,metrics
   endpoint:
     health:
       show-details: always
+    prometheus:
+      enabled: true
 
 logging:
   level:

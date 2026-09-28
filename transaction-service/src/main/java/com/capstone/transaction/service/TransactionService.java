@@ -40,7 +40,28 @@ import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepositor
 import com.capstone.transaction.repository.postgres.TransactionOutboxRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+
 import lombok.extern.slf4j.Slf4j;
+
+import com.capstone.common.security.SecurityUtils;
+
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import com.capstone.common.constants.KafkaTopics;
 
 /**
  * Core balance mutation orchestrator: WITHDRAWAL, DEPOSIT, TRANSFER.

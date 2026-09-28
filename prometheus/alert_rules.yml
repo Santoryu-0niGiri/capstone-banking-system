@@ -1,0 +1,56 @@
+groups:
+  - name: banking_system_alerts
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Instance {{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute."
+
+      - alert: HighHttpErrorRate5xx
+        expr: (sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) by (job) / sum(rate(http_server_requests_seconds_count[5m])) by (job)) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx error rate on {{ $labels.job }}"
+          description: "HTTP 5xx error rate is above 5% on service {{ $labels.job }} (current value: {{ $value }}%)."
+
+      - alert: HighHttpLatencyP95
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, job)) > 1.0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P95 latency on {{ $labels.job }}"
+          description: "95th percentile latency for {{ $labels.job }} is higher than 1 second for the past 3 minutes (current value: {{ $value }}s)."
+
+      - alert: HighJvmHeapUsage
+        expr: (jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}) * 100 > 85
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM Heap usage on {{ $labels.job }}"
+          description: "JVM Heap usage is over 85% on {{ $labels.job }} (instance {{ $labels.instance }})."
+
+      - alert: HighCpuUsage
+        expr: (process_cpu_usage * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.job }}"
+          description: "Process CPU usage is over 80% on {{ $labels.job }} for more than 5 minutes."
+
+      - alert: DatabaseConnectionPoolHighWait
+        expr: hikaricp_connections_pending > 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HikariCP pending connection queue high on {{ $labels.job }}"
+          description: "HikariCP has more than 5 pending connection requests waiting on {{ $labels.job }} (pool: {{ $labels.pool }})."

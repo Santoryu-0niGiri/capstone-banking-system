@@ -73,6 +73,16 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- Actuator and Micrometer Prometheus Registry -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
         <!-- Java Time support for Jackson -->
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
