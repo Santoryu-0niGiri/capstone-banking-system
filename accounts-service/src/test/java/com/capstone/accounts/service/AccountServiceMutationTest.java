@@ -233,6 +233,51 @@ class AccountServiceMutationTest {
     }
 
     @Test
+    @DisplayName("FC-47: duplicate Forex completion does not apply balances or enqueue another settlement")
+    void settleCrossCurrency_duplicateDelivery_isIgnored() throws Exception {
+        UUID txnId = UUID.randomUUID();
+        String sourceId = "acct-src-php";
+        String destId = "acct-dest-usd";
+        ForexConversionCompletedEvent event = new ForexConversionCompletedEvent(
+                txnId, sourceId, destId, "PHP", "USD",
+                new BigDecimal("5800.0000"), new BigDecimal("0.01724138"),
+                new BigDecimal("100.0000"), Instant.now());
+        CrossCurrencySettlementCompletedEvent existingResult = new CrossCurrencySettlementCompletedEvent(
+                txnId, sourceId, destId, "PHP", "USD",
+                new BigDecimal("5800.0000"), new BigDecimal("0.01724138"),
+                new BigDecimal("100.0000"), new BigDecimal("4200.0000"),
+                new BigDecimal("150.0000"), Instant.now());
+        AccountMaster source = AccountMaster.builder()
+                .accountId(sourceId)
+                .customerId("cust-1")
+                .accountStatus("ACTIVE")
+                .currencyCode("PHP")
+                .balanceAmount(new BigDecimal("4200.0000"))
+                .createdAt(LocalDateTime.now())
+                .build();
+        OutboxMaster existingOutbox = OutboxMaster.builder()
+                .sourceService("accounts-service")
+                .aggregateId(txnId.toString())
+                .eventType(KafkaTopics.CROSSCURRENCY_SETTLEMENT_COMPLETED)
+                .payload(new ObjectMapper().findAndRegisterModules().writeValueAsString(existingResult))
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        when(accountRepository.findByIdForUpdate(sourceId)).thenReturn(Optional.of(source));
+        when(outboxMasterRepository.findFirstBySourceServiceAndAggregateIdAndEventTypeOrderByCreatedAtAsc(
+                "accounts-service", txnId.toString(), KafkaTopics.CROSSCURRENCY_SETTLEMENT_COMPLETED))
+                .thenReturn(Optional.of(existingOutbox));
+
+        CrossCurrencySettlementCompletedEvent result = accountService.settleCrossCurrency(event);
+
+        assertThat(result).isEqualTo(existingResult);
+        verify(accountRepository, never()).save(any(AccountMaster.class));
+        verify(accountRepository, never()).findByIdForUpdate(destId);
+        verify(balanceCacheService, never()).put(any(), any());
+        verify(outboxMasterRepository, never()).save(any(OutboxMaster.class));
+    }
+
+    @Test
     @DisplayName("FC-47: settleCrossCurrency throws InsufficientBalanceException when source balance too low")
     void settleCrossCurrency_insufficientBalance_throwsException() {
         UUID txnId = UUID.randomUUID();

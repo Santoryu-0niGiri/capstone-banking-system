@@ -41,13 +41,13 @@ public class ForexEventConsumer {
                 request = objectMapper.convertValue(raw, ForexConversionRequestedEvent.class);
             }
 
-            log.info("Received FOREX_CONVERSION_REQUESTED for txnId={}: amount={} {} -> {}",
-                    request.txnId(), request.sourceAmount(), request.sourceCurrency(), request.destCurrency());
+                log.info("Received FOREX_CONVERSION_REQUESTED for txnId={}: amount={} {} -> {}; payload={}",
+                    request.txnId(), request.sourceAmount(), request.sourceCurrency(), request.destCurrency(), raw, "\n");
 
             forexConversionService.processConversion(request);
 
         } catch (Exception ex) {
-            log.error("Failed to process FOREX_CONVERSION_REQUESTED event payload: {}", payload, ex);
+            log.error("Failed to process FOREX_CONVERSION_REQUESTED event payload: {}", payload, ex, "\n");
         }
     }
 }

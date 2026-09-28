@@ -178,7 +178,7 @@ class CrossCurrencySagaAsyncTest {
         // ═══════════════════════════════════════════════════════════════════════════
         // STEP 2: OutboxRelayService polls OUTBOX_AUDIT and relays to Kafka
         // ═══════════════════════════════════════════════════════════════════════════
-        when(outboxRepository.findByStatusOrderByCreatedAtAsc("PENDING"))
+        when(outboxRepository.findBySourceServiceAndStatusOrderByCreatedAtAsc("transaction-service", "PENDING"))
                 .thenReturn(List.of(stagedOutbox));
 
         outboxRelayService.processOutbox();

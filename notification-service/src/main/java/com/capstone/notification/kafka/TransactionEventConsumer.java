@@ -37,7 +37,7 @@ public class TransactionEventConsumer {
         }
         Map<?, ?> asMap = objectMapper.convertValue(payload, LinkedHashMap.class);
         if (asMap == null) {
-            log.warn("Payload could not be converted to a map: {}; skipping", payload);
+            log.warn("Payload could not be converted to a map: {}; skipping", payload, "\n");
             return;
         }
         try {
@@ -49,7 +49,7 @@ public class TransactionEventConsumer {
                 notificationService.notifyCreated(objectMapper.convertValue(asMap, TransactionCreatedEvent.class));
             }
         } catch (IllegalArgumentException e) {
-            log.error("Failed to deserialize transaction event payload: {}", payload, e);
+            log.error("Failed to deserialize transaction event payload: {}", payload, e, "\n");
         }
     }
 }

@@ -9,5 +9,5 @@ import java.util.UUID;
 
 @Repository
 public interface TransactionOutboxRepository extends JpaRepository<TransactionOutbox, UUID> {
-    List<TransactionOutbox> findByStatusOrderByCreatedAtAsc(String status);
+    List<TransactionOutbox> findBySourceServiceAndStatusOrderByCreatedAtAsc(String sourceService, String status);
 }

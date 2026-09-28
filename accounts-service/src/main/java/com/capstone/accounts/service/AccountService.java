@@ -1,5 +1,18 @@
 package com.capstone.accounts.service;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.capstone.accounts.entity.AccountMaster;
 import com.capstone.accounts.entity.OutboxMaster;
 import com.capstone.accounts.repository.AccountRepository;
@@ -16,18 +29,8 @@ import com.capstone.common.exception.InsufficientBalanceException;
 import com.capstone.common.exception.ResourceNotFoundException;
 import com.capstone.common.security.SecurityUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
@@ -311,6 +314,21 @@ public class AccountService {
 
         AccountMaster source = accountRepository.findByIdForUpdate(event.sourceAccountId())
                 .orElseThrow(() -> new ResourceNotFoundException("Source account " + event.sourceAccountId() + " not found"));
+
+        Optional<OutboxMaster> existingSettlement = outboxMasterRepository
+                .findFirstBySourceServiceAndAggregateIdAndEventTypeOrderByCreatedAtAsc(
+                        "accounts-service", event.txnId().toString(), KafkaTopics.CROSSCURRENCY_SETTLEMENT_COMPLETED);
+        if (existingSettlement.isPresent()) {
+            log.info("Ignoring duplicate Forex settlement delivery txnId={}", event.txnId());
+            try {
+                return objectMapper.readValue(
+                        existingSettlement.get().getPayload(), CrossCurrencySettlementCompletedEvent.class);
+            } catch (Exception ex) {
+                throw new IllegalStateException(
+                        "Unable to read existing settlement result for txnId=" + event.txnId(), ex);
+            }
+        }
+
         assertActive(source);
 
         if (source.getBalanceAmount().compareTo(event.sourceAmount()) < 0) {
