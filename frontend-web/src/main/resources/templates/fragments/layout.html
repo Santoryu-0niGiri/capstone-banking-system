@@ -14,10 +14,18 @@
 
 <!-- Persona Quick-Switch Bar for Demos & Defense -->
 <div th:fragment="demoBar" class="demo-bar d-flex justify-content-between align-items-center">
-    <div>
-        <i class="bi bi-person-badge me-1"></i>
-        <span>Active Demo Persona:</span>
-        <strong class="text-white ms-1" th:text="${session.user != null ? session.user.fullName + ' (' + session.user.role + ')' : 'Guest'}">Guest</strong>
+    <div class="d-flex align-items-center gap-2">
+        <span th:if="${backendMode == 'gateway'}" class="badge bg-success border border-light" title="Connected to Spring Cloud Gateway">
+            <i class="bi bi-broadcast-pin me-1"></i>GATEWAY MODE: <span th:text="${gatewayUrl}">http://localhost:8080</span>
+        </span>
+        <span th:if="${backendMode != 'gateway'}" class="badge bg-secondary border border-light" title="In-Memory Mock Backend">
+            <i class="bi bi-box me-1"></i>MOCK MODE
+        </span>
+        <span class="d-none d-sm-inline">
+            <i class="bi bi-person-badge me-1"></i>
+            <span>Active Persona:</span>
+            <strong class="text-white ms-1" th:text="${session.user != null ? session.user.fullName + ' (' + session.user.role + ')' : 'Guest'}">Guest</strong>
+        </span>
     </div>
     <div>
         <span class="d-none d-md-inline">Quick Switch:</span>
@@ -142,6 +150,8 @@
                 <div class="small text-muted">Multi-Service Banking Platform · Java 21 · Spring Boot 3 · Thymeleaf</div>
             </div>
             <div class="col-md-6 text-md-end">
+                <span th:if="${backendMode == 'gateway'}" class="badge bg-success text-white border me-1"><i class="bi bi-broadcast-pin me-1"></i>Live Gateway (<span th:text="${gatewayUrl}">http://localhost:8080</span>)</span>
+                <span th:if="${backendMode != 'gateway'}" class="badge bg-secondary text-white border me-1"><i class="bi bi-box me-1"></i>Mock Backend</span>
                 <span class="badge bg-light text-dark border me-1"><i class="bi bi-database me-1"></i>Oracle XE 21c</span>
                 <span class="badge bg-light text-dark border me-1"><i class="bi bi-journal-check me-1"></i>PostgreSQL 15</span>
                 <span class="badge bg-light text-dark border"><i class="bi bi-lightning-charge me-1"></i>Kafka</span>

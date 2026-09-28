@@ -169,7 +169,7 @@ CREATE TABLE outbox_master (
     aggregate_type  VARCHAR2(30)  NOT NULL,   -- e.g. 'ACCOUNT', 'CROSS_CURRENCY'
     aggregate_id    VARCHAR2(36)  NOT NULL,   -- account_id or txn_id
     event_type      VARCHAR2(60)  NOT NULL,   -- e.g. 'account.created', 'balance.updated', 'crosscurrency.settlement.completed'
-    payload         JSON          NOT NULL,
+    payload         CLOB          NOT NULL,
     status          VARCHAR2(20)  DEFAULT 'PENDING' NOT NULL,
     created_at      TIMESTAMP     DEFAULT SYSTIMESTAMP NOT NULL,
     published_at    TIMESTAMP,

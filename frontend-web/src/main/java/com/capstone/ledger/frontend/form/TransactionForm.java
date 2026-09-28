@@ -29,6 +29,8 @@ public class TransactionForm {
 
     private String description;
 
+    private String recipientName;
+
     public TransactionForm() {
         this.idempotencyKey = "TXN-KEY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
@@ -58,4 +60,7 @@ public class TransactionForm {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public String getRecipientName() { return recipientName; }
+    public void setRecipientName(String recipientName) { this.recipientName = recipientName; }
 }

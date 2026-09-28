@@ -31,13 +31,14 @@ public class ForexSettlementConsumer {
         }
 
         try {
+            Object raw = payload instanceof org.apache.kafka.clients.consumer.ConsumerRecord<?, ?> cr ? cr.value() : payload;
             ForexConversionCompletedEvent event;
-            if (payload instanceof ForexConversionCompletedEvent typed) {
+            if (raw instanceof ForexConversionCompletedEvent typed) {
                 event = typed;
-            } else if (payload instanceof String s) {
+            } else if (raw instanceof String s) {
                 event = objectMapper.readValue(s, ForexConversionCompletedEvent.class);
             } else {
-                event = objectMapper.convertValue(payload, ForexConversionCompletedEvent.class);
+                event = objectMapper.convertValue(raw, ForexConversionCompletedEvent.class);
             }
 
             log.info("Received FOREX_CONVERSION_COMPLETED for txnId={}: src={} dest={} srcAmt={} destAmt={}",

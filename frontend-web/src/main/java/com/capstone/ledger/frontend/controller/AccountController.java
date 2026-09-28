@@ -92,15 +92,23 @@ public class AccountController {
                 ? form.getCustomerId()
                 : user.getCustomerId();
 
-        AccountView newAccount = bankingClient.openAccount(
-                targetCustomerId, form.getAccountType(), form.getCurrencyCode(), form.getInitialDeposit()
-        );
+        try {
+            AccountView newAccount = bankingClient.openAccount(
+                    targetCustomerId, form.getAccountType(), form.getCurrencyCode(), form.getInitialDeposit()
+            );
 
-        redirectAttributes.addFlashAttribute("successMessage",
-                "New " + newAccount.getCurrencyCode() + " " + newAccount.getAcctType().getDisplayName() +
-                " (" + newAccount.getAccountId() + ") successfully opened!");
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "New " + newAccount.getCurrencyCode() + " " + newAccount.getAcctType().getDisplayName() +
+                    " (" + newAccount.getAccountId() + ") successfully opened!");
 
-        return "redirect:/accounts/" + newAccount.getAccountId();
+            return "redirect:/accounts/" + newAccount.getAccountId();
+        } catch (Exception ex) {
+            model.addAttribute("errorMessage", ex.getMessage());
+            model.addAttribute("accountTypes", AccountType.values());
+            model.addAttribute("currencies", List.of("PHP", "USD", "EUR", "GBP", "SGD"));
+            model.addAttribute("user", user);
+            return "account/open";
+        }
     }
 
     /** Legacy endpoint for quick open-account from customer detail page */

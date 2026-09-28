@@ -21,6 +21,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Controller handling:
@@ -102,10 +103,14 @@ public class TransactionController {
 
         try {
             List<TransactionView> results = bankingClient.executeTransaction(form);
-            String txnId = results.isEmpty() ? "TXN-UNKNOWN" : results.get(0).getTxnId();
+            TransactionView executedTxn = results.isEmpty() ? null : results.get(0);
+            String txnId = executedTxn != null ? executedTxn.getTxnId() : "TXN-UNKNOWN";
 
             redirectAttributes.addFlashAttribute("successMessage",
                     form.getTxnType().getDisplayName() + " processed successfully!");
+            if (executedTxn != null) {
+                redirectAttributes.addFlashAttribute("lastTxn", executedTxn);
+            }
             return "redirect:/transactions/receipt/" + txnId;
         } catch (IllegalArgumentException | IllegalStateException ex) {
             model.addAttribute("errorMessage", ex.getMessage());
@@ -128,6 +133,13 @@ public class TransactionController {
         }
 
         TransactionView txn = bankingClient.getTransactionById(txnId)
+                .or(() -> {
+                    Object last = model.asMap().get("lastTxn");
+                    if (last instanceof TransactionView tv && txnId.equalsIgnoreCase(tv.getTxnId())) {
+                        return Optional.of(tv);
+                    }
+                    return Optional.empty();
+                })
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found: " + txnId));
 
         model.addAttribute("txn", txn);

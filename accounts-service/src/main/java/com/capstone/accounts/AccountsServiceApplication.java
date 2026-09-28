@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
+@org.springframework.scheduling.annotation.EnableScheduling
 @ComponentScan(basePackages = {"com.capstone.accounts", "com.capstone.common"})
 public class AccountsServiceApplication {
 

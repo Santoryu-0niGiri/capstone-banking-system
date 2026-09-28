@@ -37,8 +37,11 @@ public class CustomerController {
         }
 
         CustomerView customer = bankingClient.getCustomerById(user.getCustomerId())
-                .orElse(new CustomerView(user.getCustomerId(), user.getFullName(), "", user.getEmail(),
+                .orElse(new CustomerView(user.getCustomerId(), user.getUsername(), "", user.getEmail(),
                         "", null, null));
+        if (customer.getFirstName() == null || customer.getFirstName().isBlank()) {
+            customer.setFirstName(user.getUsername() != null ? user.getUsername() : "Customer");
+        }
 
         List<AccountView> accounts = bankingClient.getAccountsByCustomerId(user.getCustomerId());
         customer.setAccounts(accounts);

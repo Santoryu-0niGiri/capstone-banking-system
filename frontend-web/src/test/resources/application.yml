@@ -1,0 +1,15 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: frontend-web
+  thymeleaf:
+    cache: false
+
+banking:
+  backend:
+    mode: mock
+    gateway-url: http://localhost:8080
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000

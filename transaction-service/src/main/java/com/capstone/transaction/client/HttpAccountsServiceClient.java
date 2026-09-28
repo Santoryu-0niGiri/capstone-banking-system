@@ -77,6 +77,9 @@ public class HttpAccountsServiceClient implements AccountsServiceClient {
                     } else if (statusCode == 409) {
                         throw new IdempotencyConflictException(
                                 detailMessage != null ? detailMessage : "Conflict in account mutation");
+                    } else if (statusCode == 400) {
+                        throw new IllegalArgumentException(
+                                detailMessage != null ? detailMessage : "Bad Request");
                     } else {
                         throw new IllegalStateException(
                                 "Accounts Service error [" + statusCode + "]: " + detailMessage);
@@ -127,7 +130,7 @@ public class HttpAccountsServiceClient implements AccountsServiceClient {
 
     @Override
     public AccountDTO getAccount(String accountId) {
-        String authHeader = resolveBearerToken();
+        String authHeader = resolveSystemToken();
 
         ApiResponse<AccountDTO> response = restClient.get()
                 .uri("/api/accounts/{accountId}", accountId)
@@ -140,6 +143,15 @@ public class HttpAccountsServiceClient implements AccountsServiceClient {
         }
 
         return response.data();
+    }
+
+    private String resolveSystemToken() {
+        String token = jwtTokenProvider.generateToken(
+                "SYSTEM_TXN_SERVICE",
+                "system-txn@internal.bank",
+                List.of("ROLE_ADMIN", "ROLE_INTERNAL")
+        );
+        return "Bearer " + token;
     }
 
     private String resolveBearerToken() {
@@ -156,13 +168,7 @@ public class HttpAccountsServiceClient implements AccountsServiceClient {
         } catch (Exception ignored) {
         }
 
-        // Generate an internal system service token if not in an active user HTTP request context
-        String token = jwtTokenProvider.generateToken(
-                "SYSTEM_TXN_SERVICE",
-                "system-txn@internal.bank",
-                List.of("ROLE_ADMIN", "ROLE_INTERNAL")
-        );
-        return "Bearer " + token;
+        return resolveSystemToken();
     }
 
     private String extractDetail(String json) {

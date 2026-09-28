@@ -43,26 +43,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.extern.slf4j.Slf4j;
 
-import com.capstone.common.security.SecurityUtils;
-
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import com.capstone.common.constants.KafkaTopics;
-
 /**
  * Core balance mutation orchestrator: WITHDRAWAL, DEPOSIT, TRANSFER.
  *
@@ -221,7 +201,40 @@ public class TransactionService {
                     "Invalid transaction ID: " + txnId, ex);
         }
 
-        List<LedgerMutationAudit> audits = auditRepository.findByTxnId(txnId);
+        List<LedgerMutationAudit> audits = new java.util.ArrayList<>(auditRepository.findByTxnId(txnId));
+        if (audits.isEmpty()) {
+            TransactionMaster master = txnMasterRepository.findById(txnId).orElse(null);
+            if (master != null) {
+                Instant ts = master.getInitiatedAt() != null
+                        ? master.getInitiatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant()
+                        : Instant.now();
+                if (master.getDebitAccountId() != null) {
+                    audits.add(LedgerMutationAudit.builder()
+                            .mutationUuid(UUID.randomUUID())
+                            .txnId(master.getTxnId())
+                            .accountId(master.getDebitAccountId())
+                            .mutationAmount(master.getMutationAmount())
+                            .mutationType("DEBIT")
+                            .txnType(master.getTxnType())
+                            .auditState(master.getTxnStatus())
+                            .createdAt(ts)
+                            .build());
+                }
+                if (master.getCreditAccountId() != null) {
+                    audits.add(LedgerMutationAudit.builder()
+                            .mutationUuid(UUID.randomUUID())
+                            .txnId(master.getTxnId())
+                            .accountId(master.getCreditAccountId())
+                            .mutationAmount(master.getDestAmount() != null ? master.getDestAmount() : master.getMutationAmount())
+                            .mutationType("CREDIT")
+                            .txnType(master.getTxnType())
+                            .auditState(master.getTxnStatus())
+                            .createdAt(ts)
+                            .build());
+                }
+            }
+        }
+
         if (!audits.isEmpty() && !SecurityUtils.isPrivileged()) {
             String currentCustId = SecurityUtils.getCurrentCustomerId().orElse(null);
             if (currentCustId != null) {
@@ -240,6 +253,28 @@ public class TransactionService {
         }
 
         return audits;
+    }
+
+    /**
+     * Finds all PostgreSQL audit records for a given account.
+     * Enforces customer ownership check for non-privileged users.
+     */
+    public List<LedgerMutationAudit> findAuditByAccountId(String accountId) {
+        if (accountId == null || accountId.isBlank()) {
+            throw new IllegalArgumentException("Account ID is required");
+        }
+
+        if (!SecurityUtils.isPrivileged()) {
+            try {
+                AccountDTO acct = accountsServiceClient.getAccount(accountId);
+                if (acct != null) {
+                    SecurityUtils.checkCustomerAccess(acct.customerId(), "view audit for account " + accountId);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        return auditRepository.findByAccountId(accountId);
     }
 
     // ── Single-leg (WITHDRAWAL / DEPOSIT) ─────────────────────────────────────
@@ -640,6 +675,7 @@ public class TransactionService {
                             .debitAccountId(sourceId)
                             .creditAccountId(destId)
                             .mutationAmount(amount)
+                            .isCrossCurrency("N")
                             .txnStatus("PENDING")
                             .initiatedAt(now)
                             .createdAt(now)
