@@ -15,6 +15,7 @@ import org.springframework.context.annotation.ComponentScan;
  * trail) — see config.OracleDataSourceConfig and config.PostgresDataSourceConfig.
  */
 @SpringBootApplication
+@org.springframework.scheduling.annotation.EnableScheduling
 @ComponentScan(basePackages = {"com.capstone.transaction", "com.capstone.common"})
 public class TransactionServiceApplication {
 

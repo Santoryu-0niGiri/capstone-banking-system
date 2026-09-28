@@ -51,17 +51,32 @@
                         <div class="text-danger small mt-1" th:if="${#fields.hasErrors('fromAcctNo')}" th:errors="*{fromAcctNo}"></div>
                     </div>
 
-                    <!-- Destination Account (Transfer Only) -->
-                    <div class="mb-3" id="destinationAccountGroup">
-                        <label class="form-label fw-semibold">Destination Account <span class="text-muted">(Transfer Only)</span></label>
-                        <select class="form-select" th:field="*{toAcctNo}" id="destAcctSelect" onchange="updateFxPreview()">
-                            <option value="">— Select Target Account —</option>
-                            <option th:each="a : ${allAccounts}"
-                                    th:value="${a.accountId}"
-                                    th:data-currency="${a.currencyCode}"
-                                    th:text="${a.accountId + ' · ' + a.currencyCode + ' ' + a.accountType.displayName + ' (' + a.customerId + ')'}"></option>
-                        </select>
-                        <div class="text-danger small mt-1" th:if="${#fields.hasErrors('toAcctNo')}" th:errors="*{toAcctNo}"></div>
+                    <!-- Destination Account & Recipient (Transfer Only) -->
+                    <div id="destinationAccountGroup">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Destination Account Number <span class="text-muted">(Transfer Only)</span></label>
+                            <input type="text" class="form-control" th:field="*{toAcctNo}" id="destAcctInput"
+                                   placeholder="Enter destination account (e.g. acct-maria-eur-01 or account UUID)"
+                                   list="knownAccountsList" oninput="updateFxPreview()"/>
+                            <datalist id="knownAccountsList">
+                                <option th:each="a : ${allAccounts}"
+                                        th:value="${a.accountId}"
+                                        th:data-currency="${a.currencyCode}"
+                                        th:label="${a.accountId + ' · ' + a.currencyCode + ' (' + a.customerId + ')'}"></option>
+                                <option th:each="a : ${userAccounts}"
+                                        th:value="${a.accountId}"
+                                        th:data-currency="${a.currencyCode}"
+                                        th:label="${'My ' + a.currencyCode + ' ' + a.accountType.displayName + ' (' + a.accountId + ')'}"></option>
+                            </datalist>
+                            <div class="text-danger small mt-1" th:if="${#fields.hasErrors('toAcctNo')}" th:errors="*{toAcctNo}"></div>
+                            <div class="form-text small text-muted">You can type any destination account ID or choose from suggested accounts.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Recipient Customer Name <span class="text-muted">(Optional)</span></label>
+                            <input type="text" class="form-control" th:field="*{recipientName}" id="recipientNameInput"
+                                   placeholder="e.g. Maria Santos"/>
+                        </div>
                     </div>
 
                     <!-- Amount -->
@@ -112,8 +127,8 @@
 
                     <div class="d-flex gap-2 justify-content-end mt-4">
                         <a href="/customer/dashboard" class="btn btn-outline-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-primary px-4 py-2 fw-semibold">
-                            <i class="bi bi-lock-fill me-1"></i> Submit &amp; Authorize Mutation
+                        <button type="submit" class="btn btn-primary px-4 py-2 fw-semibold" id="submitBtn">
+                            <i class="bi bi-lock-fill me-1"></i> <span id="submitBtnText">Submit &amp; Authorize</span>
                         </button>
                     </div>
                 </form>
@@ -127,15 +142,24 @@
 <script>
 function onTypeChanged() {
     const isTransfer = document.getElementById('btnTransfer').checked;
+    const isDeposit = document.getElementById('btnDeposit').checked;
+    const isWithdraw = document.getElementById('btnWithdraw').checked;
     const destGroup = document.getElementById('destinationAccountGroup');
     const fromLabel = document.getElementById('fromAccountLabel');
+    const submitBtnText = document.getElementById('submitBtnText');
 
     if (isTransfer) {
         destGroup.classList.remove('d-none');
         fromLabel.textContent = "Source Account (Debit Leg)";
+        submitBtnText.textContent = "Submit Transfer";
+    } else if (isDeposit) {
+        destGroup.classList.add('d-none');
+        fromLabel.textContent = "Target Account (Credit Leg)";
+        submitBtnText.textContent = "Confirm Deposit";
     } else {
         destGroup.classList.add('d-none');
-        fromLabel.textContent = document.getElementById('btnDeposit').checked ? "Target Account (Credit Leg)" : "Source Account (Debit Leg)";
+        fromLabel.textContent = "Source Account (Debit Leg)";
+        submitBtnText.textContent = "Confirm Withdrawal";
     }
     updateFxPreview();
 }
@@ -144,7 +168,8 @@ function updateFxPreview() {
     const isTransfer = document.getElementById('btnTransfer').checked;
     const fxCard = document.getElementById('fxPreviewCard');
     const sourceSelect = document.getElementById('sourceAcctSelect');
-    const destSelect = document.getElementById('destAcctSelect');
+    const destInput = document.getElementById('destAcctInput');
+    const destVal = destInput ? destInput.value.trim() : '';
     const amountVal = parseFloat(document.getElementById('amountInput').value) || 0;
 
     const sourceOpt = sourceSelect.options[sourceSelect.selectedIndex];
@@ -154,13 +179,29 @@ function updateFxPreview() {
     const symbols = { 'PHP': '₱', 'USD': '$', 'EUR': '€', 'GBP': '£', 'SGD': 'S$' };
     document.getElementById('currencyPrefix').textContent = symbols[sourceCurr] || '₱';
 
-    if (!isTransfer || !destSelect.value || amountVal <= 0) {
+    if (!isTransfer || !destVal || amountVal <= 0) {
         fxCard.classList.add('d-none');
         return;
     }
 
-    const destOpt = destSelect.options[destSelect.selectedIndex];
-    const destCurr = destOpt ? destOpt.getAttribute('data-currency') : '';
+    let destCurr = '';
+    const datalist = document.getElementById('knownAccountsList');
+    if (datalist) {
+        for (const opt of datalist.options) {
+            if (opt.value.toLowerCase() === destVal.toLowerCase()) {
+                destCurr = opt.getAttribute('data-currency');
+                break;
+            }
+        }
+    }
+    if (!destCurr) {
+        const u = destVal.toUpperCase();
+        if (u.includes('USD')) destCurr = 'USD';
+        else if (u.includes('EUR')) destCurr = 'EUR';
+        else if (u.includes('GBP')) destCurr = 'GBP';
+        else if (u.includes('SGD')) destCurr = 'SGD';
+        else if (u.includes('PHP')) destCurr = 'PHP';
+    }
 
     if (!destCurr || sourceCurr === destCurr) {
         fxCard.classList.add('d-none');

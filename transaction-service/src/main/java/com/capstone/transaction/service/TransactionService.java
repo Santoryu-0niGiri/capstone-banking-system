@@ -220,6 +220,28 @@ public class TransactionService {
         return audits;
     }
 
+    /**
+     * Finds all PostgreSQL audit records for a given account.
+     * Enforces customer ownership check for non-privileged users.
+     */
+    public List<LedgerMutationAudit> findAuditByAccountId(String accountId) {
+        if (accountId == null || accountId.isBlank()) {
+            throw new IllegalArgumentException("Account ID is required");
+        }
+
+        if (!SecurityUtils.isPrivileged()) {
+            try {
+                AccountDTO acct = accountsServiceClient.getAccount(accountId);
+                if (acct != null) {
+                    SecurityUtils.checkCustomerAccess(acct.customerId(), "view audit for account " + accountId);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        return auditRepository.findByAccountId(accountId);
+    }
+
     // ── Single-leg (WITHDRAWAL / DEPOSIT) ─────────────────────────────────────
 
     private TransactionResponse executeSingleLeg(
@@ -572,6 +594,7 @@ public class TransactionService {
                             .debitAccountId(debitAccountId)
                             .creditAccountId(creditAccountId)
                             .mutationAmount(delta.abs())
+                            .isCrossCurrency("N")
                             .txnStatus("PENDING")
                             .initiatedAt(now)
                             .createdAt(now)
@@ -617,6 +640,7 @@ public class TransactionService {
                             .debitAccountId(sourceId)
                             .creditAccountId(destId)
                             .mutationAmount(amount)
+                            .isCrossCurrency("N")
                             .txnStatus("PENDING")
                             .initiatedAt(now)
                             .createdAt(now)

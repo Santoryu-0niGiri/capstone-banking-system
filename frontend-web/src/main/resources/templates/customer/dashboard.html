@@ -12,7 +12,7 @@
         <div class="row align-items-center">
             <div class="col-md-8">
                 <div class="d-flex align-items-center gap-2 mb-1">
-                    <h3 class="fw-bold mb-0" th:text="${'Welcome back, ' + customer.firstName + '!'}">Welcome back!</h3>
+                    <h3 class="fw-bold mb-0" th:text="${'Welcome back, ' + (customer.firstName != null ? customer.firstName : (user.username != null ? user.username : 'Customer')) + '!'}">Welcome back!</h3>
                     <span th:class="${'badge ' + (customer.kycStatus.name() == 'VERIFIED' ? 'badge-kyc-verified' : 'badge-kyc-pending')}"
                           th:text="${customer.kycStatus.displayName}">Verified</span>
                 </div>

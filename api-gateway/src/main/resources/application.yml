@@ -46,6 +46,14 @@ spring:
           filters:
             - JwtAuthentication
 
+        # Customer profile directory — routed to registration-service
+        - id: customer-profile-service
+          uri: http://registration-service:8081
+          predicates:
+            - Path=/api/customers/**
+          filters:
+            - JwtAuthentication
+
         - id: transaction-service
           uri: http://transaction-service:8084
           predicates:

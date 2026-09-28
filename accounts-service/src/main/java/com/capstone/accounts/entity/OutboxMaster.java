@@ -45,6 +45,7 @@ public class OutboxMaster {
     @Column(name = "event_type", nullable = false, length = 60)
     private String eventType;
 
+    @jakarta.persistence.Lob
     @Column(name = "payload", nullable = false)
     private String payload;
 

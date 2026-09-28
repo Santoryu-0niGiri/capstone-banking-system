@@ -59,8 +59,9 @@ public class TransactionMaster {
     @Column(name = "mutation_amount", nullable = false, precision = 18, scale = 4)
     private BigDecimal mutationAmount;
 
-    @Column(name = "is_cross_currency", length = 1)
-    private String isCrossCurrency;
+    @Builder.Default
+    @Column(name = "is_cross_currency", length = 1, nullable = false)
+    private String isCrossCurrency = "N";
 
     @Column(name = "fx_rate", precision = 18, scale = 8)
     private BigDecimal fxRate;

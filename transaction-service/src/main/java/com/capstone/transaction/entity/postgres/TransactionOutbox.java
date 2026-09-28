@@ -55,7 +55,7 @@ public class TransactionOutbox {
     @Column(name = "event_type", nullable = false, length = 60)
     private String eventType;
 
-    // Using String for JSONB payload. PostgreSQL can cast string to JSONB on insert.
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(name = "payload", nullable = false, columnDefinition = "jsonb")
     private String payload;
 

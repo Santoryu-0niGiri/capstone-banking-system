@@ -67,13 +67,17 @@ public class CrossCurrencySettlementConsumer {
         }
 
         try {
+            Object raw = payload instanceof org.apache.kafka.clients.consumer.ConsumerRecord<?, ?> cr ? cr.value() : payload;
             CrossCurrencySettlementCompletedEvent event;
-            if (payload instanceof CrossCurrencySettlementCompletedEvent typed) {
+            if (raw instanceof CrossCurrencySettlementCompletedEvent typed) {
                 event = typed;
-            } else if (payload instanceof String s) {
+            } else if (raw instanceof String s) {
+                if (s.startsWith("\"") && s.endsWith("\"")) {
+                    s = objectMapper.readValue(s, String.class);
+                }
                 event = objectMapper.readValue(s, CrossCurrencySettlementCompletedEvent.class);
             } else {
-                event = objectMapper.convertValue(payload, CrossCurrencySettlementCompletedEvent.class);
+                event = objectMapper.convertValue(raw, CrossCurrencySettlementCompletedEvent.class);
             }
 
             log.info("Processing CROSSCURRENCY_SETTLEMENT_COMPLETED for txnId={}: srcAmt={} destAmt={}",
