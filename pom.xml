@@ -24,6 +24,8 @@
         <module>transaction-service</module>
         <module>notification-service</module>
         <module>frontend-web</module>
+        <module>reconciliation-service</module>
+
     </modules>
 
     <properties>
