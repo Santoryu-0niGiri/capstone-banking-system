@@ -24,9 +24,9 @@ spring:
 
   postgres:
     datasource:
-      jdbc-url: ${PG_URL:jdbc:postgresql://localhost:5432/ledger_audit}
-      username: ${PG_USERNAME:ledger_audit}
-      password: ${PG_PASSWORD:LedgerAuditPass123}
+      jdbc-url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/ledger_audit}
+      username: ${POSTGRES_USERNAME:ledger_audit}
+      password: ${POSTGRES_PASSWORD:LedgerAuditPass123}
       driver-class-name: org.postgresql.Driver
       hikari:
         pool-name: recon-postgres-pool
