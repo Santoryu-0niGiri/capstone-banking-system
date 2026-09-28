@@ -189,6 +189,15 @@ When running standalone, use the **Quick Switcher** bar at the top of the screen
 
 For full architectural details, Anti-Corruption Layer (ACL) design, and instructions on adapting to backend API contract changes, refer to the [**Frontend Wiring & Contract Guide**](frontend-web/WIRING_AND_CONTRACT_GUIDE.md).
 
+### Automated Test Suite & Acceptance Verification
+
+All test suites and verification artifacts are available in the project root:
+
+- **1-Click Test Suite Runner**: Run `.\run_test_suite.ps1` in PowerShell to execute all 17 integration tests and generate `test_results_report.csv`.
+- **Excel Test Cases Specification**: [**`capstone_test_cases.csv`**](capstone_test_cases.csv) (21 test cases ready to open in Excel).
+- **Terminal Commands Guide**: [**`TEST_CASES_COMMANDS.md`**](TEST_CASES_COMMANDS.md) (Individual copy-pasteable commands for every test case).
+- **Concurrency & Deadlock Test**: Run `mvn test -pl transaction-service -Dtest=ParallelWithdrawalConcurrencyTest` to test 10 parallel threads against row locks.
+
 ---
 
 ## API entry point
