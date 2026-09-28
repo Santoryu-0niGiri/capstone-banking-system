@@ -1,0 +1,2292 @@
+/* =========================================================
+   CORE RETAIL BANKING LANDING PAGE
+   Scoped ONLY to .banking-landing
+   Magenta + Purple + Spring Green
+   Light / Dark Mode
+   ========================================================= */
+
+.banking-landing {
+    --brand-magenta: #c21868;
+    --brand-magenta-dark: #a91459;
+
+    --brand-purple: #6542c8;
+    --brand-purple-dark: #5034a5;
+
+    --brand-green: #25c979;
+    --brand-green-dark: #15965a;
+
+    --brand-bg: #f5f4f7;
+    --brand-card-bg: #ffffff;
+    --brand-card-soft: #faf9fc;
+
+    --brand-border: #e3e0e7;
+    --brand-border-soft: #eeebf0;
+
+    --brand-text-primary: #18161d;
+    --brand-text-secondary: #514d58;
+    --brand-text-muted: #77727e;
+
+    --brand-gradient:
+        linear-gradient(
+            135deg,
+            #c21868 0%,
+            #7b42c9 55%,
+            #6542c8 100%
+        );
+
+    --brand-shadow-sm:
+        0 2px 8px rgba(20, 16, 28, 0.05);
+
+    --brand-shadow-md:
+        0 10px 30px rgba(20, 16, 28, 0.08);
+
+    --brand-shadow-lg:
+        0 20px 45px rgba(20, 16, 28, 0.11);
+
+    background-color: var(--brand-bg);
+    color: var(--brand-text-primary);
+
+    min-height: 100vh;
+
+    position: relative;
+
+    transition:
+        background-color 0.25s ease,
+        color 0.25s ease;
+}
+
+/* Keep landing-page content above decorative background */
+.banking-landing > * {
+    position: relative;
+    z-index: 1;
+}
+
+.banking-landing main {
+    min-height: 1px;
+}
+
+/* =========================================================
+   DEMO BAR
+   ========================================================= */
+
+.banking-landing .demo-bar {
+    background-color: #17151d;
+    color: #aaa5b0;
+
+    font-size: 0.8rem;
+
+    padding: 0.4rem 1rem;
+
+    border-bottom:
+        1px solid rgba(255, 255, 255, 0.08);
+}
+
+.banking-landing .demo-bar a {
+    color: #d878a5;
+
+    text-decoration: none;
+
+    font-weight: 600;
+
+    margin-left: 0.4rem;
+}
+
+.banking-landing .demo-bar a:hover {
+    color: #eea1c1;
+
+    text-decoration: underline;
+}
+
+/* =========================================================
+   NAVBAR
+   ========================================================= */
+
+.banking-landing .navbar-custom {
+    background-color: rgba(255, 255, 255, 0.96);
+
+    border-bottom:
+        1px solid var(--brand-border);
+
+    box-shadow:
+        0 2px 10px rgba(20, 16, 28, 0.04);
+}
+
+.banking-landing .navbar-custom .navbar-brand {
+    color: var(--brand-text-primary);
+
+    font-weight: 700;
+
+    letter-spacing: -0.02em;
+
+    display: flex;
+    align-items: center;
+
+    gap: 0.5rem;
+}
+
+.banking-landing .navbar-custom .nav-link {
+    color: var(--brand-text-secondary);
+
+    font-weight: 500;
+
+    font-size: 0.92rem;
+
+    padding: 0.5rem 0.85rem;
+
+    border-radius: 8px;
+
+    transition:
+        color 0.15s ease,
+        background-color 0.15s ease;
+}
+
+.banking-landing .navbar-custom .nav-link:hover,
+.banking-landing .navbar-custom .nav-link.active {
+    color: var(--brand-purple);
+
+    background-color:
+        rgba(101, 66, 200, 0.07);
+}
+
+/* =========================================================
+   GENERAL CARDS
+   ========================================================= */
+
+.banking-landing .card {
+    background-color: var(--brand-card-bg);
+
+    border:
+        1px solid var(--brand-border);
+
+    border-radius: 14px;
+
+    color: var(--brand-text-primary);
+
+    box-shadow: var(--brand-shadow-sm);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.banking-landing .card-hover:hover {
+    transform: translateY(-2px);
+
+    box-shadow: var(--brand-shadow-md);
+}
+
+/* =========================================================
+   HERO
+   ========================================================= */
+
+.banking-landing .banking-hero {
+    position: relative;
+}
+
+.banking-landing .hero-badge {
+    color: var(--brand-purple);
+
+    background-color:
+        rgba(101, 66, 200, 0.08);
+
+    border:
+        1px solid rgba(101, 66, 200, 0.16);
+
+    font-size: 0.72rem;
+
+    font-weight: 700;
+}
+
+.banking-landing .hero-title {
+    color: var(--brand-text-primary);
+
+    font-weight: 800;
+
+    letter-spacing: -0.045em;
+
+    line-height: 1.05;
+}
+
+.banking-landing .hero-description {
+    color: var(--brand-text-secondary) !important;
+
+    line-height: 1.7;
+
+    max-width: 720px;
+}
+
+/* =========================================================
+   PRIMARY HERO BUTTON
+   ========================================================= */
+
+.banking-landing .banking-primary-btn {
+    display: inline-flex !important;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: auto;
+
+    min-height: 48px;
+
+    margin: 0 !important;
+
+    padding: 0.65rem 1.3rem !important;
+
+    line-height: 1.2 !important;
+
+    vertical-align: middle;
+
+    border-radius: 9px !important;
+
+    border:
+        1px solid #b81762 !important;
+
+    background:
+        linear-gradient(
+            135deg,
+            #b81762 0%,
+            #7445c4 100%
+        ) !important;
+
+    color: #ffffff !important;
+
+    font-weight: 650;
+
+    text-decoration: none;
+
+    box-shadow:
+        0 6px 16px rgba(101, 66, 200, 0.22);
+
+    opacity: 1 !important;
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.banking-landing .banking-primary-btn:hover,
+.banking-landing .banking-primary-btn:focus {
+    background:
+        linear-gradient(
+            135deg,
+            #c5226d 0%,
+            #8253d0 100%
+        ) !important;
+
+    border-color:
+        #c94b82 !important;
+
+    color: #ffffff !important;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 8px 20px rgba(101, 66, 200, 0.28);
+}
+
+.banking-landing .banking-primary-btn:active {
+    transform: translateY(0);
+}
+
+/* =========================================================
+   OUTLINE HERO BUTTON
+   ========================================================= */
+
+.banking-landing .banking-outline-btn {
+    display: inline-flex !important;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: auto;
+
+    min-height: 48px;
+
+    margin: 0 !important;
+
+    padding: 0.65rem 1.3rem !important;
+
+    line-height: 1.2 !important;
+
+    vertical-align: middle;
+
+    border-radius: 9px !important;
+
+    color: var(--brand-purple) !important;
+
+    border:
+        1px solid var(--brand-purple) !important;
+
+    background-color: transparent !important;
+
+    font-weight: 600;
+
+    text-decoration: none;
+
+    transition:
+        color 0.2s ease,
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.banking-landing .banking-outline-btn:hover,
+.banking-landing .banking-outline-btn:focus {
+    background-color:
+        var(--brand-purple) !important;
+
+    border-color:
+        var(--brand-purple) !important;
+
+    color: #ffffff !important;
+}
+
+/* =========================================================
+   TRUST INDICATORS
+   ========================================================= */
+
+.banking-landing .hero-trust-row {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 1.2rem;
+
+    margin-bottom: 0 !important;
+}
+
+.banking-landing .hero-trust-item {
+    display: flex;
+
+    align-items: center;
+
+    gap: 0.55rem;
+}
+
+.banking-landing .hero-trust-item strong {
+    display: block;
+
+    font-size: 0.73rem;
+}
+
+.banking-landing .hero-trust-item small {
+    display: block;
+
+    color: var(--brand-text-muted);
+
+    font-size: 0.65rem;
+}
+
+.banking-landing .trust-icon {
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 9px;
+}
+
+.banking-landing .trust-green {
+    color: var(--brand-green-dark);
+
+    background-color:
+        rgba(37, 201, 121, 0.1);
+}
+
+.banking-landing .trust-purple {
+    color: var(--brand-purple);
+
+    background-color:
+        rgba(101, 66, 200, 0.09);
+}
+
+.banking-landing .trust-magenta {
+    color: var(--brand-magenta);
+
+    background-color:
+        rgba(194, 24, 104, 0.08);
+}
+
+/* =========================================================
+   PERSONA CARD
+   ========================================================= */
+
+.banking-landing .persona-card {
+    border-radius: 18px !important;
+
+    box-shadow:
+        var(--brand-shadow-lg) !important;
+
+    position: relative;
+
+    overflow: hidden;
+}
+
+.banking-landing .persona-card::before {
+    content: "";
+
+    position: absolute;
+
+    width: 180px;
+    height: 180px;
+
+    right: -100px;
+    top: -100px;
+
+    border-radius: 50%;
+
+    background-color:
+        rgba(101, 66, 200, 0.07);
+
+    pointer-events: none;
+}
+
+.banking-landing .persona-header {
+    display: flex;
+
+    align-items: flex-start;
+
+    justify-content: space-between;
+
+    position: relative;
+}
+
+.banking-landing .persona-header-icon {
+    width: 42px;
+    height: 42px;
+
+    border-radius: 11px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    color: #ffffff;
+
+    background:
+        var(--brand-gradient);
+}
+
+.banking-landing .persona-button {
+    color: var(--brand-text-primary) !important;
+
+    background-color:
+        var(--brand-card-soft) !important;
+
+    border:
+        1px solid var(--brand-border-soft) !important;
+
+    border-radius: 12px;
+
+    transition:
+        transform 0.2s ease,
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.banking-landing .persona-button:hover {
+    color: var(--brand-text-primary) !important;
+
+    background-color:
+        #f5f2f8 !important;
+
+    border-color:
+        rgba(101, 66, 200, 0.25) !important;
+
+    transform: translateX(3px);
+}
+
+.banking-landing .persona-button > i:first-child {
+    width: 42px;
+    height: 42px;
+
+    flex: 0 0 42px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 10px;
+}
+
+.banking-landing .persona-admin > i:first-child {
+    color: var(--brand-magenta);
+
+    background-color:
+        rgba(194, 24, 104, 0.09);
+}
+
+.banking-landing .persona-juan > i:first-child,
+.banking-landing .persona-maria > i:first-child {
+    color: var(--brand-purple);
+
+    background-color:
+        rgba(101, 66, 200, 0.09);
+}
+
+.banking-landing .persona-content {
+    flex: 1;
+}
+
+.banking-landing .persona-content small {
+    display: block;
+
+    line-height: 1.4;
+
+    margin-top: 2px;
+}
+
+.banking-landing .persona-arrow {
+    color: var(--brand-text-muted);
+
+    font-size: 0.85rem;
+}
+
+/* =========================================================
+   SYSTEM STATUS
+   ========================================================= */
+
+.banking-landing .system-strip {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 1.5rem;
+
+    padding: 0.9rem 1.1rem;
+
+    margin-top: 1rem;
+
+    border:
+        1px solid var(--brand-border);
+
+    border-radius: 12px;
+
+    background-color:
+        var(--brand-card-bg);
+}
+
+.banking-landing .system-strip-label {
+    display: flex;
+
+    align-items: center;
+
+    gap: 0.55rem;
+
+    white-space: nowrap;
+
+    font-size: 0.78rem;
+}
+
+.banking-landing .system-status-dot {
+    width: 7px;
+    height: 7px;
+
+    border-radius: 50%;
+
+    background-color:
+        var(--brand-green);
+}
+
+.banking-landing .system-status-list {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    justify-content: flex-end;
+
+    gap: 1rem;
+
+    color: var(--brand-text-muted);
+
+    font-size: 0.7rem;
+}
+
+.banking-landing .system-status-list i {
+    color: var(--brand-green);
+
+    margin-right: 0.25rem;
+}
+
+/* =========================================================
+   SECTION HEADING
+   ========================================================= */
+
+.banking-landing .banking-section-heading {
+    max-width: 700px;
+}
+
+.banking-landing .section-eyebrow {
+    color: var(--brand-magenta);
+
+    font-size: 0.65rem;
+
+    font-weight: 800;
+
+    letter-spacing: 0.15em;
+
+    text-transform: uppercase;
+}
+
+.banking-landing .banking-section-heading h2 {
+    font-size: 2rem;
+
+    font-weight: 780;
+
+    letter-spacing: -0.04em;
+
+    margin:
+        0.35rem 0 0.45rem;
+}
+
+.banking-landing .banking-section-heading p {
+    color: var(--brand-text-muted);
+
+    line-height: 1.65;
+}
+
+/* =========================================================
+   FEATURE CARDS
+   ========================================================= */
+
+.banking-landing .feature-card {
+    border-radius: 16px !important;
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.banking-landing .feature-card:hover {
+    transform: translateY(-3px);
+
+    box-shadow:
+        var(--brand-shadow-md);
+}
+
+.banking-landing .feature-icon {
+    width: 46px;
+    height: 46px;
+
+    border-radius: 12px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    color: #ffffff;
+
+    font-size: 1.05rem;
+}
+
+.banking-landing .purple-gradient {
+    background:
+        linear-gradient(
+            135deg,
+            #c21868,
+            #6542c8
+        );
+}
+
+.banking-landing .green-gradient {
+    background:
+        linear-gradient(
+            135deg,
+            #25c979,
+            #15965a
+        );
+}
+
+.banking-landing .feature-card h5 {
+    color: var(--brand-text-primary);
+
+    letter-spacing: -0.02em;
+}
+
+.banking-landing .feature-card p {
+    color: var(--brand-text-muted) !important;
+
+    line-height: 1.65;
+}
+
+.banking-landing .feature-footer {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    margin-top: 1.1rem;
+
+    color: var(--brand-purple);
+
+    font-size: 0.7rem;
+
+    font-weight: 700;
+}
+
+.banking-landing .green-footer {
+    color: var(--brand-green-dark);
+}
+
+/* =========================================================
+   SECURITY SECTION
+   ========================================================= */
+
+.banking-landing .security-card {
+    display: grid;
+
+    grid-template-columns:
+        0.9fr 1.1fr;
+
+    align-items: center;
+
+    gap: 3rem;
+
+    padding: 2.5rem;
+
+    border:
+        1px solid var(--brand-border);
+
+    border-radius: 20px;
+
+    background-color:
+        var(--brand-card-soft);
+
+    box-shadow:
+        var(--brand-shadow-sm);
+
+    overflow: hidden;
+}
+
+.banking-landing .security-visual {
+    min-height: 230px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    position: relative;
+}
+
+.banking-landing .security-glow {
+    position: absolute;
+
+    width: 210px;
+    height: 150px;
+
+    border-radius: 30px;
+
+    transform: rotate(-8deg);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(194, 24, 104, 0.75),
+            rgba(101, 66, 200, 0.85)
+        );
+
+    box-shadow:
+        25px 18px 0 rgba(37, 201, 121, 0.45);
+}
+
+.banking-landing .security-bank-card {
+    width: 260px;
+    height: 155px;
+
+    padding: 1.2rem;
+
+    color: #ffffff;
+
+    border-radius: 16px;
+
+    position: relative;
+
+    z-index: 2;
+
+    background:
+        linear-gradient(
+            135deg,
+            #21172d,
+            #351a47
+        );
+
+    box-shadow:
+        0 18px 35px rgba(20, 16, 28, 0.2);
+
+    transform: rotate(-4deg);
+}
+
+.banking-landing .security-card-top,
+.banking-landing .security-card-bottom {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    font-size: 0.58rem;
+
+    letter-spacing: 0.1em;
+
+    opacity: 0.8;
+}
+
+.banking-landing .security-card-number {
+    margin-top: 2.2rem;
+
+    font-size: 0.85rem;
+
+    letter-spacing: 0.14em;
+}
+
+.banking-landing .security-card-bottom {
+    margin-top: 1.3rem;
+}
+
+.banking-landing .security-card-bottom i {
+    color: var(--brand-green);
+}
+
+.banking-landing .security-content h2 {
+    color: var(--brand-text-primary);
+
+    font-size: 2rem;
+
+    font-weight: 780;
+
+    letter-spacing: -0.04em;
+
+    margin:
+        0.35rem 0 0.6rem;
+}
+
+.banking-landing .security-content p {
+    color: var(--brand-text-muted);
+
+    line-height: 1.7;
+}
+
+.banking-landing .security-list {
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 0.75rem;
+
+    margin-top: 1.25rem;
+}
+
+.banking-landing .security-list div {
+    color: var(--brand-text-secondary);
+
+    font-size: 0.8rem;
+}
+
+.banking-landing .security-list i {
+    color: var(--brand-green);
+
+    margin-right: 0.4rem;
+}
+
+/* =========================================================
+   CLOSING BANNER
+   ========================================================= */
+
+.banking-landing .closing-banner {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 2rem;
+
+    padding: 2.3rem;
+
+    border-radius: 19px;
+
+    color: #ffffff;
+
+    background:
+        linear-gradient(
+            110deg,
+            #21172d,
+            #351a47 50%,
+            #28204a
+        );
+}
+
+.banking-landing .closing-banner .section-eyebrow {
+    color: #d878a5;
+}
+
+.banking-landing .closing-banner h2 {
+    color: #ffffff;
+
+    font-size: 2rem;
+
+    font-weight: 780;
+
+    letter-spacing: -0.04em;
+
+    margin:
+        0.35rem 0 0.5rem;
+}
+
+.banking-landing .closing-banner p {
+    color: #c3bdc9;
+
+    max-width: 680px;
+
+    margin: 0;
+
+    line-height: 1.6;
+}
+
+.banking-landing .closing-btn {
+    flex-shrink: 0;
+
+    color: #ffffff !important;
+
+    border: none;
+
+    border-radius: 9px;
+
+    font-weight: 700;
+
+    background:
+        var(--brand-gradient) !important;
+
+    padding: 0.7rem 1.2rem;
+
+    text-decoration: none;
+}
+
+.banking-landing .closing-btn:hover {
+    color: #ffffff !important;
+}
+
+/* =========================================================
+   EXISTING BANKING COMPONENTS
+   ========================================================= */
+
+.banking-landing .balance-figure {
+    font-size: 1.85rem;
+
+    font-weight: 700;
+
+    letter-spacing: -0.03em;
+
+    color: var(--brand-text-primary);
+}
+
+.banking-landing .balance-figure-sm {
+    font-size: 1.35rem;
+
+    font-weight: 700;
+
+    color: var(--brand-text-primary);
+}
+
+.banking-landing .currency-badge {
+    font-size: 0.75rem;
+
+    font-weight: 700;
+
+    padding: 0.2rem 0.5rem;
+
+    border-radius: 6px;
+
+    background-color: #ebe8ef;
+
+    color: #514d58;
+
+    letter-spacing: 0.05em;
+}
+
+/* =========================================================
+   BADGES
+   ========================================================= */
+
+.banking-landing .badge-credit {
+    background-color:
+        rgba(37, 201, 121, 0.11);
+
+    color: #13864f;
+
+    border:
+        1px solid rgba(37, 201, 121, 0.22);
+
+    font-weight: 600;
+}
+
+.banking-landing .badge-debit {
+    background-color:
+        rgba(194, 24, 104, 0.08);
+
+    color: #a91459;
+
+    border:
+        1px solid rgba(194, 24, 104, 0.16);
+
+    font-weight: 600;
+}
+
+.banking-landing .badge-kyc-verified {
+    background-color:
+        rgba(37, 201, 121, 0.11);
+
+    color: #13864f;
+
+    border:
+        1px solid rgba(37, 201, 121, 0.22);
+}
+
+.banking-landing .badge-kyc-pending {
+    background-color:
+        rgba(101, 66, 200, 0.08);
+
+    color: var(--brand-purple);
+
+    border:
+        1px solid rgba(101, 66, 200, 0.15);
+}
+
+/* =========================================================
+   TABLES
+   ========================================================= */
+
+.banking-landing .table {
+    color: var(--brand-text-primary);
+
+    vertical-align: middle;
+}
+
+.banking-landing .table th {
+    font-size: 0.8rem;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.05em;
+
+    color: var(--brand-text-muted);
+
+    font-weight: 600;
+
+    border-bottom:
+        2px solid var(--brand-border);
+}
+
+.banking-landing .table-sm td,
+.banking-landing .table-sm th {
+    padding: 0.65rem 0.75rem;
+}
+
+/* =========================================================
+   RECEIPT
+   ========================================================= */
+
+.banking-landing .receipt-card {
+    max-width: 580px;
+
+    margin: 2rem auto;
+
+    border:
+        2px dashed var(--brand-border);
+
+    background-color:
+        var(--brand-card-bg);
+
+    border-radius: 16px;
+
+    box-shadow:
+        var(--brand-shadow-md);
+}
+
+.banking-landing .receipt-header {
+    border-bottom:
+        1px solid var(--brand-border);
+
+    padding-bottom: 1.5rem;
+}
+
+.banking-landing .receipt-row {
+    display: flex;
+
+    justify-content: space-between;
+
+    padding: 0.5rem 0;
+
+    border-bottom:
+        1px solid var(--brand-border-soft);
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.banking-landing footer {
+    background-color:
+        var(--brand-card-bg);
+
+    border-top:
+        1px solid var(--brand-border);
+
+    color: var(--brand-text-muted);
+
+    font-size: 0.85rem;
+}
+
+/* =========================================================
+   THEME TOGGLE
+   ========================================================= */
+
+.banking-landing .theme-toggle {
+    position: fixed;
+
+    right: 24px;
+    bottom: 24px;
+
+    width: 50px;
+    height: 50px;
+
+    border: none;
+
+    border-radius: 50%;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    color: #ffffff;
+
+    background:
+        var(--brand-gradient);
+
+    box-shadow:
+        0 8px 25px rgba(30, 20, 40, 0.22);
+
+    cursor: pointer;
+
+    z-index: 9999;
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.banking-landing .theme-toggle:hover {
+    transform: translateY(-3px);
+
+    box-shadow:
+        0 12px 30px rgba(30, 20, 40, 0.3);
+}
+
+.banking-landing .theme-toggle:active {
+    transform: scale(0.95);
+}
+
+/* =========================================================
+   DARK MODE
+   ========================================================= */
+
+.banking-landing.dark-mode {
+    --brand-bg: #121116;
+
+    --brand-card-bg: #24212b;
+
+    --brand-card-soft: #292630;
+
+    --brand-border: #403b48;
+
+    --brand-border-soft: #36313e;
+
+    --brand-text-primary: #f4f1f6;
+
+    --brand-text-secondary: #c2bdc8;
+
+    --brand-text-muted: #96909d;
+
+    --brand-purple: #9b7be2;
+
+    --brand-green: #39d98a;
+
+    background-color:
+        var(--brand-bg);
+
+    color:
+        var(--brand-text-primary);
+
+    overflow-x: hidden;
+}
+
+/* =========================================================
+   DARK MODE BACKGROUND GRADIENT SPOTS
+   ========================================================= */
+
+.banking-landing.dark-mode::before {
+    content: "";
+
+    position: fixed;
+
+    inset: 0;
+
+    pointer-events: none;
+
+    z-index: 0;
+
+    background:
+        radial-gradient(
+            circle at 8% 18%,
+            rgba(194, 24, 104, 0.20) 0,
+            rgba(194, 24, 104, 0.10) 12%,
+            transparent 30%
+        ),
+
+        radial-gradient(
+            circle at 92% 25%,
+            rgba(101, 66, 200, 0.22) 0,
+            rgba(101, 66, 200, 0.10) 14%,
+            transparent 32%
+        ),
+
+        radial-gradient(
+            circle at 72% 82%,
+            rgba(194, 24, 104, 0.14) 0,
+            rgba(194, 24, 104, 0.05) 12%,
+            transparent 30%
+        ),
+
+        radial-gradient(
+            circle at 25% 70%,
+            rgba(101, 66, 200, 0.10) 0,
+            transparent 27%
+        );
+
+    background-attachment: fixed;
+}
+
+/* =========================================================
+   DARK NAVBAR
+   ========================================================= */
+
+.banking-landing.dark-mode .navbar-custom {
+    background-color:
+        rgba(24, 22, 29, 0.96);
+
+    border-bottom-color:
+        #37333e;
+}
+
+.banking-landing.dark-mode .navbar-custom .navbar-brand {
+    color: #ffffff;
+}
+
+.banking-landing.dark-mode .navbar-custom .nav-link {
+    color: #bdb7c3;
+}
+
+.banking-landing.dark-mode .navbar-custom .nav-link:hover,
+.banking-landing.dark-mode .navbar-custom .nav-link.active {
+    color: #ffffff;
+
+    background-color:
+        rgba(255, 255, 255, 0.07);
+}
+
+/* =========================================================
+   DARK CARDS
+   ========================================================= */
+
+.banking-landing.dark-mode .card {
+    background-color:
+        #24212b;
+
+    border-color:
+        #403b48;
+
+    color:
+        var(--brand-text-primary);
+
+    box-shadow:
+        0 8px 25px rgba(0, 0, 0, 0.18);
+}
+
+.banking-landing.dark-mode .persona-card {
+    background-color:
+        #28252f;
+
+    border-color:
+        #47414f;
+}
+
+.banking-landing.dark-mode .persona-button {
+    color:
+        var(--brand-text-primary) !important;
+
+    background-color:
+        #302c36 !important;
+
+    border-color:
+        #49434f !important;
+}
+
+.banking-landing.dark-mode .persona-button:hover {
+    color:
+        #ffffff !important;
+
+    background-color:
+        #38333f !important;
+
+    border-color:
+        rgba(155, 123, 226, 0.5) !important;
+}
+
+.banking-landing.dark-mode .feature-card {
+    background-color:
+        #26232c;
+
+    border-color:
+        #403b48;
+}
+
+.banking-landing.dark-mode .system-strip {
+    background-color:
+        #24212b;
+
+    border-color:
+        #403b48;
+}
+
+.banking-landing.dark-mode .security-card {
+    background-color:
+        #28252f;
+
+    border-color:
+        #47414f;
+}
+
+/* =========================================================
+   DARK FOOTER
+   ========================================================= */
+
+.banking-landing.dark-mode footer {
+    background-color:
+        #18161d;
+
+    border-top-color:
+        #37333e;
+}
+
+/* =========================================================
+   DARK HERO
+   ========================================================= */
+
+.banking-landing.dark-mode .hero-title {
+    color: #ffffff;
+}
+
+.banking-landing.dark-mode .hero-description {
+    color:
+        var(--brand-text-secondary) !important;
+}
+
+.banking-landing.dark-mode .hero-badge {
+    color: #c5b2ef;
+
+    background-color:
+        rgba(101, 66, 200, 0.14);
+
+    border-color:
+        rgba(101, 66, 200, 0.30);
+}
+
+/* =========================================================
+   DARK PRIMARY BUTTON
+   ========================================================= */
+
+.banking-landing.dark-mode .banking-primary-btn {
+    background:
+        linear-gradient(
+            135deg,
+            #c22570 0%,
+            #8055cf 100%
+        ) !important;
+
+    border-color:
+        #d05a8d !important;
+
+    color:
+        #ffffff !important;
+
+    box-shadow:
+        0 7px 20px rgba(194, 24, 104, 0.20),
+        0 4px 14px rgba(101, 66, 200, 0.20);
+}
+
+.banking-landing.dark-mode .banking-primary-btn:hover,
+.banking-landing.dark-mode .banking-primary-btn:focus {
+    background:
+        linear-gradient(
+            135deg,
+            #d02b78 0%,
+            #9164dc 100%
+        ) !important;
+
+    border-color:
+        #e0709c !important;
+
+    color:
+        #ffffff !important;
+}
+
+/* =========================================================
+   DARK OUTLINE BUTTON
+   ========================================================= */
+
+.banking-landing.dark-mode .banking-outline-btn {
+    color:
+        #c5b2ef !important;
+
+    border-color:
+        #9272df !important;
+
+    background-color:
+        rgba(101, 66, 200, 0.08) !important;
+}
+
+.banking-landing.dark-mode .banking-outline-btn:hover,
+.banking-landing.dark-mode .banking-outline-btn:focus {
+    color:
+        #ffffff !important;
+
+    background-color:
+        #6542c8 !important;
+
+    border-color:
+        #6542c8 !important;
+}
+
+/* =========================================================
+   DARK MUTED TEXT
+   ========================================================= */
+
+.banking-landing.dark-mode .text-muted {
+    color:
+        var(--brand-text-muted) !important;
+}
+
+/* =========================================================
+   DARK CURRENCY
+   ========================================================= */
+
+.banking-landing.dark-mode .currency-badge {
+    background-color:
+        #29272f;
+
+    color:
+        #c8c3cc;
+}
+
+/* =========================================================
+   RESPONSIVE - TABLET
+   ========================================================= */
+
+@media (max-width: 991.98px) {
+
+    .banking-landing .hero-title {
+        font-size: 3.4rem;
+    }
+
+    .banking-landing .security-card {
+        grid-template-columns: 1fr;
+
+        gap: 1.5rem;
+    }
+
+    .banking-landing .system-strip {
+        flex-direction: column;
+
+        align-items: flex-start;
+    }
+
+    .banking-landing .system-status-list {
+        justify-content: flex-start;
+    }
+}
+
+/* =========================================================
+   RESPONSIVE - MOBILE
+   ========================================================= */
+
+@media (max-width: 767.98px) {
+
+    .banking-landing .hero-title {
+        font-size: 2.8rem;
+    }
+
+    .banking-landing .hero-description {
+        font-size: 0.95rem;
+    }
+
+    .banking-landing .hero-trust-row {
+        justify-content: center;
+    }
+
+    .banking-landing .hero-trust-item {
+        width: 100%;
+
+        justify-content: center;
+    }
+
+    .banking-landing .banking-section-heading {
+        text-align: center;
+
+        margin-left: auto;
+
+        margin-right: auto;
+    }
+
+    .banking-landing .security-card {
+        padding: 1.5rem;
+    }
+
+    .banking-landing .security-list {
+        grid-template-columns: 1fr;
+    }
+
+    .banking-landing .closing-banner {
+        flex-direction: column;
+
+        align-items: flex-start;
+    }
+
+    .banking-landing .closing-btn {
+        width: 100%;
+    }
+}
+
+/* =========================================================
+   RESPONSIVE - SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 575.98px) {
+
+    .banking-landing .hero-title {
+        font-size: 2.35rem;
+    }
+
+    .banking-landing .banking-primary-btn,
+    .banking-landing .banking-outline-btn {
+        width: 100%;
+    }
+
+    .banking-landing .persona-card {
+        padding: 1.1rem !important;
+    }
+
+    .banking-landing .security-bank-card {
+        width: 225px;
+
+        height: 140px;
+    }
+
+    .banking-landing .security-card-number {
+        margin-top: 1.8rem;
+
+        font-size: 0.75rem;
+    }
+
+    .banking-landing .closing-banner {
+        padding: 1.5rem;
+    }
+
+    .banking-landing .closing-banner h2 {
+        font-size: 1.65rem;
+    }
+
+    .banking-landing .theme-toggle {
+        width: 46px;
+        height: 46px;
+
+        right: 16px;
+        bottom: 16px;
+    }
+}
+
+/* =========================================================
+   BANKING LOGIN PAGE
+   Scoped ONLY to .banking-login
+   ========================================================= */
+
+.banking-login {
+    --login-magenta: #c21868;
+    --login-purple: #6542c8;
+    --login-green: #25c979;
+
+    --login-bg: #f5f4f7;
+    --login-card: #ffffff;
+    --login-card-soft: #faf9fc;
+
+    --login-border: #e3e0e7;
+
+    --login-text: #18161d;
+    --login-text-secondary: #514d58;
+    --login-muted: #77727e;
+
+    background-color: var(--login-bg);
+
+    color: var(--login-text);
+
+    min-height: 100vh;
+
+    transition:
+        background-color 0.25s ease,
+        color 0.25s ease;
+
+    position: relative;
+}
+
+/* Keep page content above background effects */
+.banking-login > * {
+    position: relative;
+    z-index: 1;
+}
+
+
+
+
+/* =========================================================
+   LOGIN CARD
+   ========================================================= */
+
+.banking-login .auth-card {
+    max-width: 560px;
+
+    margin:
+        2rem auto 3rem;
+
+    background-color:
+        var(--login-card);
+
+    border:
+        1px solid var(--login-border);
+
+    border-radius: 18px;
+
+    color: var(--login-text);
+
+    box-shadow:
+        0 15px 40px rgba(25, 20, 35, 0.08);
+
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+
+/* =========================================================
+   LOGIN ICON
+   ========================================================= */
+
+.banking-login .login-icon {
+    width: 52px;
+    height: 52px;
+
+    margin-left: auto;
+    margin-right: auto;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 14px;
+
+    color: #ffffff;
+
+    background:
+        linear-gradient(
+            135deg,
+            #c21868,
+            #6542c8
+        );
+
+    box-shadow:
+        0 8px 20px rgba(101, 66, 200, 0.20);
+
+    font-size: 1.25rem;
+}
+
+
+/* =========================================================
+   LOGIN FORM TEXT
+   ========================================================= */
+
+.banking-login .auth-card h3 {
+    color: var(--login-text);
+}
+
+.banking-login .form-label {
+    color: var(--login-text);
+
+    font-size: 0.88rem;
+}
+
+
+/* =========================================================
+   INPUT GROUP
+   ========================================================= */
+
+.banking-login .input-group-text {
+    color: var(--login-purple);
+
+    background-color:
+        var(--login-card-soft);
+
+    border:
+        1px solid var(--login-border);
+
+    border-right: none;
+}
+
+.banking-login .form-control {
+    color: var(--login-text);
+
+    background-color:
+        var(--login-card);
+
+    border:
+        1px solid var(--login-border);
+
+    border-left: none;
+
+    box-shadow: none;
+
+    min-height: 44px;
+
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.banking-login .form-control::placeholder {
+    color: var(--login-muted);
+
+    opacity: 0.8;
+}
+
+.banking-login .form-control:focus {
+    color: var(--login-text);
+
+    background-color:
+        var(--login-card);
+
+    border-color:
+        var(--login-purple);
+
+    box-shadow:
+        0 0 0 3px rgba(101, 66, 200, 0.10);
+}
+
+
+/* Keep icon and input connected when focused */
+.banking-login .input-group:focus-within .input-group-text {
+    border-color:
+        var(--login-purple);
+
+    color:
+        var(--login-purple);
+}
+
+
+/* =========================================================
+   SIGN IN BUTTON
+   ========================================================= */
+
+.banking-login .login-submit {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    width: 100%;
+
+    min-height: 46px;
+
+    margin-top: 0.5rem !important;
+
+    padding:
+        0.7rem 1rem;
+
+    border:
+        1px solid #b81762 !important;
+
+    border-radius: 9px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #b81762 0%,
+            #7445c4 100%
+        ) !important;
+
+    color: #ffffff !important;
+
+    font-weight: 650;
+
+    line-height: 1.2;
+
+    box-shadow:
+        0 6px 16px rgba(101, 66, 200, 0.20);
+
+    opacity: 1 !important;
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.banking-login .login-submit:hover,
+.banking-login .login-submit:focus {
+    color: #ffffff !important;
+
+    background:
+        linear-gradient(
+            135deg,
+            #c5226d 0%,
+            #8253d0 100%
+        ) !important;
+
+    border-color:
+        #c94b82 !important;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 8px 20px rgba(101, 66, 200, 0.27);
+}
+
+.banking-login .login-submit:active {
+    transform: translateY(0);
+}
+
+
+/* =========================================================
+   QUICK-FILL SECTION
+   ========================================================= */
+
+.banking-login .login-demo-section {
+    border-top:
+        1px solid var(--login-border) !important;
+}
+
+.banking-login .demo-login-button {
+    color: var(--login-text);
+
+    background-color:
+        var(--login-card-soft);
+
+    border:
+        1px solid var(--login-border);
+
+    border-radius: 9px;
+
+    padding:
+        0.55rem 0.75rem;
+
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.banking-login .demo-login-button:hover {
+    color: var(--login-text);
+
+    background-color:
+        rgba(101, 66, 200, 0.06);
+
+    border-color:
+        rgba(101, 66, 200, 0.30);
+
+    transform: translateX(2px);
+}
+
+
+/* =========================================================
+   REGISTER LINK
+   ========================================================= */
+
+.banking-login .login-register-link {
+    color: var(--login-purple) !important;
+
+    text-decoration: none;
+}
+
+.banking-login .login-register-link:hover {
+    color: var(--login-magenta) !important;
+
+    text-decoration: underline;
+}
+
+
+/* =========================================================
+   LOGIN FOOTER
+   ========================================================= */
+
+.banking-login footer {
+    background-color:
+        var(--login-card);
+
+    border-top:
+        1px solid var(--login-border);
+
+    color:
+        var(--login-muted);
+}
+
+
+/* =========================================================
+   FLOATING THEME BUTTON
+   ========================================================= */
+
+.banking-login .login-theme-toggle {
+    position: fixed;
+
+    right: 24px;
+    bottom: 24px;
+
+    width: 50px;
+    height: 50px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+
+    border-radius: 50%;
+
+    color: #ffffff;
+
+    background:
+        linear-gradient(
+            135deg,
+            #c21868 0%,
+            #6542c8 100%
+        );
+
+    box-shadow:
+        0 8px 25px rgba(30, 20, 40, 0.22);
+
+    cursor: pointer;
+
+    z-index: 9999;
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.banking-login .login-theme-toggle:hover {
+    transform: translateY(-3px);
+
+    box-shadow:
+        0 12px 30px rgba(30, 20, 40, 0.30);
+}
+
+.banking-login .login-theme-toggle:active {
+    transform: scale(0.95);
+}
+
+
+/* =========================================================
+   DARK MODE
+   ========================================================= */
+
+.banking-login.dark-mode {
+    --login-bg: #121116;
+
+    --login-card: #24212b;
+
+    --login-card-soft: #2d2934;
+
+    --login-border: #403b48;
+
+    --login-text: #f4f1f6;
+
+    --login-text-secondary: #c2bdc8;
+
+    --login-muted: #96909d;
+
+    background-color:
+        var(--login-bg);
+
+    color:
+        var(--login-text);
+
+    overflow-x: hidden;
+}
+
+
+/* =========================================================
+   DARK MODE GRADIENT SPOTS
+   ========================================================= */
+
+.banking-login.dark-mode::before {
+    content: "";
+
+    position: fixed;
+
+    inset: 0;
+
+    pointer-events: none;
+
+    z-index: 0;
+
+    background:
+        radial-gradient(
+            circle at 8% 15%,
+            rgba(194, 24, 104, 0.18) 0,
+            rgba(194, 24, 104, 0.08) 12%,
+            transparent 30%
+        ),
+
+        radial-gradient(
+            circle at 92% 25%,
+            rgba(101, 66, 200, 0.20) 0,
+            rgba(101, 66, 200, 0.08) 14%,
+            transparent 32%
+        ),
+
+        radial-gradient(
+            circle at 72% 85%,
+            rgba(194, 24, 104, 0.12) 0,
+            transparent 28%
+        );
+}
+
+
+/* =========================================================
+   DARK LOGIN CARD
+   ========================================================= */
+
+.banking-login.dark-mode .auth-card {
+    background-color:
+        #24212b;
+
+    border-color:
+        #45404e;
+
+    color:
+        var(--login-text);
+
+    box-shadow:
+        0 18px 45px rgba(0, 0, 0, 0.20);
+}
+
+
+/* =========================================================
+   DARK FORM
+   ========================================================= */
+
+.banking-login.dark-mode .auth-card h3 {
+    color: #ffffff;
+}
+
+.banking-login.dark-mode .form-label {
+    color: #e8e4eb;
+}
+
+.banking-login.dark-mode .input-group-text {
+    color: #bca6ee;
+
+    background-color:
+        #2d2934;
+
+    border-color:
+        #49434f;
+}
+
+.banking-login.dark-mode .form-control {
+    color: #f4f1f6;
+
+    background-color:
+        #2d2934;
+
+    border-color:
+        #49434f;
+}
+
+.banking-login.dark-mode .form-control::placeholder {
+    color:
+        #96909d;
+}
+
+.banking-login.dark-mode .form-control:focus {
+    color: #ffffff;
+
+    background-color:
+        #302c37;
+
+    border-color:
+        #9272df;
+
+    box-shadow:
+        0 0 0 3px rgba(101, 66, 200, 0.15);
+}
+
+.banking-login.dark-mode .input-group:focus-within .input-group-text {
+    border-color:
+        #9272df;
+
+    color:
+        #bca6ee;
+}
+
+
+/* =========================================================
+   DARK SIGN IN BUTTON
+   ========================================================= */
+
+.banking-login.dark-mode .login-submit {
+    background:
+        linear-gradient(
+            135deg,
+            #c22570 0%,
+            #8055cf 100%
+        ) !important;
+
+    border-color:
+        #d05a8d !important;
+
+    color:
+        #ffffff !important;
+}
+
+.banking-login.dark-mode .login-submit:hover,
+.banking-login.dark-mode .login-submit:focus {
+    background:
+        linear-gradient(
+            135deg,
+            #d02b78 0%,
+            #9164dc 100%
+        ) !important;
+
+    border-color:
+        #e0709c !important;
+
+    color:
+        #ffffff !important;
+}
+
+
+/* =========================================================
+   DARK QUICK-FILL
+   ========================================================= */
+
+.banking-login.dark-mode .login-demo-section {
+    border-top-color:
+        #403b48 !important;
+}
+
+.banking-login.dark-mode .demo-login-button {
+    color:
+        #e8e4eb;
+
+    background-color:
+        #2d2934;
+
+    border-color:
+        #49434f;
+}
+
+.banking-login.dark-mode .demo-login-button:hover {
+    color:
+        #ffffff;
+
+    background-color:
+        #36313e;
+
+    border-color:
+        rgba(155, 123, 226, 0.45);
+}
+
+
+/* =========================================================
+   DARK REGISTER LINK
+   ========================================================= */
+
+.banking-login.dark-mode .login-register-link {
+    color:
+        #bca6ee !important;
+}
+
+.banking-login.dark-mode .login-register-link:hover {
+    color:
+        #df72a5 !important;
+}
+
+
+/* =========================================================
+   DARK FOOTER
+   ========================================================= */
+
+.banking-login.dark-mode footer {
+    background-color:
+        #18161d;
+
+    border-top-color:
+        #37333e;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 575.98px) {
+
+    .banking-login .auth-card {
+        margin-top: 1rem;
+
+        margin-bottom: 2rem;
+
+        border-radius: 15px;
+    }
+
+    .banking-login .login-theme-toggle {
+        width: 46px;
+        height: 46px;
+
+        right: 16px;
+        bottom: 16px;
+    }
+
+}

@@ -1,110 +1,537 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
+
 <head th:replace="~{fragments/layout :: head('Core Retail Banking System')}"></head>
-<body>
+
+<body class="banking-landing">
+
 <div th:replace="~{fragments/layout :: demoBar}"></div>
+
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
+
 <div th:replace="~{fragments/layout :: alerts}"></div>
 
+
 <main class="container py-5">
-    <!-- Hero Section -->
-    <div class="row align-items-center py-4 my-3">
-        <div class="col-lg-7 text-center text-lg-start mb-4 mb-lg-0">
-            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill mb-3">
-                <i class="bi bi-shield-check me-1"></i> Core Retail Ledger &amp; Balance Mutation Engine
+
+    <!-- =====================================================
+         HERO SECTION
+         ===================================================== -->
+    <div class="row align-items-center py-4 my-3 banking-hero">
+
+        <div class="col-lg-7 text-center text-lg-start mb-5 mb-lg-0">
+
+            <span class="badge hero-badge px-3 py-2 rounded-pill mb-3">
+                <i class="bi bi-shield-check me-1"></i>
+                Core Retail Ledger &amp; Balance Mutation Engine
             </span>
-            <h1 class="display-4 fw-bold tracking-tight mb-3">
+
+            <h1 class="display-4 hero-title mb-3">
                 Next-Gen Banking Platform with Append-Only Audit Trail
             </h1>
-            <p class="lead text-muted mb-4">
+
+            <p class="lead hero-description mb-4">
                 Enterprise multi-service retail banking architecture with synchronous balance mutation locking,
                 cross-currency ForEx conversion, asynchronous Kafka alerts, and automated reconciliation.
             </p>
+
             <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-lg-start">
-                <a href="/login" class="btn btn-primary btn-lg px-4">
-                    <i class="bi bi-box-arrow-in-right me-1"></i> Sign In to Portal
+
+                <a href="/login"
+                   class="btn btn-primary btn-lg px-4 banking-primary-btn">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>
+                    Sign In to Portal
                 </a>
-                <a href="/register" class="btn btn-outline-primary btn-lg px-4">
-                    <i class="bi bi-person-vcard me-1"></i> Start KYC Onboarding
+
+                <a href="/register"
+                   class="btn btn-outline-primary btn-lg px-4 banking-outline-btn">
+                    <i class="bi bi-person-vcard me-1"></i>
+                    Start KYC Onboarding
                 </a>
+
             </div>
+
+            <!-- Trust Indicators -->
+            <div class="hero-trust-row mt-4">
+
+                <div class="hero-trust-item">
+                    <div class="trust-icon trust-green">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+
+                    <div>
+                        <strong>Secure</strong>
+                        <small>Protected transactions</small>
+                    </div>
+                </div>
+
+                <div class="hero-trust-item">
+                    <div class="trust-icon trust-purple">
+                        <i class="bi bi-database-check"></i>
+                    </div>
+
+                    <div>
+                        <strong>Auditable</strong>
+                        <small>Immutable ledger records</small>
+                    </div>
+                </div>
+
+                <div class="hero-trust-item">
+                    <div class="trust-icon trust-magenta">
+                        <i class="bi bi-lightning-charge"></i>
+                    </div>
+
+                    <div>
+                        <strong>Real-Time</strong>
+                        <small>Fast balance mutations</small>
+                    </div>
+                </div>
+
+            </div>
+
         </div>
 
+
+        <!-- =================================================
+             QUICK PERSONA ACCESS
+             ================================================= -->
         <div class="col-lg-5">
-            <div class="card p-4 shadow-sm border-2">
-                <h5 class="fw-bold mb-3 border-bottom pb-2">
-                    <i class="bi bi-key-fill text-warning me-2"></i>Quick Persona Access
-                </h5>
-                <p class="text-muted small mb-3">
-                    Jump straight into either user experience with pre-seeded test credentials:
-                </p>
+
+            <div class="card persona-card p-4">
+
+                <div class="persona-header mb-3">
+
+                    <div>
+                        <h5 class="fw-bold mb-1">
+                            <i class="bi bi-key-fill me-2"></i>
+                            Quick Persona Access
+                        </h5>
+
+                        <p class="text-muted small mb-0">
+                            Jump straight into either user experience with pre-seeded test credentials.
+                        </p>
+                    </div>
+
+                    <div class="persona-header-icon">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+
+                </div>
+
 
                 <div class="d-grid gap-2">
-                    <a href="/auth/switch?role=admin" class="btn btn-outline-dark text-start p-3 d-flex align-items-center gap-3">
-                        <i class="bi bi-shield-lock-fill fs-3 text-danger"></i>
-                        <div>
+
+                    <!-- Administrator -->
+                    <a href="/auth/switch?role=admin"
+                       class="btn persona-button persona-admin text-start p-3 d-flex align-items-center gap-3">
+
+                        <i class="bi bi-shield-lock-fill fs-3"></i>
+
+                        <div class="persona-content">
                             <div class="fw-bold">Bank Administrator</div>
-                            <small class="text-muted">Executive liquidity KPI, customer KYC review, account freeze/unfreeze, recon</small>
+
+                            <small class="text-muted">
+                                Executive liquidity KPI, customer KYC review,
+                                account freeze/unfreeze, recon
+                            </small>
                         </div>
+
+                        <i class="bi bi-chevron-right persona-arrow"></i>
+
                     </a>
 
-                    <a href="/auth/switch?role=juan" class="btn btn-outline-primary text-start p-3 d-flex align-items-center gap-3">
-                        <i class="bi bi-person-circle fs-3 text-primary"></i>
-                        <div>
+
+                    <!-- Juan -->
+                    <a href="/auth/switch?role=juan"
+                       class="btn persona-button persona-juan text-start p-3 d-flex align-items-center gap-3">
+
+                        <i class="bi bi-person-circle fs-3"></i>
+
+                        <div class="persona-content">
                             <div class="fw-bold">Juan Dela Cruz (Customer)</div>
-                            <small class="text-muted">PHP Savings + USD Checking accounts, fund transfers, statements</small>
+
+                            <small class="text-muted">
+                                PHP Savings + USD Checking accounts,
+                                fund transfers, statements
+                            </small>
                         </div>
+
+                        <i class="bi bi-chevron-right persona-arrow"></i>
+
                     </a>
 
-                    <a href="/auth/switch?role=maria" class="btn btn-outline-info text-start p-3 d-flex align-items-center gap-3">
-                        <i class="bi bi-person-circle fs-3 text-info"></i>
-                        <div>
+
+                    <!-- Maria -->
+                    <a href="/auth/switch?role=maria"
+                       class="btn persona-button persona-maria text-start p-3 d-flex align-items-center gap-3">
+
+                        <i class="bi bi-person-circle fs-3"></i>
+
+                        <div class="persona-content">
                             <div class="fw-bold">Maria Santos (Customer)</div>
-                            <small class="text-muted">Multi-currency portfolio (PHP, EUR), digital wallet, instant payments</small>
+
+                            <small class="text-muted">
+                                Multi-currency portfolio (PHP, EUR),
+                                digital wallet, instant payments
+                            </small>
                         </div>
+
+                        <i class="bi bi-chevron-right persona-arrow"></i>
+
                     </a>
+
                 </div>
+
             </div>
+
         </div>
+
     </div>
 
-    <!-- System Highlights Grid -->
-    <div class="row g-4 mt-2">
-        <div class="col-md-4">
-            <div class="card p-4 h-100">
-                <div class="fs-2 text-primary mb-2"><i class="bi bi-database-lock"></i></div>
-                <h5 class="fw-bold">Dual-Database Architecture</h5>
-                <p class="text-muted small mb-0">
-                    ACID master customer and account balances stored in Oracle XE 21c with SELECT FOR UPDATE row locking;
-                    immutable audit mutations recorded in PostgreSQL 15.
-                </p>
-            </div>
+
+    <!-- =====================================================
+         SYSTEM STATUS
+         ===================================================== -->
+    <div class="system-strip">
+
+        <div class="system-strip-label">
+            <span class="system-status-dot"></span>
+            <strong>Banking Platform Status</strong>
         </div>
 
-        <div class="col-md-4">
-            <div class="card p-4 h-100">
-                <div class="fs-2 text-success mb-2"><i class="bi bi-currency-exchange"></i></div>
-                <h5 class="fw-bold">Real-Time ForEx Engine</h5>
-                <p class="text-muted small mb-0">
-                    Cross-currency transfers automatically query exchange rates (Frankfurter / ECB) and convert funds
-                    seamlessly between PHP, USD, EUR, GBP, and SGD.
-                </p>
-            </div>
+        <div class="system-status-list">
+
+            <span>
+                <i class="bi bi-check-circle-fill"></i>
+                Core Banking
+            </span>
+
+            <span>
+                <i class="bi bi-check-circle-fill"></i>
+                Ledger
+            </span>
+
+            <span>
+                <i class="bi bi-check-circle-fill"></i>
+                Kafka
+            </span>
+
+            <span>
+                <i class="bi bi-check-circle-fill"></i>
+                Reconciliation
+            </span>
+
         </div>
 
-        <div class="col-md-4">
-            <div class="card p-4 h-100">
-                <div class="fs-2 text-warning mb-2"><i class="bi bi-shield-check"></i></div>
-                <h5 class="fw-bold">Automated Reconciliation</h5>
-                <p class="text-muted small mb-0">
-                    Periodic reconciliation daemon checks master ledger balances against mutation logs, flagging
-                    variances, lag, and discrepancies with severity ratings.
-                </p>
-            </div>
-        </div>
     </div>
+
+
+    <!-- =====================================================
+         SYSTEM HIGHLIGHTS
+         ===================================================== -->
+    <section class="mt-5 pt-3">
+
+        <div class="banking-section-heading mb-4">
+
+            <span class="section-eyebrow">
+                Platform Capabilities
+            </span>
+
+            <h2>
+                Built for Reliable Retail Banking
+            </h2>
+
+            <p class="mb-0">
+                A multi-service banking platform designed around transactional integrity,
+                multi-currency support, and auditable financial operations.
+            </p>
+
+        </div>
+
+
+        <div class="row g-4">
+
+            <!-- =================================================
+                 DUAL DATABASE
+                 ================================================= -->
+            <div class="col-md-4">
+
+                <div class="card feature-card p-4 h-100">
+
+                    <div class="feature-icon purple-gradient mb-3">
+                        <i class="bi bi-database-lock"></i>
+                    </div>
+
+                    <h5 class="fw-bold">
+                        Dual-Database Architecture
+                    </h5>
+
+                    <p class="text-muted small mb-0">
+                        ACID master customer and account balances stored in Oracle XE 21c
+                        with SELECT FOR UPDATE row locking; immutable audit mutations
+                        recorded in PostgreSQL 15.
+                    </p>
+
+                    <div class="feature-footer">
+                        <span>ACID + Audit Trail</span>
+                        <i class="bi bi-arrow-up-right"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- =================================================
+                 FOREX
+                 ================================================= -->
+            <div class="col-md-4">
+
+                <div class="card feature-card p-4 h-100">
+
+                    <div class="feature-icon green-gradient mb-3">
+                        <i class="bi bi-currency-exchange"></i>
+                    </div>
+
+                    <h5 class="fw-bold">
+                        Real-Time ForEx Engine
+                    </h5>
+
+                    <p class="text-muted small mb-0">
+                        Cross-currency transfers automatically query exchange rates
+                        (Frankfurter / ECB) and convert funds seamlessly between
+                        PHP, USD, EUR, GBP, and SGD.
+                    </p>
+
+                    <div class="feature-footer green-footer">
+                        <span>Multi-Currency</span>
+                        <i class="bi bi-arrow-up-right"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- =================================================
+                 RECONCILIATION
+                 ================================================= -->
+            <div class="col-md-4">
+
+                <div class="card feature-card p-4 h-100">
+
+                    <div class="feature-icon purple-gradient mb-3">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+
+                    <h5 class="fw-bold">
+                        Automated Reconciliation
+                    </h5>
+
+                    <p class="text-muted small mb-0">
+                        Periodic reconciliation daemon checks master ledger balances
+                        against mutation logs, flagging variances, lag, and
+                        discrepancies with severity ratings.
+                    </p>
+
+                    <div class="feature-footer">
+                        <span>Ledger Integrity</span>
+                        <i class="bi bi-arrow-up-right"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         SECURITY SECTION
+         ===================================================== -->
+    <section class="mt-5 pt-4">
+
+        <div class="security-card">
+
+            <div class="security-visual">
+
+                <div class="security-glow"></div>
+
+                <div class="security-bank-card">
+
+                    <div class="security-card-top">
+                        <span>CORE BANKING</span>
+                        <i class="bi bi-wifi"></i>
+                    </div>
+
+                    <div class="security-card-number">
+                        •••• •••• •••• 2026
+                    </div>
+
+                    <div class="security-card-bottom">
+                        <span>SECURED LEDGER</span>
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="security-content">
+
+                <span class="section-eyebrow">
+                    Transaction Security
+                </span>
+
+                <h2>
+                    Every Mutation Leaves a Trace
+                </h2>
+
+                <p>
+                    Financial transactions are protected through controlled balance
+                    mutations, database locking, immutable audit records, and
+                    asynchronous event processing.
+                </p>
+
+
+                <div class="security-list">
+
+                    <div>
+                        <i class="bi bi-check-circle-fill"></i>
+                        Row-level transaction locking
+                    </div>
+
+                    <div>
+                        <i class="bi bi-check-circle-fill"></i>
+                        Append-only audit records
+                    </div>
+
+                    <div>
+                        <i class="bi bi-check-circle-fill"></i>
+                        Multi-service architecture
+                    </div>
+
+                    <div>
+                        <i class="bi bi-check-circle-fill"></i>
+                        Automated reconciliation
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         CLOSING BANNER
+         ===================================================== -->
+    <section class="mt-5 pt-3 pb-4">
+
+        <div class="closing-banner">
+
+            <div>
+
+                <span class="section-eyebrow">
+                    Core Retail Banking System
+                </span>
+
+                <h2>
+                    Ready to access the platform?
+                </h2>
+
+                <p>
+                    Sign in to explore the customer and administrator experiences
+                    powered by the banking platform.
+                </p>
+
+            </div>
+
+            <a href="/login" class="btn closing-btn">
+                <i class="bi bi-box-arrow-in-right me-1"></i>
+                Access Portal
+            </a>
+
+        </div>
+
+    </section>
+
 </main>
 
+
+<!-- =========================================================
+     FOOTER
+     ========================================================= -->
 <div th:replace="~{fragments/layout :: footer}"></div>
+
+
+<!-- =========================================================
+     THEME TOGGLE
+     ========================================================= -->
+<button
+    type="button"
+    class="theme-toggle"
+    id="themeToggle"
+    aria-label="Toggle dark mode"
+    title="Toggle dark mode">
+
+    <i class="bi bi-moon-fill" id="themeIcon"></i>
+
+</button>
+
+
+<!-- =========================================================
+     THEME SCRIPT
+     ========================================================= -->
+<script>
+    (function () {
+
+        const body = document.body;
+        const toggle = document.getElementById("themeToggle");
+        const icon = document.getElementById("themeIcon");
+
+        const savedTheme = localStorage.getItem("banking-theme");
+
+        if (savedTheme === "dark") {
+            body.classList.add("dark-mode");
+        }
+
+        function updateIcon() {
+            if (body.classList.contains("dark-mode")) {
+                icon.className = "bi bi-sun-fill";
+                toggle.setAttribute("aria-label", "Switch to light mode");
+                toggle.setAttribute("title", "Switch to light mode");
+            } else {
+                icon.className = "bi bi-moon-fill";
+                toggle.setAttribute("aria-label", "Switch to dark mode");
+                toggle.setAttribute("title", "Switch to dark mode");
+            }
+        }
+
+        updateIcon();
+
+        toggle.addEventListener("click", function () {
+
+            body.classList.toggle("dark-mode");
+
+            const isDark =
+                body.classList.contains("dark-mode");
+
+            localStorage.setItem(
+                "banking-theme",
+                isDark ? "dark" : "light"
+            );
+
+            updateIcon();
+        });
+
+    })();
+</script>
+
 </body>
 </html>

@@ -1,227 +1,1166 @@
-/* Modern Core Retail Banking & Ledger Design System */
+/* =========================================================
+   LEDGER BANK - GENERIC APPLICATION THEME
+   For: Dashboard, Accounts, Transfers, Transactions, KYC, etc.
+   ========================================================= */
+
+
+/* =========================================================
+   1. GLOBAL THEME VARIABLES
+   ========================================================= */
+
 :root {
-    --brand-navy-dark: #0a1128;
-    --brand-navy: #0f172a;
-    --brand-blue: #1d4ed8;
-    --brand-blue-hover: #1e40af;
-    --brand-accent: #0284c7;
-    --brand-bg: #f8fafc;
+    --brand-magenta: #c21868;
+    --brand-magenta-dark: #a91459;
+
+    --brand-purple: #6542c8;
+    --brand-purple-dark: #5034a5;
+
+    --brand-green: #25c979;
+    --brand-green-dark: #15965a;
+
+    --brand-bg: #f5f4f7;
     --brand-card-bg: #ffffff;
-    --brand-border: #e2e8f0;
-    --brand-text-primary: #0f172a;
-    --brand-text-muted: #64748b;
-    --brand-emerald: #059669;
-    --brand-amber: #d97706;
-    --brand-rose: #dc2626;
+    --brand-card-soft: #faf9fc;
+
+    --brand-border: #e3e0e7;
+    --brand-border-soft: #eeebf0;
+
+    --brand-text-primary: #18161d;
+    --brand-text-secondary: #514d58;
+    --brand-text-muted: #77727e;
+
+    --brand-danger: #d64545;
+    --brand-warning: #d99a24;
+    --brand-info: #4a78c2;
+
+    --brand-shadow:
+        0 8px 24px rgba(30, 20, 45, 0.07);
+
+    --brand-shadow-hover:
+        0 14px 32px rgba(30, 20, 45, 0.11);
+
+    --brand-radius: 14px;
+    --brand-radius-sm: 10px;
+
+    --brand-gradient:
+        linear-gradient(
+            135deg,
+            var(--brand-magenta),
+            var(--brand-purple)
+        );
 }
+
+
+/* =========================================================
+   2. BODY
+   ========================================================= */
 
 body {
-    background-color: var(--brand-bg);
+    background: var(--brand-bg);
     color: var(--brand-text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
+    font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+    transition:
+        background-color 0.25s ease,
+        color 0.25s ease;
 }
 
-main {
-    flex: 1;
+
+/* =========================================================
+   3. TYPOGRAPHY
+   ========================================================= */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--brand-text-primary);
+    font-weight: 700;
 }
 
-/* Persona Switcher Top Banner */
+.text-muted {
+    color: var(--brand-text-muted) !important;
+}
+
+.text-primary {
+    color: var(--brand-purple) !important;
+}
+
+
+/* =========================================================
+   4. NAVBAR
+   ========================================================= */
+
+.navbar {
+    background: rgba(255, 255, 255, 0.96) !important;
+    border-bottom: 1px solid var(--brand-border);
+    box-shadow:
+        0 2px 12px rgba(30, 20, 45, 0.04);
+
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        color 0.25s ease;
+}
+
+
+/* Brand */
+
+.navbar .navbar-brand {
+    color: var(--brand-text-primary) !important;
+    font-weight: 750;
+}
+
+.navbar .navbar-brand:hover {
+    color: var(--brand-magenta) !important;
+}
+
+.navbar .navbar-brand i {
+    color: var(--brand-magenta);
+}
+
+
+/* Navigation links */
+
+.navbar .nav-link {
+    color: var(--brand-text-secondary) !important;
+    font-weight: 500;
+
+    transition:
+        color 0.2s ease,
+        background-color 0.2s ease;
+}
+
+.navbar .nav-link:hover {
+    color: var(--brand-magenta) !important;
+}
+
+.navbar .nav-link.active {
+    color: var(--brand-magenta) !important;
+    font-weight: 600;
+}
+
+
+/* Navbar dropdown */
+
+.navbar .dropdown-toggle {
+    color: var(--brand-text-secondary) !important;
+}
+
+.navbar .dropdown-toggle:hover,
+.navbar .dropdown-toggle:focus {
+    color: var(--brand-magenta) !important;
+}
+
+
+/* Navbar toggler */
+
+.navbar .navbar-toggler {
+    border-color: var(--brand-border) !important;
+}
+
+.navbar .navbar-toggler:focus {
+    box-shadow:
+        0 0 0 3px rgba(101, 66, 200, 0.12);
+}
+
+/* =========================================================
+   DEMO BAR
+   ========================================================= */
+
 .demo-bar {
-    background-color: #0f172a;
-    color: #94a3b8;
+    background-color: #17151d;
+    color: #aaa5b0;
+
     font-size: 0.8rem;
-    padding: 0.35rem 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+    padding: 0.4rem 1rem;
+
+    border-bottom:
+        1px solid rgba(255, 255, 255, 0.08);
 }
 
 .demo-bar a {
-    color: #38bdf8;
+    color: #d878a5;
+
     text-decoration: none;
-    font-weight: 500;
+
+    font-weight: 600;
+
     margin-left: 0.4rem;
 }
 
 .demo-bar a:hover {
+    color: #eea1c1;
+
     text-decoration: underline;
-    color: #7dd3fc;
 }
 
-/* Main Navigation */
-.navbar-custom {
-    background-color: #0f172a;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
 
-.navbar-custom .navbar-brand {
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
+/* =========================================================
+   5. GENERIC CARDS
+   ========================================================= */
 
-.navbar-custom .nav-link {
-    color: #cbd5e1;
-    font-weight: 500;
-    font-size: 0.92rem;
-    padding: 0.5rem 0.85rem;
-    border-radius: 6px;
-    transition: all 0.15s ease-in-out;
-}
-
-.navbar-custom .nav-link:hover,
-.navbar-custom .nav-link.active {
-    color: #ffffff;
-    background-color: rgba(255, 255, 255, 0.08);
-}
-
-/* Cards & Containers */
 .card {
-    background-color: var(--brand-card-bg);
+    background: var(--brand-card-bg);
     border: 1px solid var(--brand-border);
-    border-radius: 12px;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    border-radius: var(--brand-radius);
+    box-shadow: var(--brand-shadow);
+
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
 }
 
-.card-hover:hover {
+.card-header {
+    background: var(--brand-card-soft);
+    border-bottom: 1px solid var(--brand-border);
+    color: var(--brand-text-primary);
+    font-weight: 650;
+}
+
+.card-footer {
+    background: var(--brand-card-soft);
+    border-top: 1px solid var(--brand-border);
+}
+
+
+/* Optional hover for interactive cards */
+
+.card.interactive:hover,
+.dashboard-card:hover,
+.account-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--brand-shadow-hover);
 }
 
-/* Typography & Figure styles */
-.balance-figure {
-    font-size: 1.85rem;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    color: var(--brand-navy);
-}
 
-.balance-figure-sm {
-    font-size: 1.35rem;
-    font-weight: 700;
-    color: var(--brand-navy);
-}
+/* =========================================================
+   6. BUTTONS
+   ========================================================= */
 
-.currency-badge {
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 0.2rem 0.5rem;
-    border-radius: 6px;
-    background-color: #e2e8f0;
-    color: #334155;
-    letter-spacing: 0.05em;
-}
-
-/* Badges */
-.badge-credit {
-    background-color: #dcfce7;
-    color: #166534;
-    border: 1px solid #bbf7d0;
-    font-weight: 600;
-}
-
-.badge-debit {
-    background-color: #fee2e2;
-    color: #991b1b;
-    border: 1px solid #fecaca;
-    font-weight: 600;
-}
-
-.badge-kyc-verified {
-    background-color: #dcfce7;
-    color: #166534;
-    border: 1px solid #bbf7d0;
-}
-
-.badge-kyc-pending {
-    background-color: #fef3c7;
-    color: #92400e;
-    border: 1px solid #fde68a;
-}
-
-/* Buttons */
 .btn-primary {
-    background-color: var(--brand-blue);
-    border-color: var(--brand-blue);
+    background: var(--brand-gradient) !important;
+    border: none !important;
+    color: #ffffff !important;
     font-weight: 600;
-    border-radius: 8px;
-    padding: 0.5rem 1.25rem;
+
+    box-shadow:
+        0 5px 14px rgba(98, 55, 180, 0.20);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        opacity 0.2s ease;
 }
 
-.btn-primary:hover {
-    background-color: var(--brand-blue-hover);
-    border-color: var(--brand-blue-hover);
+.btn-primary:hover,
+.btn-primary:focus {
+    color: #ffffff !important;
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 8px 20px rgba(98, 55, 180, 0.27);
 }
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+
+/* Secondary */
+
+.btn-secondary {
+    background: #ffffff !important;
+    border: 1px solid var(--brand-border) !important;
+    color: var(--brand-text-secondary) !important;
+    font-weight: 600;
+}
+
+.btn-secondary:hover {
+    background: var(--brand-card-soft) !important;
+    border-color: var(--brand-purple) !important;
+    color: var(--brand-purple) !important;
+}
+
+
+/* Outline */
 
 .btn-outline-primary {
-    color: var(--brand-blue);
-    border-color: var(--brand-blue);
+    border: 1px solid var(--brand-purple) !important;
+    color: var(--brand-purple) !important;
     font-weight: 600;
-    border-radius: 8px;
 }
 
 .btn-outline-primary:hover {
-    background-color: var(--brand-blue);
-    color: #ffffff;
+    background: var(--brand-purple) !important;
+    border-color: var(--brand-purple) !important;
+    color: #ffffff !important;
 }
 
-/* Auth Cards */
-.auth-card {
-    max-width: 480px;
-    margin: 3rem auto;
-    border-radius: 14px;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+/* Success */
+
+.btn-success {
+    background: var(--brand-green) !important;
+    border-color: var(--brand-green) !important;
+    color: #ffffff !important;
+    font-weight: 600;
 }
 
-/* Tables */
+.btn-success:hover {
+    background: var(--brand-green-dark) !important;
+    border-color: var(--brand-green-dark) !important;
+}
+
+
+/* Danger */
+
+.btn-danger {
+    background: var(--brand-danger) !important;
+    border-color: var(--brand-danger) !important;
+}
+
+
+/* =========================================================
+   7. FORMS
+   ========================================================= */
+
+.form-label {
+    color: var(--brand-text-primary);
+}
+
+.form-control,
+.form-select {
+    background: #ffffff;
+    border: 1px solid var(--brand-border);
+    color: var(--brand-text-primary);
+
+    border-radius: 9px;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background-color 0.2s ease;
+}
+
+.form-control::placeholder {
+    color: #99949f;
+}
+
+.form-control:focus,
+.form-select:focus {
+    background: #ffffff;
+    color: var(--brand-text-primary);
+
+    border-color: var(--brand-purple);
+
+    box-shadow:
+        0 0 0 3px rgba(101, 66, 200, 0.12);
+}
+
+.input-group-text {
+    background: var(--brand-card-soft);
+    border: 1px solid var(--brand-border);
+    color: var(--brand-text-muted);
+}
+
+
+/* =========================================================
+   8. TABLES
+   ========================================================= */
+
 .table {
+    color: var(--brand-text-primary);
+    margin-bottom: 0;
+}
+
+.table thead th {
+    background: var(--brand-card-soft);
+    border-bottom: 1px solid var(--brand-border);
+    color: var(--brand-text-secondary);
+
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.table tbody td {
+    border-color: var(--brand-border-soft);
     vertical-align: middle;
 }
 
-.table th {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--brand-text-muted);
+.table tbody tr {
+    transition:
+        background-color 0.15s ease;
+}
+
+.table tbody tr:hover {
+    background: rgba(101, 66, 200, 0.035);
+}
+
+
+/* =========================================================
+   9. BADGES / STATUS
+   ========================================================= */
+
+.badge {
     font-weight: 600;
-    border-bottom: 2px solid var(--brand-border);
+    border-radius: 999px;
+    padding: 0.4em 0.7em;
 }
 
-.table-sm td, .table-sm th {
-    padding: 0.65rem 0.75rem;
+.badge.bg-success {
+    background: rgba(37, 201, 121, 0.14) !important;
+    color: var(--brand-green-dark) !important;
 }
 
-/* Receipt Voucher Style */
-.receipt-card {
-    max-width: 580px;
-    margin: 2rem auto;
-    border: 2px dashed #cbd5e1;
-    background: #ffffff;
-    border-radius: 16px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+.badge.bg-danger {
+    background: rgba(214, 69, 69, 0.12) !important;
+    color: var(--brand-danger) !important;
 }
 
-.receipt-header {
-    border-bottom: 2px solid #f1f5f9;
-    padding-bottom: 1.5rem;
+.badge.bg-warning {
+    background: rgba(217, 154, 36, 0.14) !important;
+    color: #9a6a0d !important;
 }
 
-.receipt-row {
+.badge.bg-primary {
+    background: rgba(101, 66, 200, 0.12) !important;
+    color: var(--brand-purple) !important;
+}
+
+.badge.bg-info {
+    background: rgba(74, 120, 194, 0.12) !important;
+    color: var(--brand-info) !important;
+}
+
+
+/* =========================================================
+   10. ALERTS
+   ========================================================= */
+
+.alert {
+    border-radius: var(--brand-radius-sm);
+    border-width: 1px;
+}
+
+.alert-success {
+    background: rgba(37, 201, 121, 0.10);
+    border-color: rgba(37, 201, 121, 0.25);
+    color: var(--brand-green-dark);
+}
+
+.alert-danger {
+    background: rgba(214, 69, 69, 0.09);
+    border-color: rgba(214, 69, 69, 0.22);
+    color: var(--brand-danger);
+}
+
+.alert-warning {
+    background: rgba(217, 154, 36, 0.10);
+    border-color: rgba(217, 154, 36, 0.24);
+    color: #8b620d;
+}
+
+.alert-info {
+    background: rgba(74, 120, 194, 0.09);
+    border-color: rgba(74, 120, 194, 0.22);
+    color: #365f9d;
+}
+
+
+/* =========================================================
+   11. DASHBOARD / STAT CARDS
+   ========================================================= */
+
+.stat-card {
+    padding: 1.25rem;
+    background: var(--brand-card-bg);
+    border: 1px solid var(--brand-border);
+    border-radius: var(--brand-radius);
+    box-shadow: var(--brand-shadow);
+}
+
+.stat-card .stat-icon {
+    width: 44px;
+    height: 44px;
+
     display: flex;
-    justify-content: space-between;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #f8fafc;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 12px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(194, 24, 104, 0.12),
+            rgba(101, 66, 200, 0.12)
+        );
+
+    color: var(--brand-purple);
+    font-size: 1.25rem;
 }
 
-/* Footer */
-footer {
-    background-color: #ffffff;
-    border-top: 1px solid var(--brand-border);
+.stat-card .stat-value {
+    margin-top: 0.75rem;
+
+    font-size: 1.65rem;
+    font-weight: 750;
+    color: var(--brand-text-primary);
+}
+
+.stat-card .stat-label {
     color: var(--brand-text-muted);
     font-size: 0.85rem;
+}
+
+
+/* =========================================================
+   12. ACCOUNT CARDS
+   ========================================================= */
+
+.account-card {
+    position: relative;
+    overflow: hidden;
+
+    padding: 1.4rem;
+
+    background: var(--brand-card-bg);
+    border: 1px solid var(--brand-border);
+    border-radius: var(--brand-radius);
+
+    box-shadow: var(--brand-shadow);
+}
+
+.account-card::before {
+    content: "";
+
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 4px;
+
+    background:
+        linear-gradient(
+            90deg,
+            var(--brand-magenta),
+            var(--brand-purple),
+            var(--brand-green)
+        );
+}
+
+.account-card .account-name {
+    font-weight: 700;
+    color: var(--brand-text-primary);
+}
+
+.account-card .account-number {
+    color: var(--brand-text-muted);
+    font-size: 0.85rem;
+}
+
+.account-card .account-balance {
+    margin-top: 1rem;
+
+    font-size: 1.8rem;
+    font-weight: 750;
+
+    color: var(--brand-text-primary);
+}
+
+
+/* =========================================================
+   13. PAGE HEADERS
+   ========================================================= */
+
+.page-header {
+    margin-bottom: 1.5rem;
+}
+
+.page-header h1,
+.page-header h2,
+.page-header h3 {
+    margin-bottom: 0.25rem;
+}
+
+.page-header p {
+    color: var(--brand-text-muted);
+    margin-bottom: 0;
+}
+
+
+/* =========================================================
+   14. SECTION HEADERS
+   ========================================================= */
+
+.section-title {
+    font-weight: 700;
+    color: var(--brand-text-primary);
+}
+
+.section-subtitle {
+    color: var(--brand-text-muted);
+    font-size: 0.9rem;
+}
+
+
+/* =========================================================
+   15. MODALS
+   ========================================================= */
+
+.modal-content {
+    background: var(--brand-card-bg);
+    color: var(--brand-text-primary);
+
+    border: 1px solid var(--brand-border);
+    border-radius: var(--brand-radius);
+
+    box-shadow:
+        0 20px 60px rgba(20, 15, 30, 0.18);
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--brand-border);
+}
+
+.modal-footer {
+    border-top: 1px solid var(--brand-border);
+}
+
+.modal-title {
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   16. DROPDOWN
+   ========================================================= */
+
+.dropdown-menu {
+    background: var(--brand-card-bg);
+    border: 1px solid var(--brand-border);
+    border-radius: 10px;
+
+    box-shadow:
+        0 10px 30px rgba(30, 20, 45, 0.10);
+}
+
+.dropdown-item {
+    color: var(--brand-text-secondary);
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+    background: rgba(101, 66, 200, 0.07);
+    color: var(--brand-purple);
+}
+
+
+/* =========================================================
+   17. PAGINATION
+   ========================================================= */
+
+.page-link {
+    color: var(--brand-purple);
+    background: var(--brand-card-bg);
+    border-color: var(--brand-border);
+}
+
+.page-link:hover {
+    color: var(--brand-magenta);
+    background: var(--brand-card-soft);
+    border-color: var(--brand-border);
+}
+
+.page-item.active .page-link {
+    background: var(--brand-gradient);
+    border-color: transparent;
+}
+
+
+/* =========================================================
+   18. PROGRESS
+   ========================================================= */
+
+.progress {
+    background: var(--brand-border-soft);
+    border-radius: 999px;
+}
+
+.progress-bar {
+    background:
+        linear-gradient(
+            90deg,
+            var(--brand-magenta),
+            var(--brand-purple)
+        );
+}
+
+
+/* =========================================================
+   19. DIVIDERS
+   ========================================================= */
+
+hr {
+    border-color: var(--brand-border);
+    opacity: 1;
+}
+
+
+/* =========================================================
+   20. LINKS
+   ========================================================= */
+
+a {
+    color: var(--brand-purple);
+    transition: color 0.2s ease;
+}
+
+a:hover {
+    color: var(--brand-magenta);
+}
+
+
+/* =========================================================
+   21. GENERIC ICON COLORS
+   ========================================================= */
+
+.icon-primary {
+    color: var(--brand-purple);
+}
+
+.icon-magenta {
+    color: var(--brand-magenta);
+}
+
+.icon-success {
+    color: var(--brand-green);
+}
+
+.icon-danger {
+    color: var(--brand-danger);
+}
+
+.icon-warning {
+    color: var(--brand-warning);
+}
+
+
+/* =========================================================
+   22. THEME TOGGLE
+   ========================================================= */
+
+.app-theme-toggle {
+    position: fixed;
+
+    right: 24px;
+    bottom: 24px;
+
+    width: 50px;
+    height: 50px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 50%;
+
+    background:
+        linear-gradient(
+            135deg,
+            var(--brand-magenta),
+            var(--brand-purple)
+        );
+
+    color: #ffffff;
+
+    box-shadow:
+        0 8px 24px rgba(60, 40, 100, 0.22);
+
+    cursor: pointer;
+
+    z-index: 9999;
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.app-theme-toggle:hover {
+    transform: translateY(-2px) scale(1.04);
+
+    box-shadow:
+        0 12px 28px rgba(60, 40, 100, 0.30);
+}
+
+
+/* =========================================================
+   23. DARK MODE
+   ========================================================= */
+
+body.dark-mode {
+
+    --brand-bg: #17151d;
+    --brand-card-bg: #211e28;
+    --brand-card-soft: #27232f;
+
+    --brand-border: #383341;
+    --brand-border-soft: #302c38;
+
+    --brand-text-primary: #f3f0f5;
+    --brand-text-secondary: #c8c3ce;
+    --brand-text-muted: #9a94a2;
+
+    --brand-shadow:
+        0 8px 28px rgba(0, 0, 0, 0.25);
+
+    --brand-shadow-hover:
+        0 14px 34px rgba(0, 0, 0, 0.34);
+
+    background: var(--brand-bg);
+    color: var(--brand-text-primary);
+}
+
+
+/* =========================================================
+   24. DARK MODE BACKGROUND GRADIENT SPOTS
+   ========================================================= */
+
+body.dark-mode::before {
+    content: "";
+
+    position: fixed;
+    inset: 0;
+
+    pointer-events: none;
+    z-index: -1;
+
+    background:
+        radial-gradient(
+            circle at 10% 15%,
+            rgba(194, 24, 104, 0.13),
+            transparent 28%
+        ),
+        radial-gradient(
+            circle at 88% 20%,
+            rgba(101, 66, 200, 0.14),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 75% 85%,
+            rgba(37, 201, 121, 0.055),
+            transparent 25%
+        );
+}
+
+
+/* =========================================================
+   25. DARK MODE NAVBAR
+   ========================================================= */
+
+body.dark-mode .navbar {
+    background: rgba(25, 22, 31, 0.96) !important;
+    border-bottom-color: var(--brand-border);
+}
+
+
+/* Brand */
+
+body.dark-mode .navbar .navbar-brand {
+    color: var(--brand-text-primary) !important;
+}
+
+body.dark-mode .navbar .navbar-brand:hover {
+    color: #e17bab !important;
+}
+
+body.dark-mode .navbar .navbar-brand i {
+    color: #e17bab;
+}
+
+
+/* Navigation links */
+
+body.dark-mode .navbar .nav-link {
+    color: var(--brand-text-secondary) !important;
+}
+
+body.dark-mode .navbar .nav-link:hover {
+    color: #e17bab !important;
+}
+
+body.dark-mode .navbar .nav-link.active {
+    color: #e17bab !important;
+    font-weight: 600;
+}
+
+
+/* Dropdown toggle */
+
+body.dark-mode .navbar .dropdown-toggle {
+    color: var(--brand-text-secondary) !important;
+}
+
+body.dark-mode .navbar .dropdown-toggle:hover,
+body.dark-mode .navbar .dropdown-toggle:focus {
+    color: #e17bab !important;
+}
+
+
+/* Mobile hamburger */
+
+body.dark-mode .navbar .navbar-toggler {
+    border-color: var(--brand-border) !important;
+}
+
+body.dark-mode .navbar .navbar-toggler-icon {
+    filter: invert(1);
+}
+
+/* =========================================================
+   26. DARK CARDS
+   ========================================================= */
+
+body.dark-mode .card,
+body.dark-mode .stat-card,
+body.dark-mode .account-card {
+    background: var(--brand-card-bg);
+    border-color: var(--brand-border);
+}
+
+body.dark-mode .card-header,
+body.dark-mode .card-footer {
+    background: var(--brand-card-soft);
+    border-color: var(--brand-border);
+}
+
+
+/* =========================================================
+   27. DARK FORMS
+   ========================================================= */
+
+body.dark-mode .form-control,
+body.dark-mode .form-select {
+    background: #1b1821;
+    border-color: var(--brand-border);
+    color: var(--brand-text-primary);
+}
+
+body.dark-mode .form-control::placeholder {
+    color: #77717f;
+}
+
+body.dark-mode .form-control:focus,
+body.dark-mode .form-select:focus {
+    background: #1b1821;
+    color: var(--brand-text-primary);
+
+    border-color: var(--brand-purple);
+
+    box-shadow:
+        0 0 0 3px rgba(101, 66, 200, 0.20);
+}
+
+body.dark-mode .input-group-text {
+    background: var(--brand-card-soft);
+    border-color: var(--brand-border);
+    color: var(--brand-text-muted);
+}
+
+
+/* =========================================================
+   28. DARK TABLES
+   ========================================================= */
+
+body.dark-mode .table {
+    color: var(--brand-text-primary);
+}
+
+body.dark-mode .table thead th {
+    background: var(--brand-card-soft);
+    color: var(--brand-text-secondary);
+    border-color: var(--brand-border);
+}
+
+body.dark-mode .table tbody td {
+    border-color: var(--brand-border-soft);
+}
+
+body.dark-mode .table tbody tr:hover {
+    background: rgba(101, 66, 200, 0.08);
+}
+
+
+/* =========================================================
+   29. DARK SECONDARY BUTTON
+   ========================================================= */
+
+body.dark-mode .btn-secondary {
+    background: var(--brand-card-soft) !important;
+    border-color: var(--brand-border) !important;
+    color: var(--brand-text-secondary) !important;
+}
+
+body.dark-mode .btn-secondary:hover {
+    background: #302b39 !important;
+    color: #ffffff !important;
+    border-color: var(--brand-purple) !important;
+}
+
+
+/* =========================================================
+   30. DARK DROPDOWN
+   ========================================================= */
+
+body.dark-mode .dropdown-menu {
+    background: var(--brand-card-bg);
+    border-color: var(--brand-border);
+}
+
+body.dark-mode .dropdown-item {
+    color: var(--brand-text-secondary);
+}
+
+body.dark-mode .dropdown-item:hover {
+    background: rgba(101, 66, 200, 0.10);
+    color: #e0a0c0;
+}
+
+
+/* =========================================================
+   31. DARK MODALS
+   ========================================================= */
+
+body.dark-mode .modal-content {
+    background: var(--brand-card-bg);
+    border-color: var(--brand-border);
+}
+
+body.dark-mode .modal-header,
+body.dark-mode .modal-footer {
+    border-color: var(--brand-border);
+}
+
+
+/* =========================================================
+   32. DARK ALERTS
+   ========================================================= */
+
+body.dark-mode .alert-success {
+    background: rgba(37, 201, 121, 0.10);
+    color: #6fe0a5;
+}
+
+body.dark-mode .alert-danger {
+    background: rgba(214, 69, 69, 0.11);
+    color: #ef8c8c;
+}
+
+body.dark-mode .alert-warning {
+    background: rgba(217, 154, 36, 0.11);
+    color: #e6b95c;
+}
+
+body.dark-mode .alert-info {
+    background: rgba(74, 120, 194, 0.11);
+    color: #8fb2e8;
+}
+
+
+/* =========================================================
+   33. DARK LINKS
+   ========================================================= */
+
+body.dark-mode a {
+    color: #b39be8;
+}
+
+body.dark-mode a:hover {
+    color: #e17bab;
+}
+
+
+/* =========================================================
+   34. FOOTER
+   ========================================================= */
+
+footer {
+    color: var(--brand-text-muted);
+}
+
+body.dark-mode footer {
+    color: var(--brand-text-muted);
+}
+
+
+/* =========================================================
+   35. RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 767.98px) {
+
+    .card {
+        border-radius: 12px;
+    }
+
+    .stat-card {
+        padding: 1rem;
+    }
+
+    .stat-card .stat-value {
+        font-size: 1.4rem;
+    }
+
+    .account-card .account-balance {
+        font-size: 1.5rem;
+    }
+
+    .table {
+        font-size: 0.88rem;
+    }
+
+    .app-theme-toggle {
+        right: 18px;
+        bottom: 18px;
+
+        width: 46px;
+        height: 46px;
+    }
+}
+
+
+/* =========================================================
+   36. SMALL SCREEN TABLE HANDLING
+   ========================================================= */
+
+@media (max-width: 575.98px) {
+
+    .page-header {
+        margin-bottom: 1rem;
+    }
+
+    .btn {
+        border-radius: 9px;
+    }
+
+    .card {
+        box-shadow:
+            0 5px 18px rgba(30, 20, 45, 0.06);
+    }
 }
