@@ -24,6 +24,7 @@ public class OutboxMasterRelayService {
 
     private final OutboxMasterRepository outboxMasterRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Scheduled(fixedDelay = 2000)
     @Transactional
@@ -34,7 +35,8 @@ public class OutboxMasterRelayService {
         for (OutboxMaster entry : pending) {
             try {
                 String topic = resolveTopic(entry.getEventType());
-                kafkaTemplate.send(topic, entry.getAggregateId(), entry.getPayload());
+                Object payloadToSend = deserializePayload(entry.getEventType(), entry.getPayload());
+                kafkaTemplate.send(topic, entry.getAggregateId(), payloadToSend);
 
                 entry.setStatus("PUBLISHED");
                 entry.setPublishedAt(LocalDateTime.now());
@@ -46,6 +48,25 @@ public class OutboxMasterRelayService {
                 log.error("OutboxMasterRelay: failed to publish outboxId={} event={}: {}",
                         entry.getOutboxId(), entry.getEventType(), ex.getMessage());
             }
+        }
+    }
+
+    private Object deserializePayload(String eventType, String payload) {
+        if (payload == null || payload.isBlank()) {
+            return payload;
+        }
+        try {
+            return switch (eventType) {
+                case KafkaTopics.ACCOUNT_CREATED, "ACCOUNT_CREATED" ->
+                        objectMapper.readValue(payload, com.capstone.common.dto.AccountDTO.class);
+                case KafkaTopics.BALANCE_UPDATED, "BALANCE_UPDATED" ->
+                        objectMapper.readValue(payload, com.capstone.common.event.BalanceUpdatedEvent.class);
+                case KafkaTopics.CROSSCURRENCY_SETTLEMENT_COMPLETED, "CROSSCURRENCY_SETTLEMENT_COMPLETED" ->
+                        objectMapper.readValue(payload, com.capstone.common.event.CrossCurrencySettlementCompletedEvent.class);
+                default -> payload;
+            };
+        } catch (Exception ignored) {
+            return payload;
         }
     }
 

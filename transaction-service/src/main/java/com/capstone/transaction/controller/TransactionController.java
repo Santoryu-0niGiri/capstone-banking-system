@@ -123,4 +123,18 @@ public class TransactionController {
         return ResponseEntity.ok(
                 ApiResponse.ok(audits));
     }
+
+    /**
+     * Returns all ledger_mutation_audit rows for a given account.
+     */
+    @GetMapping("/audit/account/{accountId}")
+    public ResponseEntity<ApiResponse<List<LedgerMutationAudit>>> getAuditByAccountId(
+            @PathVariable("accountId") String accountId) {
+
+        List<LedgerMutationAudit> audits =
+                transactionService.findAuditByAccountId(accountId);
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(audits));
+    }
 }

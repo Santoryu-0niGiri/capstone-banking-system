@@ -40,9 +40,11 @@ public class HttpBankingApiClient implements BankingApiClient {
 
     private final RestClient restClient;
     private final String gatewayUrl;
+    private final Map<String, KycStatus> kycStatusOverrides = new java.util.concurrent.ConcurrentHashMap<>();
 
     public HttpBankingApiClient(@Value("${banking.backend.gateway-url:http://localhost:8080}") String gatewayUrl) {
         this.gatewayUrl = gatewayUrl;
+        log.info("Initialized HttpBankingApiClient in LIVE GATEWAY MODE targeting Spring Cloud Gateway at: {}", gatewayUrl);
         this.restClient = RestClient.builder()
                 .baseUrl(gatewayUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
@@ -142,10 +144,29 @@ public class HttpBankingApiClient implements BankingApiClient {
 
     @Override
     public Optional<CustomerView> getCustomerById(String customerId) {
-        // Reads accounts and constructs customer view
-        List<AccountView> accounts = getAccountsByCustomerId(customerId);
         CustomerView view = new CustomerView();
         view.setCustomerId(customerId);
+
+        try {
+            ApiResponseDto<CustomerRes> response = restClient.get()
+                    .uri("/api/customers/{id}", customerId)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponseDto<CustomerRes>>() {});
+
+            if (response != null && response.getData() != null) {
+                CustomerRes c = response.getData();
+                view.setFirstName(c.firstName());
+                view.setLastName(c.lastName());
+                view.setEmail(c.email());
+                view.setContactNo(c.contactNo());
+                view.setBirthDate(c.birthDate());
+            }
+        } catch (Exception ex) {
+            log.warn("Could not fetch customer profile for {}: {}", customerId, ex.getMessage());
+        }
+
+        view.setKycStatus(kycStatusOverrides.getOrDefault(customerId, KycStatus.VERIFIED));
+        List<AccountView> accounts = getAccountsByCustomerId(customerId);
         view.setAccounts(accounts);
         return Optional.of(view);
     }
@@ -159,6 +180,10 @@ public class HttpBankingApiClient implements BankingApiClient {
                     .body(new ParameterizedTypeReference<ApiResponseDto<List<CustomerRes>>>() {});
 
             if (response != null && response.getData() != null) {
+                List<AccountView> allAccounts = getAllAccounts();
+                java.util.Map<String, List<AccountView>> accountsByCust = allAccounts.stream()
+                        .collect(java.util.stream.Collectors.groupingBy(AccountView::getCustomerId));
+
                 return response.getData().stream().map(c -> {
                     CustomerView view = new CustomerView();
                     view.setCustomerId(c.customerId());
@@ -167,7 +192,8 @@ public class HttpBankingApiClient implements BankingApiClient {
                     view.setEmail(c.email());
                     view.setContactNo(c.contactNo());
                     view.setBirthDate(c.birthDate());
-                    view.setKycStatus(KycStatus.VERIFIED);
+                    view.setKycStatus(kycStatusOverrides.getOrDefault(c.customerId(), KycStatus.VERIFIED));
+                    view.setAccounts(accountsByCust.getOrDefault(c.customerId(), Collections.emptyList()));
                     return view;
                 }).toList();
             }
@@ -177,7 +203,10 @@ public class HttpBankingApiClient implements BankingApiClient {
 
     @Override
     public void updateKycStatus(String customerId, KycStatus status) {
-        // Hook for future Admin KYC verification endpoint
+        if (customerId != null && status != null) {
+            kycStatusOverrides.put(customerId, status);
+            log.info("Admin updated customer {} KYC status to {}", customerId, status);
+        }
     }
 
     @Override
@@ -268,50 +297,200 @@ public class HttpBankingApiClient implements BankingApiClient {
 
     @Override
     public List<TransactionView> executeTransaction(TransactionForm form) {
+        String idempKey = form.getIdempotencyKey();
+        if (idempKey == null || idempKey.isBlank()) {
+            idempKey = "TXN-KEY-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        }
+
         MutateReq req = new MutateReq(
                 form.getFromAcctNo(),
                 form.getToAcctNo(),
                 form.getTxnType().name(),
                 form.getAmount(),
-                form.getIdempotencyKey()
+                idempKey
         );
 
-        ApiResponseDto<MutateRes> response = restClient.post()
-                .uri("/api/v1/ledger/mutate")
-                .body(req)
-                .retrieve()
-                .body(new ParameterizedTypeReference<ApiResponseDto<MutateRes>>() {});
+        try {
+            ApiResponseDto<MutateRes> response = restClient.post()
+                    .uri("/api/v1/ledger/mutate")
+                    .body(req)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponseDto<MutateRes>>() {});
 
-        if (response != null && response.getData() != null) {
-            MutateRes res = response.getData();
-            TransactionView tv = new TransactionView();
-            tv.setTxnId(res.txnId());
-            tv.setMutationId("MUT-" + res.txnId().substring(0, 8));
-            tv.setAccountId(res.accountId());
-            tv.setCounterpartyAccountId(form.getToAcctNo());
-            tv.setTxnType(form.getTxnType());
-            tv.setDirection(form.getTxnType() == TransactionType.DEPOSIT ? MutationDirection.CREDIT : MutationDirection.DEBIT);
-            tv.setAmount(res.amount());
-            tv.setAuditState(AuditState.COMMITTED);
-            tv.setTimestamp(LocalDateTime.now());
-            return List.of(tv);
+            if (response != null && response.getData() != null) {
+                MutateRes res = response.getData();
+                TransactionView tv = new TransactionView();
+                tv.setTxnId(res.txnId());
+                tv.setMutationId("MUT-" + (res.txnId().length() >= 8 ? res.txnId().substring(0, 8) : res.txnId()));
+                tv.setAccountId(res.accountId());
+                tv.setCounterpartyAccountId(form.getToAcctNo());
+                tv.setTxnType(form.getTxnType());
+                tv.setDirection(form.getTxnType() == TransactionType.DEPOSIT ? MutationDirection.CREDIT : MutationDirection.DEBIT);
+                tv.setAmount(res.amount());
+                tv.setAuditState(AuditState.COMMITTED);
+                tv.setTimestamp(LocalDateTime.now());
+                return List.of(tv);
+            }
+            throw new IllegalStateException("Ledger mutation failed: " + (response != null ? response.getMessage() : "Unknown error"));
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            String detail = extractErrorDetail(ex.getResponseBodyAsString());
+            throw new IllegalArgumentException(detail != null ? detail : "Transaction failed: " + ex.getStatusText());
         }
-        throw new IllegalStateException("Ledger mutation failed: " + (response != null ? response.getMessage() : ""));
     }
 
     @Override
     public List<TransactionView> getTransactionsByAccountId(String accountId) {
+        try {
+            ApiResponseDto<List<Map<String, Object>>> response = restClient.get()
+                    .uri("/api/v1/ledger/audit/account/{accountId}", accountId)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponseDto<List<Map<String, Object>>>>() {});
+
+            if (response != null && response.getData() != null) {
+                return response.getData().stream().map(m -> {
+                    TransactionView tv = new TransactionView();
+                    String tid = m.get("txnId") != null ? m.get("txnId").toString() : "";
+                    tv.setTxnId(tid);
+                    tv.setMutationId("MUT-" + (tid.length() >= 8 ? tid.substring(0, 8) : tid));
+                    tv.setAccountId(m.get("accountId") != null ? m.get("accountId").toString() : accountId);
+
+                    String txnTypeStr = m.get("txnType") != null ? m.get("txnType").toString() : "TRANSFER";
+                    try {
+                        tv.setTxnType(TransactionType.valueOf(txnTypeStr.toUpperCase()));
+                    } catch (Exception e) {
+                        tv.setTxnType(TransactionType.TRANSFER);
+                    }
+
+                    String mutType = m.get("mutationType") != null ? m.get("mutationType").toString() : "DEBIT";
+                    tv.setDirection("CREDIT".equalsIgnoreCase(mutType) ? MutationDirection.CREDIT : MutationDirection.DEBIT);
+
+                    if (m.get("mutationAmount") != null) {
+                        tv.setAmount(new BigDecimal(m.get("mutationAmount").toString()));
+                    }
+
+                    tv.setAuditState(AuditState.COMMITTED);
+                    tv.setTimestamp(LocalDateTime.now());
+                    return tv;
+                }).toList();
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to fetch audits for account {}: {}", accountId, ex.getMessage());
+        }
         return Collections.emptyList();
     }
 
     @Override
     public List<TransactionView> getAllTransactions() {
+        try {
+            List<AccountView> accounts = getAllAccounts();
+            List<TransactionView> all = new java.util.ArrayList<>();
+            for (AccountView a : accounts) {
+                all.addAll(getTransactionsByAccountId(a.getAccountId()));
+            }
+            all.sort((x, y) -> y.getTimestamp().compareTo(x.getTimestamp()));
+            return all;
+        } catch (Exception ignored) {}
         return Collections.emptyList();
     }
 
     @Override
     public Optional<TransactionView> getTransactionById(String txnId) {
+        try {
+            ApiResponseDto<List<Map<String, Object>>> response = restClient.get()
+                    .uri("/api/v1/ledger/audit/{txnId}", txnId)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponseDto<List<Map<String, Object>>>>() {});
+
+            if (response == null || response.getData() == null || response.getData().isEmpty()) {
+                // Short wait and retry once to accommodate distributed ledger replication
+                try {
+                    Thread.sleep(400);
+                } catch (InterruptedException ignored) {}
+                response = restClient.get()
+                        .uri("/api/v1/ledger/audit/{txnId}", txnId)
+                        .retrieve()
+                        .body(new ParameterizedTypeReference<ApiResponseDto<List<Map<String, Object>>>>() {});
+            }
+
+            if (response != null && response.getData() != null && !response.getData().isEmpty()) {
+                List<Map<String, Object>> audits = response.getData();
+                Map<String, Object> first = audits.get(0);
+
+                TransactionView tv = new TransactionView();
+                tv.setTxnId(first.get("txnId") != null ? first.get("txnId").toString() : txnId);
+                tv.setMutationId("MUT-" + (tv.getTxnId().length() >= 8 ? tv.getTxnId().substring(0, 8) : tv.getTxnId()));
+                tv.setAccountId(first.get("accountId") != null ? first.get("accountId").toString() : "");
+
+                String txnTypeStr = first.get("txnType") != null ? first.get("txnType").toString() : "TRANSFER";
+                try {
+                    tv.setTxnType(TransactionType.valueOf(txnTypeStr.toUpperCase()));
+                } catch (Exception e) {
+                    tv.setTxnType(TransactionType.TRANSFER);
+                }
+
+                String mutTypeStr = first.get("mutationType") != null ? first.get("mutationType").toString() : "DEBIT";
+                tv.setDirection("CREDIT".equalsIgnoreCase(mutTypeStr) ? MutationDirection.CREDIT : MutationDirection.DEBIT);
+
+                if (first.get("mutationAmount") != null) {
+                    tv.setAmount(new BigDecimal(first.get("mutationAmount").toString()));
+                }
+
+                if (audits.size() > 1) {
+                    Map<String, Object> second = audits.get(1);
+                    tv.setCounterpartyAccountId(second.get("accountId") != null ? second.get("accountId").toString() : null);
+                }
+
+                String stateStr = first.get("auditState") != null ? first.get("auditState").toString() : "COMMITTED";
+                try {
+                    tv.setAuditState(AuditState.valueOf(stateStr.toUpperCase()));
+                } catch (Exception e) {
+                    tv.setAuditState(AuditState.COMMITTED);
+                }
+
+                tv.setTimestamp(LocalDateTime.now());
+
+                // Enrich with account currencies and cross-currency metadata
+                if (tv.getAccountId() != null && !tv.getAccountId().isBlank()) {
+                    getAccountById(tv.getAccountId()).ifPresent(acct -> {
+                        tv.setCurrencyCode(acct.getCurrencyCode());
+                    });
+                }
+                if (tv.getCounterpartyAccountId() != null && !tv.getCounterpartyAccountId().isBlank()) {
+                    getAccountById(tv.getCounterpartyAccountId()).ifPresent(destAcct -> {
+                        tv.setDestCurrencyCode(destAcct.getCurrencyCode());
+                        if (tv.getCurrencyCode() != null && !tv.getCurrencyCode().equalsIgnoreCase(destAcct.getCurrencyCode())) {
+                            tv.setCrossCurrency(true);
+                            if (audits.size() > 1 && audits.get(1).get("mutationAmount") != null) {
+                                BigDecimal destAmt = new BigDecimal(audits.get(1).get("mutationAmount").toString());
+                                tv.setDestAmount(destAmt);
+                                if (tv.getAmount() != null && tv.getAmount().compareTo(BigDecimal.ZERO) > 0) {
+                                    tv.setFxRate(destAmt.divide(tv.getAmount(), 6, java.math.RoundingMode.HALF_UP));
+                                }
+                            }
+                        }
+                    });
+                }
+
+                return Optional.of(tv);
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to fetch transaction audit for {}: {}", txnId, ex.getMessage());
+        }
         return Optional.empty();
+    }
+
+    private String extractErrorDetail(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) return null;
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(responseBody);
+            if (root.has("message") && !root.get("message").isNull()) {
+                return root.get("message").asText();
+            }
+            if (root.has("detail") && !root.get("detail").isNull()) {
+                return root.get("detail").asText();
+            }
+        } catch (Exception ignored) {}
+        return responseBody;
     }
 
     @Override

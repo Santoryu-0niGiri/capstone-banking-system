@@ -29,9 +29,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
-                        .anyRequest().permitAll())
-                .httpBasic(basic -> basic.disable())
-                .formLogin(form -> form.disable());
+                        .requestMatchers("/api/v1/fx-rate/**").permitAll()
+                        .requestMatchers("/api/v1/forex/**").permitAll()
+                        .anyRequest().permitAll());
         return http.build();
     }
 }

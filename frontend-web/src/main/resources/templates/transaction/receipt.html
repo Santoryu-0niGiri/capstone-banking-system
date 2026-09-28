@@ -9,11 +9,19 @@
 <main class="container py-4">
     <div class="receipt-card p-4 p-md-5">
         <div class="receipt-header text-center mb-4">
-            <div class="text-success display-5 mb-2"><i class="bi bi-patch-check-fill"></i></div>
+            <div class="display-5 mb-2" th:classappend="${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'text-warning' : 'text-success'">
+                <i class="bi" th:classappend="${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'bi-hourglass-split' : 'bi-patch-check-fill'"></i>
+            </div>
             <h4 class="fw-bold mb-1">Transaction Voucher</h4>
             <div class="text-muted small">Core Retail Ledger &amp; Balance Mutation Engine</div>
-            <div class="badge bg-success-subtle text-success border border-success-subtle mt-2 fs-6 px-3">
-                <i class="bi bi-shield-lock me-1"></i> <span th:text="${txn.auditState}">COMMITTED</span>
+            <div class="badge mt-2 fs-6 px-3"
+                 th:classappend="${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'bg-warning-subtle text-warning border border-warning-subtle' : 'bg-success-subtle text-success border border-success-subtle'">
+                <i class="bi" th:classappend="${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'bi-clock-history me-1' : 'bi-shield-lock me-1'"></i>
+                <span th:text="${txn.auditState}">COMMITTED</span>
+            </div>
+            <div th:if="${txn.auditState != null and txn.auditState.name() == 'PENDING'}" class="alert alert-warning mt-3 py-2 small text-start">
+                <i class="bi bi-info-circle-fill me-1"></i>
+                <strong>Cross-Currency Saga in Progress:</strong> This transfer is being asynchronously converted and settled across the distributed ledger. This receipt will automatically refresh when settlement commits.
             </div>
         </div>
 
@@ -161,6 +169,11 @@
 </script>
 
 <div th:replace="~{fragments/layout :: footer}"></div>
+<script th:if="${txn.auditState != null and txn.auditState.name() == 'PENDING'}">
+setTimeout(() => {
+    window.location.reload();
+}, 2500);
+</script>
 </body>
 </html>
 
