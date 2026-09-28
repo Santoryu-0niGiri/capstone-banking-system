@@ -15,6 +15,10 @@ import lombok.Setter;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+
 /**
  * Maps to OUTBOX_AUDIT (PostgreSQL 15+) — renamed from transaction_outbox to align with ERD v3.
  *
@@ -55,7 +59,8 @@ public class TransactionOutbox {
     @Column(name = "event_type", nullable = false, length = 60)
     private String eventType;
 
-    // Using String for JSONB payload. PostgreSQL can cast string to JSONB on insert.
+    // JSONB payload stored as a JSON string; Hibernate binds it as jsonb.
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload", nullable = false, columnDefinition = "jsonb")
     private String payload;
 

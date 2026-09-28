@@ -172,6 +172,46 @@ h6 {
         0 0 0 3px rgba(101, 66, 200, 0.12);
 }
 
+.admin-console-label {
+    color: var(--brand-text-secondary);
+}
+
+.logout-link {
+    color: var(--brand-danger) !important;
+    border-color: var(--brand-danger) !important;
+}
+
+.logout-link:hover,
+.logout-link:focus {
+    background: var(--brand-danger) !important;
+    border-color: var(--brand-danger) !important;
+    color: #ffffff !important;
+}
+
+.navbar .profile-link {
+    color: var(--brand-text-secondary) !important;
+    border-color: var(--brand-border) !important;
+}
+
+.navbar .profile-link:hover,
+.navbar .profile-link:focus {
+    background: var(--brand-card-soft) !important;
+    border-color: var(--brand-purple) !important;
+    color: var(--brand-purple) !important;
+}
+
+.navbar .guest-login-link {
+    color: var(--brand-text-secondary) !important;
+    border: 1px solid var(--brand-border) !important;
+}
+
+.navbar .guest-login-link:hover,
+.navbar .guest-login-link:focus {
+    background: var(--brand-card-soft) !important;
+    border-color: var(--brand-purple) !important;
+    color: var(--brand-purple) !important;
+}
+
 /* =========================================================
    DEMO BAR
    ========================================================= */
@@ -220,6 +260,38 @@ h6 {
         border-color 0.25s ease,
         box-shadow 0.2s ease,
         transform 0.2s ease;
+}
+
+.executive-kpi-card.border-primary {
+    border-color: var(--brand-magenta) !important;
+}
+
+.executive-kpi-card.border-info {
+    border-color: var(--brand-purple) !important;
+}
+
+.executive-kpi-card.border-success {
+    border-color: var(--brand-magenta-dark) !important;
+}
+
+.executive-kpi-card.border-danger {
+    border-color: var(--brand-purple-dark) !important;
+}
+
+.customer-kpi-card.border-primary {
+    border-color: var(--brand-magenta) !important;
+}
+
+.customer-kpi-card.border-info {
+    border-color: var(--brand-purple) !important;
+}
+
+.customer-kpi-card.border-warning {
+    border-color: var(--brand-green) !important;
+}
+
+body.dark-mode .executive-kpi-card .balance-figure {
+    color: var(--brand-text-primary);
 }
 
 .card-header {
@@ -303,6 +375,12 @@ h6 {
 }
 
 .btn-outline-primary:hover {
+    background: var(--brand-purple) !important;
+    border-color: var(--brand-purple) !important;
+    color: #ffffff !important;
+}
+
+.btn-check:checked + .btn-outline-primary {
     background: var(--brand-purple) !important;
     border-color: var(--brand-purple) !important;
     color: #ffffff !important;
@@ -933,6 +1011,46 @@ body.dark-mode .navbar .navbar-toggler-icon {
     filter: invert(1);
 }
 
+body.dark-mode .admin-console-label {
+    color: var(--brand-text-secondary);
+}
+
+body.dark-mode .logout-link {
+    color: #ef7070 !important;
+    border-color: #ef7070 !important;
+}
+
+body.dark-mode .logout-link:hover,
+body.dark-mode .logout-link:focus {
+    background: var(--brand-danger) !important;
+    border-color: var(--brand-danger) !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .navbar .profile-link {
+    color: var(--brand-text-primary) !important;
+    border-color: #8f8997 !important;
+}
+
+body.dark-mode .navbar .profile-link:hover,
+body.dark-mode .navbar .profile-link:focus {
+    background: #38333f !important;
+    border-color: #b39be8 !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .navbar .guest-login-link {
+    color: var(--brand-text-primary) !important;
+    border-color: #8f8997 !important;
+}
+
+body.dark-mode .navbar .guest-login-link:hover,
+body.dark-mode .navbar .guest-login-link:focus {
+    background: #38333f !important;
+    border-color: #b39be8 !important;
+    color: #ffffff !important;
+}
+
 /* =========================================================
    26. DARK CARDS
    ========================================================= */
@@ -948,6 +1066,59 @@ body.dark-mode .card-header,
 body.dark-mode .card-footer {
     background: var(--brand-card-soft);
     border-color: var(--brand-border);
+}
+
+body.dark-mode .balance-figure,
+body.dark-mode .balance-figure-sm {
+    color: var(--brand-text-primary);
+}
+
+body.dark-mode .balance-figure.text-primary {
+    color: #c5b2ef !important;
+}
+
+body.dark-mode .currency-badge {
+    background-color: #302c36;
+    border: 1px solid var(--brand-border);
+    color: #e8e4eb;
+}
+
+body.dark-mode .customer-welcome-card {
+    color: var(--brand-text-primary);
+    background-color: var(--brand-card-bg) !important;
+    border-color: var(--brand-border);
+}
+
+body.dark-mode .customer-welcome-card .text-primary {
+    color: #b39be8 !important;
+}
+
+body.dark-mode .customer-welcome-card .badge-kyc-verified {
+    background-color: rgba(57, 217, 138, 0.14);
+    border: 1px solid rgba(57, 217, 138, 0.35);
+    color: #39d98a;
+}
+
+body.dark-mode .customer-welcome-card .badge-kyc-pending {
+    background-color: rgba(155, 123, 226, 0.14);
+    border: 1px solid rgba(155, 123, 226, 0.35);
+    color: #c5b2ef;
+}
+
+body.dark-mode #fxPreviewCard {
+    color: var(--brand-text-primary);
+    background-color: var(--brand-card-bg) !important;
+    border-color: rgba(217, 154, 36, 0.55) !important;
+}
+
+body.dark-mode #fxPreviewCard .badge.bg-warning {
+    background-color: rgba(217, 154, 36, 0.18) !important;
+    border: 1px solid rgba(217, 154, 36, 0.4);
+    color: #f0c46d !important;
+}
+
+body.dark-mode #fxPreviewCard #fxDestAmountText {
+    color: var(--brand-green) !important;
 }
 
 
@@ -989,6 +1160,12 @@ body.dark-mode .input-group-text {
    ========================================================= */
 
 body.dark-mode .table {
+    --bs-table-bg: var(--brand-card-bg);
+    --bs-table-color: var(--brand-text-primary);
+    --bs-table-border-color: var(--brand-border-soft);
+    --bs-table-hover-bg: rgba(101, 66, 200, 0.12);
+    --bs-table-hover-color: var(--brand-text-primary);
+
     color: var(--brand-text-primary);
 }
 
@@ -1004,6 +1181,52 @@ body.dark-mode .table tbody td {
 
 body.dark-mode .table tbody tr:hover {
     background: rgba(101, 66, 200, 0.08);
+}
+
+body.dark-mode .table tbody .badge.bg-light {
+    background-color: #302c36 !important;
+    border-color: var(--brand-border) !important;
+    color: #e8e4eb !important;
+}
+
+body.dark-mode .table tbody .badge.bg-success {
+    background-color: rgba(57, 217, 138, 0.14) !important;
+    border: 1px solid rgba(57, 217, 138, 0.35);
+    color: #39d98a !important;
+}
+
+body.dark-mode .table tbody .badge-kyc-verified {
+    background-color: rgba(57, 217, 138, 0.14);
+    border: 1px solid rgba(57, 217, 138, 0.35);
+    color: #39d98a;
+}
+
+body.dark-mode .table tbody .badge-kyc-pending {
+    background-color: rgba(155, 123, 226, 0.14);
+    border: 1px solid rgba(155, 123, 226, 0.35);
+    color: #c5b2ef;
+}
+
+body.dark-mode .table tbody .btn-outline-primary {
+    border-color: #9272df !important;
+    color: #c5b2ef !important;
+}
+
+body.dark-mode .table tbody .btn-outline-primary:hover {
+    background-color: var(--brand-purple) !important;
+    border-color: var(--brand-purple) !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .table tbody .btn-outline-secondary {
+    border-color: #8f8997 !important;
+    color: #e1dce5 !important;
+}
+
+body.dark-mode .table tbody .btn-outline-secondary:hover {
+    background-color: #38333f !important;
+    border-color: #b39be8 !important;
+    color: #ffffff !important;
 }
 
 
