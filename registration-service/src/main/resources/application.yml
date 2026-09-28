@@ -46,8 +46,4 @@ management:
 
 logging:
   level:
-<<<<<<< HEAD
-=======
-
->>>>>>> 4e600580be5b13e34d1c5c5eb65f6bfedcd3adde
     com.capstone: INFO
