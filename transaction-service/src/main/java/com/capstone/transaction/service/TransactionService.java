@@ -1,16 +1,33 @@
 package com.capstone.transaction.service;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import com.capstone.common.constants.KafkaTopics;
+import com.capstone.common.dto.AccountDTO;
+import com.capstone.common.dto.AccountMutationResponse;
 import com.capstone.common.dto.TransactionRequest;
 import com.capstone.common.dto.TransactionResponse;
+import com.capstone.common.event.ForexConversionRequestedEvent;
 import com.capstone.common.event.TransactionCompletedEvent;
 import com.capstone.common.event.TransactionCreatedEvent;
 import com.capstone.common.event.TransactionFailedEvent;
 import com.capstone.common.exception.IdempotencyConflictException;
-import com.capstone.common.exception.InsufficientBalanceException;
 import com.capstone.common.exception.LedgerPersistenceException;
-import com.capstone.common.dto.AccountDTO;
-import com.capstone.common.dto.AccountMutationResponse;
-import com.capstone.common.event.ForexConversionRequestedEvent;
+import com.capstone.common.security.SecurityUtils;
 import com.capstone.transaction.client.AccountsServiceClient;
 import com.capstone.transaction.entity.oracle.TransactionMaster;
 import com.capstone.transaction.entity.postgres.LedgerMutationAudit;
@@ -22,23 +39,8 @@ import com.capstone.transaction.repository.oracle.TransactionMasterRepository;
 import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepository;
 import com.capstone.transaction.repository.postgres.TransactionOutboxRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
-import com.capstone.common.security.SecurityUtils;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Core balance mutation orchestrator: WITHDRAWAL, DEPOSIT, TRANSFER.
@@ -571,6 +573,7 @@ public class TransactionService {
                             .debitAccountId(debitAccountId)
                             .creditAccountId(creditAccountId)
                             .mutationAmount(delta.abs())
+                            .isCrossCurrency("N")
                             .txnStatus("PENDING")
                             .initiatedAt(now)
                             .createdAt(now)

@@ -8,7 +8,7 @@
 
 <main class="container py-4">
     <!-- Welcome Header & KYC Status -->
-    <div class="card p-4 mb-4 bg-white">
+    <div class="card customer-welcome-card p-4 mb-4 bg-white">
         <div class="row align-items-center">
             <div class="col-md-8">
                 <div class="d-flex align-items-center gap-2 mb-1">
@@ -37,21 +37,21 @@
     <!-- Consolidated Balances KPI Banner -->
     <div class="row g-3 mb-4">
         <div class="col-md-4">
-            <div class="card p-3 border-start border-primary border-4">
+            <div class="card customer-kpi-card p-3 border-start border-primary border-4">
                 <div class="text-muted small text-uppercase fw-semibold">Consolidated Portfolio (PHP Approx)</div>
                 <div class="balance-figure mt-1" th:text="${'₱' + #numbers.formatDecimal(customer.totalBalanceInPhp, 1, 'COMMA', 2, 'POINT')}">₱0.00</div>
                 <div class="text-muted small mt-1">Sum of all multi-currency accounts</div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card p-3 border-start border-info border-4">
+            <div class="card customer-kpi-card p-3 border-start border-info border-4">
                 <div class="text-muted small text-uppercase fw-semibold">Active Accounts Held</div>
                 <div class="balance-figure mt-1" th:text="${accounts.size()}">0</div>
                 <div class="text-muted small mt-1">Across Savings, Checking, and Wallets</div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card p-3 border-start border-warning border-4">
+            <div class="card customer-kpi-card p-3 border-start border-warning border-4">
                 <div class="text-muted small text-uppercase fw-semibold">Unread Alerts &amp; Notices</div>
                 <div class="balance-figure mt-1" th:text="${unreadCount}">0</div>
                 <div class="text-muted small mt-1"><a href="/notifications" class="text-decoration-none">View alerts inbox &rarr;</a></div>
