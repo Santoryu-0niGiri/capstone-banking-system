@@ -39,3 +39,8 @@ Desktop.ini
 # Maven Wrapper / local metadata (if ever generated)
 .mvn/wrapper/maven-wrapper.jar
 .mvn/wrapper/maven-wrapper.properties
+
+# JMeter test run artifacts and HTML reports
+*.jtl
+tests/jmeter/*-html-report/
+tests/jmeter/html-report/

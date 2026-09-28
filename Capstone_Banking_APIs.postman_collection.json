@@ -1,0 +1,576 @@
+{
+  "info": {
+    "name": "Capstone Banking System - API Verification Suite",
+    "_postman_id": "capstone-banking-api-v1",
+    "description": "Complete test suite for 05_API_Design_Document.docx covering Spring Cloud Gateway, Authentication, Accounts, Mutations, ForEx, Reconciliation, and RFC-7807 Error Handling.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "customerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accountId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "txnId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Identity & Auth",
+      "item": [
+        {
+          "name": "01 - Register New Customer (POST /api/auth/register)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.customerId) {",
+                  "    pm.collectionVariables.set('customerId', json.data.customerId);",
+                  "    console.log('Saved customerId: ' + json.data.customerId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Postman\",\n  \"lastName\": \"Tester\",\n  \"email\": \"postman.tester@example.com\",\n  \"contactNo\": \"+639170001122\",\n  \"birthDate\": \"1993-04-10\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Onboard a new customer and verify KYC parameters."
+          }
+        },
+        {
+          "name": "02 - Login Customer (POST /api/auth/login)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.token) {",
+                  "    pm.collectionVariables.set('token', json.data.token);",
+                  "    console.log('Saved Bearer token into collection variable!');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman.tester@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticate credentials and automatically extract the JWT Bearer token."
+          }
+        },
+        {
+          "name": "03 - Logout Customer (POST /api/auth/logout)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Blacklist the JWT in Redis to revoke session."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Account Management",
+      "item": [
+        {
+          "name": "04 - Create Demand Deposit Account (POST /api/accounts)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.accountId) {",
+                  "    pm.collectionVariables.set('accountId', json.data.accountId);",
+                  "    console.log('Saved accountId: ' + json.data.accountId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"accountType\": \"SAVINGS\",\n  \"currencyCode\": \"PHP\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts"
+              ]
+            },
+            "description": "Open a new demand deposit account."
+          }
+        },
+        {
+          "name": "05 - Get Account Details (GET /api/accounts/{id})",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/{{accountId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "06 - Fast Balance Inquiry (GET /api/accounts/{id}/balance)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/{{accountId}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountId}}",
+                "balance"
+              ]
+            }
+          }
+        },
+        {
+          "name": "07 - List Accounts by Customer (GET /api/accounts/customer/{id})",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/customer/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "customer",
+                "{{customerId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Financial Mutations & Audit",
+      "item": [
+        {
+          "name": "08 - Execute Deposit Mutation (POST /api/v1/ledger/mutate)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uuid = pm.variables.replaceIn('{{$guid}}');",
+                  "pm.environment.set('currentIdemKey', uuid);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.txnId) {",
+                  "    pm.collectionVariables.set('txnId', json.data.txnId);",
+                  "    console.log('Saved txnId: ' + json.data.txnId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{currentIdemKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"counterpartyAccountId\": null,\n  \"txnType\": \"DEPOSIT\",\n  \"amount\": 15000.0,\n  \"idempotencyKey\": \"{{currentIdemKey}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ledger/mutate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ledger",
+                "mutate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "09 - Verify Updated Balance (GET /api/accounts/{id}/balance)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/{{accountId}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "accounts",
+                "{{accountId}}",
+                "balance"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10 - Query Forensic Audit Legs in Postgres (GET /api/v1/ledger/audit/{txnId})",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ledger/audit/{{txnId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ledger",
+                "audit",
+                "{{txnId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. ForEx & Rates",
+      "item": [
+        {
+          "name": "11 - Real-Time Currency Pair Quote (GET /api/v1/fx-rate)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/fx-rate?sourceCurrency=PHP&targetCurrency=USD",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "fx-rate"
+              ],
+              "query": [
+                {
+                  "key": "sourceCurrency",
+                  "value": "PHP"
+                },
+                {
+                  "key": "targetCurrency",
+                  "value": "USD"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "12 - Batch Cached FX Rate Sheet (GET /api/v1/forex/rates)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/forex/rates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "forex",
+                "rates"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. RFC-7807 Error Validation",
+      "item": [
+        {
+          "name": "13 - Error Test: Overdraft Insufficient Balance (422 Unprocessable)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uuid = pm.variables.replaceIn('{{$guid}}');",
+                  "pm.environment.set('failIdemKey', uuid);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 422 Unprocessable Entity', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Contains RFC-7807 type URI', function () {",
+                  "    pm.expect(json.type).to.include('insufficient-balance');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{failIdemKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"counterpartyAccountId\": null,\n  \"txnType\": \"WITHDRAWAL\",\n  \"amount\": 9999999.0,\n  \"idempotencyKey\": \"{{failIdemKey}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ledger/mutate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ledger",
+                "mutate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "14 - Error Test: Missing Idempotency Key (400 Bad Request)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"txnType\": \"DEPOSIT\",\n  \"amount\": 500.0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ledger/mutate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ledger",
+                "mutate"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
