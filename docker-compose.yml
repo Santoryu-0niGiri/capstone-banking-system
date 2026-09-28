@@ -272,9 +272,9 @@ services:
       ORACLE_USERNAME: ledger_app
       ORACLE_PASSWORD: LedgerAppPass123
       ORACLE_SCHEMA: LEDGER_APP
-      PG_URL: jdbc:postgresql://postgres-db:5432/ledger_audit
-      PG_USERNAME: ledger_audit
-      PG_PASSWORD: LedgerAuditPass123
+      POSTGRES_URL: jdbc:postgresql://postgres-db:5432/ledger_audit
+      POSTGRES_USERNAME: ledger_audit
+      POSTGRES_PASSWORD: LedgerAuditPass123
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
     networks:
