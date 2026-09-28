@@ -1,6 +1,5 @@
 package com.capstone.transaction.service;
 
-import com.capstone.common.constants.KafkaTopics;
 import com.capstone.common.dto.TransactionRequest;
 import com.capstone.common.dto.TransactionResponse;
 import com.capstone.common.event.TransactionCompletedEvent;

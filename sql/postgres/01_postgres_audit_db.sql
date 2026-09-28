@@ -45,7 +45,7 @@ CREATE TABLE ledger_mutation_audit (
     mutation_amount  NUMERIC(18,4)  NOT NULL,
     mutation_type    VARCHAR(10)    NOT NULL,
     txn_type         VARCHAR(30)    NOT NULL,
-    audit_state      VARCHAR(20)    NOT NULL DEFAULT 'POSTED',
+    audit_state      VARCHAR(20)    NOT NULL,
     created_at       TIMESTAMPTZ    NOT NULL DEFAULT now(),
     CONSTRAINT ck_ledger_audit_mutation_type
         CHECK (mutation_type IN ('DEBIT','CREDIT')),
