@@ -21,6 +21,8 @@ servers:
     description: Accounts Service (Direct microservice port)
   - url: http://localhost:8084
     description: Transaction Service (Direct microservice port)
+  - url: http://localhost:8086
+    description: ForEx Service (Direct microservice port)
 tags:
   - name: Authentication & Registration
     description: Customer registration, credential verification, JWT token issuance, and logout/blacklisting.
@@ -28,6 +30,8 @@ tags:
     description: Creation and retrieval of savings, checking, and wallet accounts and real‑time balance inquiries.
   - name: Ledger & Transactions
     description: High‑concurrency balance mutations (Deposit, Withdrawal, Transfer) and double‑entry audit trail lookup.
+  - name: Foreign Exchange (ForEx)
+    description: Real-time currency exchange rates and conversion queries.
 
 paths:
   /api/auth/register:
@@ -264,6 +268,124 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProblemDetail"
 
+  /api/accounts/{accountId}/debit:
+    post:
+      tags:
+        - Accounts Management
+      summary: Debit an account balance under pessimistic write lock
+      description: |
+        Executes a pessimistic write lock (SELECT ... FOR UPDATE) on `ACCOUNT_MASTER` in Oracle XE with a 5-second timeout hint.
+        Validates account status is ACTIVE, checks that balance >= amount, debits the balance, and invalidates/updates the Redis balance cache.
+        Invoked by Transaction Service or internal orchestrators during balance mutations.
+      operationId: debitAccount
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        description: Debit mutation details.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountMutationRequest"
+            example:
+              amount: 500.0000
+              txnId: "c2a85f64-5717-4562-b3fc-2c963f66afa7"
+              txnType: "WITHDRAWAL"
+      responses:
+        "200":
+          description: Account debited successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountMutationApiResponse"
+        "400":
+          description: Invalid request parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "401":
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Account not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          description: Insufficient balance.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/accounts/{accountId}/credit:
+    post:
+      tags:
+        - Accounts Management
+      summary: Credit an account balance under pessimistic write lock
+      description: |
+        Executes a pessimistic write lock (SELECT ... FOR UPDATE) on `ACCOUNT_MASTER` in Oracle XE with a 5-second timeout hint.
+        Validates account status is ACTIVE, credits the balance, and invalidates/updates the Redis balance cache.
+        Invoked by Transaction Service or internal orchestrators during balance mutations.
+      operationId: creditAccount
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        description: Credit mutation details.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountMutationRequest"
+            example:
+              amount: 1000.0000
+              txnId: "c2a85f64-5717-4562-b3fc-2c963f66afa7"
+              txnType: "DEPOSIT"
+      responses:
+        "200":
+          description: Account credited successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountMutationApiResponse"
+        "400":
+          description: Invalid request parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "401":
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: Account not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
   /api/accounts/customer/{customerId}:
     get:
       tags:
@@ -398,6 +520,93 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ProblemDetail"
+
+  /api/v1/fx-rate:
+    get:
+      tags:
+        - Foreign Exchange (ForEx)
+      summary: Retrieve current exchange rate between two currencies
+      description: |
+        Returns the cached or triangulated exchange rate between the specified sourceCurrency and destCurrency.
+      operationId: getFxRate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: sourceCurrency
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "USD"
+        - name: destCurrency
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "PHP"
+      responses:
+        "200":
+          description: FX rate resolved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      sourceCurrency:
+                        type: string
+                        example: "USD"
+                      destCurrency:
+                        type: string
+                        example: "PHP"
+                      rate:
+                        type: number
+                        example: 58.00000000
+        "400":
+          description: Unsupported or missing currency parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+
+  /api/v1/forex/rates:
+    get:
+      tags:
+        - Foreign Exchange (ForEx)
+      summary: Retrieve all cached exchange rates for a base currency
+      description: |
+        Returns all current cached currency rates against the requested base currency (default USD).
+      operationId: getAllRates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: base
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "USD"
+            example: "USD"
+      responses:
+        "200":
+          description: Map of currency exchange rates.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    additionalProperties:
+                      type: number
 
 components:
   securitySchemes:
@@ -598,6 +807,24 @@ components:
         timestamp:
           type: string
           format: date-time
+        targetCurrency:
+          type: string
+          example: "USD"
+        exchangeRate:
+          type: number
+          format: decimal
+          example: 0.01709402
+        targetAmount:
+          type: number
+          format: decimal
+          example: 100.00
+        feeAmount:
+          type: number
+          format: decimal
+          example: 0.00
+        isCrossCurrency:
+          type: boolean
+          example: true
 
     LedgerMutationAudit:
       type: object
@@ -777,3 +1004,59 @@ components:
         timestamp:
           type: string
           format: date-time
+
+    AccountMutationRequest:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          type: number
+          format: decimal
+          minimum: 0.0001
+          example: 500.0000
+        txnId:
+          type: string
+          example: "c2a85f64-5717-4562-b3fc-2c963f66afa7"
+        txnType:
+          type: string
+          example: "WITHDRAWAL"
+
+    AccountMutationResponse:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        balanceBefore:
+          type: number
+          format: decimal
+          example: 1000.0000
+        balanceAfter:
+          type: number
+          format: decimal
+          example: 500.0000
+        appliedDelta:
+          type: number
+          format: decimal
+          example: -500.0000
+        currencyCode:
+          type: string
+          example: "PHP"
+
+    AccountMutationApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Account debited successfully"
+        data:
+          $ref: "#/components/schemas/AccountMutationResponse"
+        timestamp:
+          type: string
+          format: date-time
+

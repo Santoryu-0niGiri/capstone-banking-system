@@ -45,13 +45,18 @@ public class LoginService {
         }
 
         // customerId (String UUID) becomes the JWT subject — matches CUSTOMER_MASTER.customer_id
+        String dbRole = appUser.getRole() != null ? appUser.getRole() : "CUSTOMER";
         String token = tokenProvider.generateToken(
-                appUser.getCustomerId(), request.email(), List.of("ROLE_CUSTOMER"));
+                appUser.getCustomerId(), request.email(), List.of("ROLE_" + dbRole));
         long expirySeconds = tokenProvider.getExpirationSeconds();
 
         tokenBlacklistService.registerActiveToken(token, expirySeconds);
 
-        return LoginResponse.of(token, expirySeconds, appUser.getCustomerId(), request.email());
+        // Read roles from JWT claims (or fallback to basic CUSTOMER)
+        List<String> roles = tokenProvider.getRoles(token);
+        String roleStr = roles != null && !roles.isEmpty() ? roles.get(0) : "ROLE_CUSTOMER";
+        
+        return LoginResponse.of(token, expirySeconds, appUser.getCustomerId(), request.email(), roleStr);
     }
 
     public void logout(String token) {

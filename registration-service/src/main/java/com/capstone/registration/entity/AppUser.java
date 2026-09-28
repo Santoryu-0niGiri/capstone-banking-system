@@ -41,6 +41,10 @@ public class AppUser {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
+    @Column(name = "role", nullable = false, length = 20)
+    private String role;
+
+
     // DEFAULT 'ACTIVE' in DDL
     @Column(name = "active_status", nullable = false, length = 20)
     private String activeStatus;

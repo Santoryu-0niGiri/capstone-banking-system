@@ -233,7 +233,8 @@ COMMENT ON TABLE fx_rate_cache IS
 -- ---------------------------------------------------------------------
 CREATE TABLE outbox_audit (
     outbox_id       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    aggregate_type  VARCHAR(30)   NOT NULL,   -- e.g. 'TRANSACTION'
+    source_service  VARCHAR(50)   NOT NULL DEFAULT 'transaction-service',
+    aggregate_type  VARCHAR(30)   NOT NULL,   -- e.g. 'TRANSACTION', 'FOREX', 'LEDGER_MUTATION'
     aggregate_id    VARCHAR(36)   NOT NULL,   -- txn_id
     event_type      VARCHAR(60)   NOT NULL,   -- e.g. 'transaction.completed', 'forex.conversion.requested'
     payload         JSONB         NOT NULL,
@@ -244,3 +245,39 @@ CREATE TABLE outbox_audit (
 );
 
 CREATE INDEX ix_outbox_audit_status ON outbox_audit (status, created_at);
+
+-- =====================================================================
+-- SEED DATA (PostgreSQL 15+)
+-- Pre-populated FX rate cache, opening ledger mutation audits, and notifications
+-- =====================================================================
+
+-- 1. FX Rate Cache (api.frankfurter.dev canonical and cross pairs)
+INSERT INTO fx_rate_cache (base_currency, quote_currency, rate, fetched_at, source)
+VALUES
+    ('USD', 'PHP', 58.50000000, now(), 'frankfurter.dev'),
+    ('PHP', 'USD', 0.01709402, now(), 'frankfurter.dev'),
+    ('EUR', 'PHP', 63.25000000, now(), 'frankfurter.dev'),
+    ('PHP', 'EUR', 0.01581028, now(), 'frankfurter.dev'),
+    ('EUR', 'USD', 1.08119658, now(), 'frankfurter.dev'),
+    ('USD', 'EUR', 0.92490119, now(), 'frankfurter.dev'),
+    ('GBP', 'PHP', 74.10000000, now(), 'frankfurter.dev'),
+    ('PHP', 'GBP', 0.01349528, now(), 'frankfurter.dev'),
+    ('SGD', 'PHP', 43.80000000, now(), 'frankfurter.dev'),
+    ('PHP', 'SGD', 0.02283105, now(), 'frankfurter.dev')
+ON CONFLICT (base_currency, quote_currency) DO UPDATE
+SET rate = EXCLUDED.rate, fetched_at = EXCLUDED.fetched_at;
+
+-- 2. Ledger Mutation Audits (Opening balance credits matching Oracle transaction_master)
+INSERT INTO ledger_mutation_audit (txn_id, account_id, mutation_amount, mutation_type, txn_type, audit_state, created_at)
+VALUES
+    ('txn-init-juan-php', 'acct-juan-php-01', 50000.0000, 'CREDIT', 'DEPOSIT', 'COMMITTED', now()),
+    ('txn-init-juan-usd', 'acct-juan-usd-01', 1500.0000, 'CREDIT', 'DEPOSIT', 'COMMITTED', now()),
+    ('txn-init-maria-php', 'acct-maria-php-01', 120000.0000, 'CREDIT', 'DEPOSIT', 'COMMITTED', now()),
+    ('txn-init-maria-eur', 'acct-maria-eur-01', 800.0000, 'CREDIT', 'DEPOSIT', 'COMMITTED', now());
+
+-- 3. Initial Notifications
+INSERT INTO notification_audit (customer_id, message, status, created_at)
+VALUES
+    ('cust-user-001', 'Welcome to LedgerBank! Your savings and checking accounts are active and funded.', 'SENT', now()),
+    ('cust-user-002', 'Welcome to LedgerBank! Your savings and wallet accounts are active and funded.', 'SENT', now());
+
