@@ -2,6 +2,8 @@ package com.capstone.accounts.controller;
 
 import com.capstone.accounts.service.AccountService;
 import com.capstone.common.dto.AccountDTO;
+import com.capstone.common.dto.AccountMutationRequest;
+import com.capstone.common.dto.AccountMutationResponse;
 import com.capstone.common.dto.ApiResponse;
 import com.capstone.common.dto.CreateAccountRequest;
 import jakarta.validation.Valid;
@@ -60,5 +62,35 @@ public class AccountController {
         return ResponseEntity.ok(
                 ApiResponse.ok(accountService.getAccountsForCustomer(customerId))
         );
+    }
+
+    @PostMapping("/{accountId}/debit")
+    public ResponseEntity<ApiResponse<AccountMutationResponse>> debit(
+            @PathVariable("accountId") String accountId,
+            @Valid @RequestBody AccountMutationRequest request) {
+
+        AccountMutationResponse response = accountService.debit(
+                accountId,
+                request.amount(),
+                request.txnId(),
+                request.txnType()
+        );
+
+        return ResponseEntity.ok(ApiResponse.ok("Debit processed", response));
+    }
+
+    @PostMapping("/{accountId}/credit")
+    public ResponseEntity<ApiResponse<AccountMutationResponse>> credit(
+            @PathVariable("accountId") String accountId,
+            @Valid @RequestBody AccountMutationRequest request) {
+
+        AccountMutationResponse response = accountService.credit(
+                accountId,
+                request.amount(),
+                request.txnId(),
+                request.txnType()
+        );
+
+        return ResponseEntity.ok(ApiResponse.ok("Credit processed", response));
     }
 }

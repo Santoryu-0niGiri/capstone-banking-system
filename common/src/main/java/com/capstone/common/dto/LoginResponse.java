@@ -9,10 +9,15 @@ public record LoginResponse(
         String tokenType,
         long expiresInSeconds,
         String customerId,
-        String email
+        String email,
+        String role
 ) {
     public static LoginResponse of(String token, long expiresInSeconds, String customerId, String email) {
-        return new LoginResponse(token, "Bearer", expiresInSeconds, customerId, email);
+        return new LoginResponse(token, "Bearer", expiresInSeconds, customerId, email, "ROLE_CUSTOMER");
+    }
+
+    public static LoginResponse of(String token, long expiresInSeconds, String customerId, String email, String role) {
+        return new LoginResponse(token, "Bearer", expiresInSeconds, customerId, email, role);
     }
 }
 

@@ -33,6 +33,21 @@ public class TransactionEventProducer {
         publish(event.accountId(), event);
     }
 
+    public void publishRaw(String key, Object event) {
+        publish(key, event);
+    }
+
+    public void publishToTopic(String topic, String key, Object event) {
+        kafkaTemplate.send(topic, key, event)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish event {} to {}", event, topic, ex);
+                    } else {
+                        log.debug("Published event {} to topic {}", event, topic);
+                    }
+                });
+    }
+
     private void publish(String key, Object event) {
         kafkaTemplate.send(KafkaTopics.TRANSACTION_EVENTS, key, event)
                 .whenComplete((result, ex) -> {

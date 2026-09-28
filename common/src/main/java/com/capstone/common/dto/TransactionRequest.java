@@ -37,7 +37,22 @@ public record TransactionRequest(
         BigDecimal amount,
 
         @NotBlank(message = "Idempotency key is required")
-        String idempotencyKey
+        String idempotencyKey,
+
+        // FX fields
+        String targetCurrency,
+        BigDecimal exchangeRate,
+        BigDecimal targetAmount,
+        BigDecimal feeAmount,
+        Boolean isCrossCurrency
 ) {
+    public TransactionRequest(
+            String accountId,
+            String counterpartyAccountId,
+            String txnType,
+            BigDecimal amount,
+            String idempotencyKey) {
+        this(accountId, counterpartyAccountId, txnType, amount, idempotencyKey, null, null, null, null, false);
+    }
 }
 
