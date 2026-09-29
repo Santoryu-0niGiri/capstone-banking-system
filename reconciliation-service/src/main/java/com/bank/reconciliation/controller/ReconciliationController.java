@@ -29,32 +29,49 @@ public class ReconciliationController {
     private final ReconciliationEngine reconciliationEngine;
     private final ReconRunAuditRepository reconRunAuditRepository;
     private final ReconResultAuditRepository reconResultAuditRepository;
+    private final com.bank.reconciliation.config.ReconProperties props;
 
     public ReconciliationController(ReconciliationEngine reconciliationEngine,
                                      ReconRunAuditRepository reconRunAuditRepository,
-                                     ReconResultAuditRepository reconResultAuditRepository) {
+                                     ReconResultAuditRepository reconResultAuditRepository,
+                                     com.bank.reconciliation.config.ReconProperties props) {
         this.reconciliationEngine = reconciliationEngine;
         this.reconRunAuditRepository = reconRunAuditRepository;
         this.reconResultAuditRepository = reconResultAuditRepository;
+        this.props = props;
     }
 
     @PostMapping("/runs")
-    public ResponseEntity<RunSummaryResponse> triggerRun(@Valid @RequestBody RunReconciliationRequest request) {
-        ReconRunAudit run = reconciliationEngine.run(request.windowStart(), request.windowEnd());
-        return ResponseEntity.ok(RunSummaryResponse.from(run));
+    public ResponseEntity<RunSummaryResponse> triggerRun(@RequestBody(required = false) RunReconciliationRequest request) {
+        java.time.OffsetDateTime windowEnd = (request != null && request.windowEnd() != null)
+                ? request.windowEnd()
+                : java.time.OffsetDateTime.now();
+        java.time.OffsetDateTime windowStart = (request != null && request.windowStart() != null)
+                ? request.windowStart()
+                : windowEnd.minusDays(7);
+
+        ReconRunAudit run = reconciliationEngine.run(windowStart, windowEnd);
+        List<ReconResultAudit> results = reconResultAuditRepository.findByRunId(run.getRunId());
+        return ResponseEntity.ok(RunSummaryResponse.from(run, results));
     }
 
     @GetMapping("/runs")
-    public List<RunSummaryResponse> recentRuns() {
-        return reconRunAuditRepository.findTop20ByOrderByRunStartedAtDesc().stream()
-                .map(RunSummaryResponse::from)
-                .collect(Collectors.toList());
+    public List<RunSummaryResponse> recentRuns(
+            @RequestParam(name = "includeResults", defaultValue = "true") boolean includeResults) {
+        List<ReconRunAudit> runs = reconRunAuditRepository.findTop20ByOrderByRunStartedAtDesc();
+        if (!includeResults) {
+            return runs.stream().map(RunSummaryResponse::from).collect(Collectors.toList());
+        }
+        return runs.stream().map(run -> {
+            List<ReconResultAudit> results = reconResultAuditRepository.findByRunId(run.getRunId());
+            return RunSummaryResponse.from(run, results);
+        }).collect(Collectors.toList());
     }
 
     @GetMapping("/runs/{runId}")
     public RunSummaryResponse getRun(@PathVariable UUID runId) {
         return reconRunAuditRepository.findById(runId)
-                .map(RunSummaryResponse::from)
+                .map(run -> RunSummaryResponse.from(run, reconResultAuditRepository.findByRunId(runId)))
                 .orElseThrow(() -> new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
                         "No such run: " + runId));
     }

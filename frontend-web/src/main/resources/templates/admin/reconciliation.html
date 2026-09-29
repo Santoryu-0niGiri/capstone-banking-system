@@ -63,6 +63,11 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr th:if="${#lists.isEmpty(runs)}">
+                        <td colspan="8" class="text-center text-muted py-3">
+                            <i class="bi bi-info-circle me-1"></i> No reconciliation runs recorded yet. Click "Trigger Batch Reconciliation" above to execute.
+                        </td>
+                    </tr>
                     <tr th:each="r : ${runs}">
                         <td class="font-monospace fw-bold" th:text="${r.runId}">RUN-01</td>
                         <td class="small" th:text="${#temporals.format(r.runStartedAt, 'dd MMM HH:mm:ss')}"></td>
@@ -81,9 +86,26 @@
         </div>
     </div>
 
-    <!-- Discrepancy & Exceptions Table -->
+    <!-- Discrepancy & Results Table -->
     <div class="card p-3">
-        <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Flagged Exceptions &amp; Variance (RECON_RESULT_AUDIT)</h5>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">
+                <i class="bi bi-list-check text-primary me-2"></i>Reconciliation Audit Results &amp; Discrepancies (RECON_RESULT_AUDIT)
+            </h5>
+            <span class="badge bg-danger" th:if="${totalExceptions > 0}" th:text="${totalExceptions + ' Exceptions Flagged'}"></span>
+            <span class="badge bg-success" th:if="${totalExceptions == 0 and not #lists.isEmpty(runs)}">100% Match Clean</span>
+        </div>
+
+        <div class="alert alert-success d-flex align-items-center py-2 mb-3" th:if="${totalExceptions == 0 and not #lists.isEmpty(runs)}">
+            <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+            <div>All audited ledger entries match 100% with Oracle Master. Zero discrepancies detected across recorded runs.</div>
+        </div>
+
+        <div class="alert alert-warning d-flex align-items-center py-2 mb-3" th:if="${totalExceptions > 0}">
+            <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+            <div>One or more reconciliation exceptions detected. Review the flagged discrepancies and variance details below.</div>
+        </div>
+
         <div class="table-responsive">
             <table class="table table-sm table-hover align-middle">
                 <thead>
@@ -92,6 +114,7 @@
                         <th>Run Reference</th>
                         <th>Txn ID</th>
                         <th>Account ID</th>
+                        <th>Status</th>
                         <th>Exception Type</th>
                         <th>Expected</th>
                         <th>Actual</th>
@@ -101,16 +124,29 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr th:if="${#lists.isEmpty(runs)}">
+                        <td colspan="11" class="text-center text-muted py-3">
+                            <i class="bi bi-info-circle me-1"></i> No reconciliation results recorded yet. Click "Trigger Batch Reconciliation" above to execute.
+                        </td>
+                    </tr>
                     <th:block th:each="r : ${runs}">
                         <tr th:each="res : ${r.results}">
                             <td class="font-monospace small" th:text="${res.resultId}">RES-01</td>
                             <td class="font-monospace small text-muted" th:text="${res.runId}">RUN-01</td>
                             <td class="font-monospace small fw-semibold" th:text="${res.txnId}">TXN-01</td>
                             <td class="font-monospace small" th:text="${res.accountId}">ACCT-01</td>
-                            <td class="small fw-semibold" th:text="${res.exceptionType}">POSTING_LAG</td>
-                            <td class="small font-monospace" th:text="${'₱' + res.expectedAmount}">₱0.00</td>
-                            <td class="small font-monospace" th:text="${'₱' + res.actualAmount}">₱0.00</td>
-                            <td class="fw-bold text-danger font-monospace" th:text="${'₱' + res.varianceAmount}">₱0.00</td>
+                            <td>
+                                <span class="badge" th:classappend="${'bg-' + res.statusBadgeClass}" th:text="${res.reconStatus}">MATCHED</span>
+                            </td>
+                            <td>
+                                <span th:if="${res.exceptionType != null}" class="small fw-semibold text-danger" th:text="${res.exceptionType}">POSTING_LAG</span>
+                                <span th:unless="${res.exceptionType != null}" class="small text-muted fst-italic">None (100% Match)</span>
+                            </td>
+                            <td class="small font-monospace" th:text="${res.expectedAmount != null ? '₱' + res.expectedAmount : '—'}">₱0.00</td>
+                            <td class="small font-monospace" th:text="${res.actualAmount != null ? '₱' + res.actualAmount : '—'}">₱0.00</td>
+                            <td class="font-monospace"
+                                th:classappend="${res.varianceAmount != null and res.varianceAmount.compareTo(T(java.math.BigDecimal).ZERO) != 0} ? 'fw-bold text-danger' : 'text-muted'"
+                                th:text="${res.varianceAmount != null ? '₱' + res.varianceAmount : '₱0.00'}">₱0.00</td>
                             <td class="small text-muted" th:text="${res.postingLagSeconds + 's'}">1s</td>
                             <td>
                                 <span class="badge" th:classappend="${'bg-' + res.severityBadgeClass}" th:text="${res.severity}">LOW</span>

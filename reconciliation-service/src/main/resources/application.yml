@@ -55,8 +55,8 @@ spring:
       auto-offset-reset: earliest
 
 recon:
-  window-minutes: 60
-  schedule-cron: "0 */15 * * * *"
+  window-minutes: ${RECON_WINDOW_MINUTES:60}
+  schedule-cron: ${RECON_SCHEDULE_CRON:0 */15 * * * *}
   topics:
     discrepancy: reconciliation.discrepancy
     run-completed: reconciliation.run.completed
