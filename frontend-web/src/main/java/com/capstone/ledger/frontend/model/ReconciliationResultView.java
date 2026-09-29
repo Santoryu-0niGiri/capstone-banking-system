@@ -16,6 +16,8 @@ public class ReconciliationResultView {
     private LocalDateTime transactionDateTime;
     private String reconStatus; // MATCHED, EXCEPTION
     private String exceptionType;
+    private String expectedCurrencyCode;
+    private String actualCurrencyCode;
     private BigDecimal expectedAmount;
     private BigDecimal actualAmount;
     private BigDecimal varianceAmount;
@@ -78,14 +80,26 @@ public class ReconciliationResultView {
     public String getExceptionType() { return exceptionType; }
     public void setExceptionType(String exceptionType) { this.exceptionType = exceptionType; }
 
+    public String getExpectedCurrencyCode() { return expectedCurrencyCode; }
+    public void setExpectedCurrencyCode(String expectedCurrencyCode) { this.expectedCurrencyCode = expectedCurrencyCode; }
+
+    public String getActualCurrencyCode() { return actualCurrencyCode; }
+    public void setActualCurrencyCode(String actualCurrencyCode) { this.actualCurrencyCode = actualCurrencyCode; }
+
     public BigDecimal getExpectedAmount() { return expectedAmount; }
     public void setExpectedAmount(BigDecimal expectedAmount) { this.expectedAmount = expectedAmount; }
+
+    public String getFormattedExpectedAmount() { return CurrencyMoneyFormat.format(expectedAmount, expectedCurrencyCode); }
 
     public BigDecimal getActualAmount() { return actualAmount; }
     public void setActualAmount(BigDecimal actualAmount) { this.actualAmount = actualAmount; }
 
+    public String getFormattedActualAmount() { return CurrencyMoneyFormat.format(actualAmount, actualCurrencyCode); }
+
     public BigDecimal getVarianceAmount() { return varianceAmount; }
     public void setVarianceAmount(BigDecimal varianceAmount) { this.varianceAmount = varianceAmount; }
+
+    public String getFormattedVarianceAmount() { return CurrencyMoneyFormat.format(varianceAmount, expectedCurrencyCode); }
 
     public int getPostingLagSeconds() { return postingLagSeconds; }
     public void setPostingLagSeconds(int postingLagSeconds) { this.postingLagSeconds = postingLagSeconds; }

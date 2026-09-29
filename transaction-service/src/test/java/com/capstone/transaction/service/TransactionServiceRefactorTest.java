@@ -83,6 +83,9 @@ class TransactionServiceRefactorTest {
         TransactionStatus mockStatus = mock(TransactionStatus.class);
         lenient().when(oracleTxManager.getTransaction(any())).thenReturn(mockStatus);
         lenient().when(postgresTxManager.getTransaction(any())).thenReturn(mockStatus);
+        lenient().when(accountsServiceClient.getAccount(any())).thenAnswer(invocation ->
+                new AccountDTO(invocation.getArgument(0), "customer-test", "CHECKING", "ACTIVE",
+                        BigDecimal.ZERO, "PHP", null));
 
         transactionService = new TransactionService(
                 accountsServiceClient,
@@ -153,6 +156,7 @@ class TransactionServiceRefactorTest {
         assertThat(response.txnType()).isEqualTo("WITHDRAWAL");
         assertThat(response.balanceAfter()).isEqualByComparingTo("700.0000");
         assertThat(response.txnStatus()).isEqualTo("COMMITTED");
+        assertThat(response.currencyCode()).isEqualTo("PHP");
 
         verify(accountsServiceClient).debit(accountId, amount, txnId.toString(), "WITHDRAWAL");
 
@@ -161,6 +165,7 @@ class TransactionServiceRefactorTest {
         LedgerMutationAudit savedAudit = auditCaptor.getValue();
         assertThat(savedAudit.getTxnId()).isEqualTo(txnId.toString());
         assertThat(savedAudit.getAccountId()).isEqualTo(accountId);
+        assertThat(savedAudit.getCurrencyCode()).isEqualTo("PHP");
         assertThat(savedAudit.getMutationType()).isEqualTo("DEBIT");
         assertThat(savedAudit.getAuditState()).isEqualTo("COMMITTED");
 

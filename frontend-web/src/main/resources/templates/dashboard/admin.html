@@ -59,7 +59,7 @@
                             <span class="badge" th:classappend="${t.direction.name() == 'CREDIT'} ? 'badge-credit' : 'badge-debit'"
                                   th:text="${t.txnType}"></span>
                         </td>
-                        <td th:text="${'₱' + #numbers.formatDecimal(t.amount, 1, 'COMMA', 2, 'POINT')}"></td>
+                        <td th:text="${t.formattedAmount}"></td>
                     </tr>
                     </tbody>
                 </table>
@@ -77,7 +77,7 @@
                 <td th:text="${a.custId}"></td>
                 <td th:text="${a.acctType}"></td>
                 <td th:text="${a.acctStatus}"></td>
-                <td th:text="${'₱' + #numbers.formatDecimal(a.balance, 1, 'COMMA', 2, 'POINT')}"></td>
+                <td th:text="${a.formattedBalance}"></td>
                 <td><a th:href="@{/accounts/{no}(no=${a.acctNo})}" class="btn btn-sm btn-outline-secondary">View</a></td>
             </tr>
             </tbody>

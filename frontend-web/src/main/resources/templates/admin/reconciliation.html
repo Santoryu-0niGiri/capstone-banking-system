@@ -162,11 +162,12 @@
                                 <span th:if="${res.exceptionType != null}" class="small fw-semibold text-danger" th:text="${res.exceptionType}">POSTING_LAG</span>
                                 <span th:unless="${res.exceptionType != null}" class="small text-muted fst-italic">None (100% Match)</span>
                             </td>
-                            <td class="small font-monospace" th:text="${res.expectedAmount != null ? '₱' + res.expectedAmount : '—'}">₱0.00</td>
-                            <td class="small font-monospace" th:text="${res.actualAmount != null ? '₱' + res.actualAmount : '—'}">₱0.00</td>
+                            <td class="small font-monospace" th:title="${res.expectedCurrencyCode}" th:text="${res.formattedExpectedAmount}">₱0.00</td>
+                            <td class="small font-monospace" th:title="${res.actualCurrencyCode}" th:text="${res.formattedActualAmount}">₱0.00</td>
                             <td class="font-monospace"
                                 th:classappend="${res.varianceAmount != null and res.varianceAmount.compareTo(T(java.math.BigDecimal).ZERO) != 0} ? 'fw-bold text-danger' : 'text-muted'"
-                                th:text="${res.varianceAmount != null ? '₱' + res.varianceAmount : '₱0.00'}">₱0.00</td>
+                                th:title="${res.expectedCurrencyCode == res.actualCurrencyCode ? res.expectedCurrencyCode : 'Variance not comparable across different currencies'}"
+                                th:text="${res.formattedVarianceAmount}">₱0.00</td>
                             <td class="small text-muted" th:text="${res.postingLagSeconds + 's'}">1s</td>
                             <td>
                                 <span class="badge" th:classappend="${'bg-' + res.severityBadgeClass}" th:text="${res.severity}">LOW</span>

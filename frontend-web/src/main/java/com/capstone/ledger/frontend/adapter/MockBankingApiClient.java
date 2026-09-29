@@ -173,7 +173,9 @@ public class MockBankingApiClient implements BankingApiClient {
                 "POSTING_ROUNDING_DISCREPANCY", new BigDecimal("4750.00"), new BigDecimal("4750.01"),
                 new BigDecimal("0.01"), 1, "LOW", LocalDateTime.now().minusHours(5).minusMinutes(58)
         );
-            exception.setTransactionDateTime(LocalDateTime.now().minusHours(6));
+        exception.setTransactionDateTime(LocalDateTime.now().minusHours(6));
+        exception.setExpectedCurrencyCode("PHP");
+        exception.setActualCurrencyCode("PHP");
         run.getResults().add(exception);
         reconciliationRuns.add(run);
     }
@@ -509,6 +511,8 @@ public class MockBankingApiClient implements BankingApiClient {
                     LocalDateTime.now()
                     );
                     result.setTransactionDateTime(txn.getTimestamp());
+                    result.setExpectedCurrencyCode(txn.getCurrencyCode());
+                    result.setActualCurrencyCode(txn.getCurrencyCode());
                     newRun.getResults().add(result);
         }
         reconciliationRuns.add(0, newRun);

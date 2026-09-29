@@ -43,6 +43,7 @@ CREATE TABLE ledger_mutation_audit (
     -- the Oracle-side @Digits(integer=14, fraction=4) constraint so the
     -- audit leg can never disagree with the master write on precision.
     mutation_amount  NUMERIC(18,4)  NOT NULL,
+    currency_code    VARCHAR(3)        NOT NULL,
     mutation_type    VARCHAR(10)    NOT NULL,
     txn_type         VARCHAR(30)    NOT NULL,
     audit_state      VARCHAR(20)    NOT NULL,
@@ -58,7 +59,9 @@ CREATE TABLE ledger_mutation_audit (
         CHECK (audit_state IN ('PENDING','COMMITTED','ROLLED_BACK')),
     -- mirrors @Positive from the controller layer.
     CONSTRAINT ck_ledger_audit_amount_positive
-        CHECK (mutation_amount > 0)
+        CHECK (mutation_amount > 0),
+    CONSTRAINT ck_ledger_audit_currency_code
+        CHECK (char_length(btrim(currency_code)) = 3)
 );
 
 -- Not a UNIQUE constraint on purpose: a second (txn_id, account_id,
@@ -128,9 +131,17 @@ CREATE TABLE recon_result_audit (
     duplicate_mutation_uuid   UUID,
     recon_status             VARCHAR(20)    NOT NULL,
     exception_type           VARCHAR(30),
+    expected_currency_code   VARCHAR(3),
+    actual_currency_code     VARCHAR(3),
     expected_amount          NUMERIC(18,4),
     actual_amount             NUMERIC(18,4),
-    variance_amount           NUMERIC(18,4) GENERATED ALWAYS AS (actual_amount - expected_amount) STORED,
+    variance_amount           NUMERIC(18,4) GENERATED ALWAYS AS (
+        CASE WHEN expected_currency_code IS NOT NULL
+                   AND expected_currency_code = actual_currency_code
+             THEN actual_amount - expected_amount
+             ELSE NULL
+        END
+    ) STORED,
     txn_status                VARCHAR(20),
     ledger_audit_state         VARCHAR(20),
     txn_completed_at           TIMESTAMPTZ,
@@ -149,7 +160,8 @@ CREATE TABLE recon_result_audit (
     CONSTRAINT ck_recon_result_audit_exception_type
         CHECK (exception_type IS NULL OR exception_type IN (
             'MISSING_LEDGER_ENTRY','ORPHAN_LEDGER_ENTRY','AMOUNT_MISMATCH',
-            'ACCOUNT_MISMATCH','STATUS_MISMATCH','DUPLICATE_ENTRY','LATE_POSTING'
+            'ACCOUNT_MISMATCH','STATUS_MISMATCH','DUPLICATE_ENTRY','LATE_POSTING',
+            'CURRENCY_MISMATCH'
         )),
     CONSTRAINT ck_recon_result_audit_exception_required
         CHECK (

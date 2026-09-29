@@ -52,6 +52,19 @@ class ExceptionClassifierTest {
     }
 
     @Test
+    void crossCurrencyTransferCreditLegUsesDestinationCurrencyAndAmount() {
+        TransactionMaster txn = transfer("TXN-FX", "ACC-USD", "ACC-PHP", "10.0000", "COMMITTED");
+        txn.setCurrencyCode("USD");
+        txn.setDestCurrencyCode("PHP");
+        txn.setDestAmount(new BigDecimal("580.0000"));
+
+        ExpectedLeg creditLeg = ExpectedLeg.from(txn).get(1);
+
+        assertEquals("PHP", creditLeg.currencyCode());
+        assertEquals(new BigDecimal("580.0000"), creditLeg.expectedAmount());
+    }
+
+    @Test
     void missingLedgerEntry_whenNoActualLegExists() {
         ExpectedLeg expected = ExpectedLeg.from(withdrawal("TXN-3", "ACC-1", "20.0000", "COMMITTED")).get(0);
 
@@ -94,6 +107,21 @@ class ExceptionClassifierTest {
     }
 
     @Test
+    void currencyMismatch_doesNotCompareAmountsInDifferentCurrencies() {
+        TransactionMaster txn = withdrawal("TXN-CURRENCY", "ACC-1", "40.0000", "COMMITTED");
+        txn.setCurrencyCode("PHP");
+        ExpectedLeg expected = ExpectedLeg.from(txn).get(0);
+        LedgerMutationAudit leg = leg("TXN-CURRENCY", "ACC-1", "DEBIT", "40.0000", "COMMITTED");
+        leg.setCurrencyCode("USD");
+
+        ReconResultAudit result = classifier.classify(new LegMatchCandidate(expected, List.of(leg)));
+
+        assertEquals(ReconResultAudit.ExceptionType.CURRENCY_MISMATCH, result.getExceptionType());
+        assertEquals("PHP", result.getExpectedCurrencyCode());
+        assertEquals("USD", result.getActualCurrencyCode());
+    }
+
+    @Test
     void statusMismatch_whenAuditStateDiffersFromTxnStatus() {
         ExpectedLeg expected = ExpectedLeg.from(withdrawal("TXN-7", "ACC-1", "10.0000", "COMMITTED")).get(0);
         LedgerMutationAudit leg = leg("TXN-7", "ACC-1", "DEBIT", "10.0000", "PENDING");
@@ -132,6 +160,7 @@ class ExceptionClassifierTest {
         t.setTxnType("WITHDRAWAL");
         t.setDebitAccountId(accountId);
         t.setMutationAmount(new BigDecimal(amount));
+        t.setCurrencyCode("PHP");
         t.setTxnStatus(status);
         t.setInitiatedAt(OffsetDateTime.now());
         t.setCompletedAt(OffsetDateTime.now());
@@ -146,6 +175,8 @@ class ExceptionClassifierTest {
         t.setDebitAccountId(debitAcc);
         t.setCreditAccountId(creditAcc);
         t.setMutationAmount(new BigDecimal(amount));
+        t.setCurrencyCode("PHP");
+        t.setDestCurrencyCode("PHP");
         t.setTxnStatus(status);
         t.setInitiatedAt(OffsetDateTime.now());
         t.setCompletedAt(OffsetDateTime.now());
@@ -160,6 +191,7 @@ class ExceptionClassifierTest {
         m.setAccountId(accountId);
         m.setMutationType(mutationType);
         m.setMutationAmount(new BigDecimal(amount));
+        m.setCurrencyCode("PHP");
         m.setTxnType("WITHDRAWAL");
         m.setAuditState(auditState);
         m.setCreatedAt(OffsetDateTime.now());

@@ -112,9 +112,11 @@ CREATE TABLE transaction_master (
     debit_account_id   VARCHAR2(36),
     credit_account_id  VARCHAR2(36),
     mutation_amount    NUMBER(18,4)   NOT NULL,
+    currency_code      VARCHAR2(3)     NOT NULL,
     is_cross_currency  VARCHAR2(1)    DEFAULT 'N' NOT NULL,
     fx_rate            NUMBER(18,8),
     dest_amount        NUMBER(18,4),
+    dest_currency_code VARCHAR2(3),
     txn_status         VARCHAR2(20)   DEFAULT 'PENDING' NOT NULL,
     initiated_at       TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
     completed_at       TIMESTAMP,
@@ -132,6 +134,10 @@ CREATE TABLE transaction_master (
     -- mirrors controller-level @Positive: negative amounts are blocked
     -- before they ever reach the persistence layer.
     CONSTRAINT ck_txn_amount_positive CHECK (mutation_amount > 0),
+    CONSTRAINT ck_txn_currency_codes CHECK (
+        (txn_type = 'TRANSFER' AND dest_currency_code IS NOT NULL)
+        OR (txn_type <> 'TRANSFER' AND dest_currency_code IS NULL)
+    ),
     -- NULL-safe: if either side is null (withdrawal/deposit) this
     -- comparison evaluates to UNKNOWN, which Oracle treats as satisfied.
     -- It only actively guards against debit = credit on a TRANSFER.

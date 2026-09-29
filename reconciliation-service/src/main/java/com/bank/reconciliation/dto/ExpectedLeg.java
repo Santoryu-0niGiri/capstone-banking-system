@@ -27,7 +27,8 @@ public record ExpectedLeg(
         BigDecimal expectedAmount,
         String txnStatus,
         String txnType,
-        OffsetDateTime completedAt
+        OffsetDateTime completedAt,
+        String currencyCode
 ) {
     public static List<ExpectedLeg> from(TransactionMaster txn) {
         List<ExpectedLeg> legs = new ArrayList<>(2);
@@ -47,8 +48,11 @@ public record ExpectedLeg(
         BigDecimal amount = ("CREDIT".equals(mutationType) && txn.getDestAmount() != null)
                 ? txn.getDestAmount()
                 : txn.getMutationAmount();
+        String currencyCode = "CREDIT".equals(mutationType) && txn.getDestCurrencyCode() != null
+            ? txn.getDestCurrencyCode()
+            : txn.getCurrencyCode();
         return new ExpectedLeg(txn.getTxnId(), accountId, mutationType, amount,
-                txn.getTxnStatus(), txn.getTxnType(), txn.getCompletedAt());
+            txn.getTxnStatus(), txn.getTxnType(), txn.getCompletedAt(), currencyCode);
     }
 
     /** Groups actual ledger rows by this key to find each expected leg's match. */

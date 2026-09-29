@@ -22,7 +22,8 @@ public class ReconResultAudit {
 
     public enum ExceptionType {
         MISSING_LEDGER_ENTRY, ORPHAN_LEDGER_ENTRY, AMOUNT_MISMATCH,
-        ACCOUNT_MISMATCH, STATUS_MISMATCH, DUPLICATE_ENTRY, LATE_POSTING
+        ACCOUNT_MISMATCH, STATUS_MISMATCH, DUPLICATE_ENTRY, LATE_POSTING,
+        CURRENCY_MISMATCH
     }
 
     public enum Severity { LOW, MEDIUM, HIGH, CRITICAL }
@@ -56,6 +57,12 @@ public class ReconResultAudit {
     @Enumerated(EnumType.STRING)
     @Column(name = "exception_type", length = 30)
     private ExceptionType exceptionType;
+
+    @Column(name = "expected_currency_code", length = 3)
+    private String expectedCurrencyCode;
+
+    @Column(name = "actual_currency_code", length = 3)
+    private String actualCurrencyCode;
 
     @Column(name = "expected_amount", precision = 18, scale = 4)
     private BigDecimal expectedAmount;

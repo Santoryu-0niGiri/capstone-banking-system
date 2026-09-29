@@ -27,7 +27,7 @@
             <div class="col-md-3"><strong>Email:</strong> <span th:text="${customer.email}"></span></div>
             <div class="col-md-3"><strong>Phone:</strong> <span th:text="${customer.contactNo}"></span></div>
             <div class="col-md-3"><strong>ID Doc:</strong> <span th:text="${customer.idType + ' (' + customer.idNumber + ')'}"></span></div>
-            <div class="col-md-3"><strong>Portfolio Value:</strong> <span class="fw-bold text-dark" th:text="${'₱' + #numbers.formatDecimal(customer.totalBalanceInPhp, 1, 'COMMA', 2, 'POINT')}"></span></div>
+            <div class="col-md-3"><strong>Portfolio Value:</strong> <span class="fw-bold text-dark" th:text="${'₱' + #numbers.formatDecimal(totalBalanceInPhp, 1, 'COMMA', 2, 'POINT')}"></span></div>
         </div>
     </div>
 

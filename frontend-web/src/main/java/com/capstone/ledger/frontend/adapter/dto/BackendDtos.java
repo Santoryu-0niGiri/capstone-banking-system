@@ -78,7 +78,13 @@ public class BackendDtos {
             BigDecimal amount,
             BigDecimal balanceAfter,
             String txnStatus,
-            String timestamp
+            String timestamp,
+            String targetCurrency,
+            BigDecimal exchangeRate,
+            BigDecimal targetAmount,
+            BigDecimal feeAmount,
+            Boolean isCrossCurrency,
+            String currencyCode
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -120,6 +126,8 @@ public class BackendDtos {
             String duplicateMutationUuid,
             String reconStatus,
             String exceptionType,
+            String expectedCurrencyCode,
+            String actualCurrencyCode,
             BigDecimal expectedAmount,
             BigDecimal actualAmount,
             BigDecimal varianceAmount,
