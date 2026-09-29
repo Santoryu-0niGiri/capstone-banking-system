@@ -24,7 +24,7 @@ import java.util.UUID;
  * Sweeps for cross-currency transfers stuck in PENDING status when the downstream
  * ForEx Service is offline or fails to respond.
  *
- * Transitions the transaction to FAILED, persists the FAILED audit record in PostgreSQL,
+ * Transitions the transaction to ROLLED_BACK in Oracle and PostgreSQL,
  * and publishes TransactionFailedEvent to Kafka so Notification Service alerts the customer.
  */
 @Service
@@ -64,16 +64,16 @@ public class CrossCurrencyTimeoutService {
         for (TransactionMaster master : timedOut) {
             String txnId = master.getTxnId();
             try {
-                // 1. Mark FAILED in Oracle TRANSACTION_MASTER
+                // 1. Mark ROLLED_BACK in Oracle TRANSACTION_MASTER (satisfies ck_txn_status)
                 oracleTx.executeWithoutResult(status -> {
-                    master.setTxnStatus("FAILED");
+                    master.setTxnStatus("ROLLED_BACK");
                     master.setCompletedAt(LocalDateTime.now());
                     master.setUpdatedAt(LocalDateTime.now());
                     master.setUpdatedBy("TIMEOUT_SERVICE");
                     txnMasterRepository.save(master);
                 });
 
-                // 2. Persist FAILED audit record in PostgreSQL so ledger queries see FAILED
+                // 2. Persist ROLLED_BACK audit record in PostgreSQL (satisfies ck_audit_state)
                 postgresTx.executeWithoutResult(status -> {
                     auditRepository.save(
                             LedgerMutationAudit.builder()
@@ -82,7 +82,7 @@ public class CrossCurrencyTimeoutService {
                                     .mutationAmount(master.getMutationAmount() != null ? master.getMutationAmount() : BigDecimal.ZERO)
                                     .mutationType("DEBIT")
                                     .txnType(master.getTxnType() != null ? master.getTxnType() : "TRANSFER")
-                                    .auditState("FAILED")
+                                    .auditState("ROLLED_BACK")
                                     .createdAt(Instant.now())
                                     .build()
                     );
@@ -108,7 +108,7 @@ public class CrossCurrencyTimeoutService {
 
                 eventProducer.publishFailed(failedEvent);
 
-                log.warn("Marked cross-currency txnId={} as FAILED due to ForEx service timeout; notified customer", txnId);
+                log.warn("Marked cross-currency txnId={} as ROLLED_BACK due to ForEx service timeout; notified customer", txnId);
 
             } catch (Exception ex) {
                 log.error("Failed to process timeout for txnId={}: {}", txnId, ex.getMessage(), ex);
