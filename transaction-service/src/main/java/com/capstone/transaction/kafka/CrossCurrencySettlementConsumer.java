@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -80,13 +81,13 @@ public class CrossCurrencySettlementConsumer {
                 event = objectMapper.convertValue(raw, CrossCurrencySettlementCompletedEvent.class);
             }
 
-            log.info("Processing CROSSCURRENCY_SETTLEMENT_COMPLETED for txnId={}: srcAmt={} destAmt={}",
-                    event.txnId(), event.sourceAmount(), event.destAmount());
+                log.info("Processing CROSSCURRENCY_SETTLEMENT_COMPLETED for txnId={}: srcAmt={} destAmt={} payload={}",
+                    event.txnId(), event.sourceAmount(), event.destAmount(), raw, "\n");
 
             processSettlement(event);
 
         } catch (Exception ex) {
-            log.error("Failed to process CROSSCURRENCY_SETTLEMENT_COMPLETED payload: {}", payload, ex);
+            log.error("Failed to process CROSSCURRENCY_SETTLEMENT_COMPLETED payload: {}", payload, ex, "\n");
         }
     }
 
@@ -95,6 +96,13 @@ public class CrossCurrencySettlementConsumer {
 
         // 1. Post double-entry audit records in PostgreSQL
         postgresTx.executeWithoutResult(status -> {
+            List<LedgerMutationAudit> existingAudits = auditRepository.findByTxnId(txnId);
+            if (!existingAudits.isEmpty()) {
+                log.info("Skipping duplicate settlement audit for txnId={} existingRows={}",
+                        txnId, existingAudits.size());
+                return;
+            }
+
             auditRepository.save(
                     LedgerMutationAudit.builder()
                             .txnId(txnId)
