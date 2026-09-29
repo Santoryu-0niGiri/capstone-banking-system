@@ -112,8 +112,8 @@ public class TransactionController {
                 redirectAttributes.addFlashAttribute("lastTxn", executedTxn);
             }
             return "redirect:/transactions/receipt/" + txnId;
-        } catch (IllegalArgumentException | IllegalStateException ex) {
-            model.addAttribute("errorMessage", ex.getMessage());
+        } catch (Exception ex) {
+            model.addAttribute("errorMessage", ex.getMessage() != null ? ex.getMessage() : "Transaction processing failed. Please try again.");
             List<AccountView> userAccounts = user.isAdmin()
                     ? bankingClient.getAllAccounts()
                     : bankingClient.getAccountsByCustomerId(user.getCustomerId());
@@ -154,15 +154,26 @@ public class TransactionController {
             return "redirect:/login";
         }
 
-        List<TransactionView> transactions = user.isAdmin()
-                ? bankingClient.getAllTransactions()
-                : bankingClient.getAllTransactions().stream()
-                        .filter(t -> {
-                            // Only include transactions that involve this customer's accounts
-                            List<AccountView> accounts = bankingClient.getAccountsByCustomerId(user.getCustomerId());
-                            return accounts.stream().anyMatch(a -> a.getAccountId().equalsIgnoreCase(t.getAccountId()));
-                        })
-                        .toList();
+        List<TransactionView> transactions;
+        if (user.isAdmin()) {
+            transactions = bankingClient.getAllTransactions();
+        } else {
+            List<AccountView> accounts = bankingClient.getAccountsByCustomerId(user.getCustomerId());
+            java.util.Map<String, TransactionView> dedupMap = new java.util.LinkedHashMap<>();
+            for (AccountView a : accounts) {
+                List<TransactionView> txns = bankingClient.getTransactionsByAccountId(a.getAccountId());
+                for (TransactionView tv : txns) {
+                    dedupMap.putIfAbsent(tv.getMutationId() != null ? tv.getMutationId() : tv.getTxnId(), tv);
+                }
+            }
+            transactions = new java.util.ArrayList<>(dedupMap.values());
+            transactions.sort((x, y) -> {
+                if (x.getTimestamp() == null && y.getTimestamp() == null) return 0;
+                if (x.getTimestamp() == null) return 1;
+                if (y.getTimestamp() == null) return -1;
+                return y.getTimestamp().compareTo(x.getTimestamp());
+            });
+        }
 
         model.addAttribute("transactions", transactions);
         model.addAttribute("user", user);

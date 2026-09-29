@@ -28,7 +28,10 @@ public class AdminCustomerService {
                         c.getLastName(),
                         c.getEmail(),
                         c.getContactNo(),
-                        c.getBirthDate()))
+                        c.getBirthDate(),
+                        c.getIdType(),
+                        c.getIdNumber(),
+                        c.getResidentialAddress()))
                 .toList();
     }
 
@@ -41,7 +44,10 @@ public class AdminCustomerService {
                         c.getLastName(),
                         c.getEmail(),
                         c.getContactNo(),
-                        c.getBirthDate()))
+                        c.getBirthDate(),
+                        c.getIdType(),
+                        c.getIdNumber(),
+                        c.getResidentialAddress()))
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Customer " + customerId + " not found"));
     }

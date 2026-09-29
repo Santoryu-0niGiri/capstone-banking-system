@@ -66,6 +66,13 @@ spring:
           predicates:
             - Path=/api/v1/fx-rate,/api/v1/fx-rate/**,/api/v1/forex/**
 
+        - id: notification-service
+          uri: http://notification-service:8085
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - JwtAuthentication
+
         - id: reconciliation-service
           uri: http://reconciliation-service:8086
           predicates:

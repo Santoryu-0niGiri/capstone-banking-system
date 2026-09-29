@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.capstone.ledger.frontend.model.enums.AccountType;
+
+import java.math.BigDecimal;
 import java.util.Optional;
 
 /**
@@ -104,6 +107,19 @@ public class AuthController {
             if (userOpt.isPresent()) {
                 session.setAttribute(SessionAuthInterceptor.SESSION_USER, userOpt.get());
                 session.setAttribute(SessionAuthInterceptor.SESSION_CUST_ID, newCustomer.getCustomerId());
+
+                // In live gateway mode, user is authenticated now: open initial account if not already created
+                try {
+                    if (bankingClient.getAccountsByCustomerId(newCustomer.getCustomerId()).isEmpty()) {
+                        bankingClient.openAccount(
+                                newCustomer.getCustomerId(),
+                                form.getInitialAccountType() != null ? form.getInitialAccountType() : AccountType.SAVINGS,
+                                form.getCurrencyCode() != null ? form.getCurrencyCode() : "PHP",
+                                BigDecimal.ZERO
+                        );
+                    }
+                } catch (Exception ignored) {}
+
                 redirectAttributes.addFlashAttribute("successMessage",
                         "Welcome, " + newCustomer.getFirstName() + "! Your account was opened and KYC verification is in progress.");
                 return "redirect:/customer/dashboard";
