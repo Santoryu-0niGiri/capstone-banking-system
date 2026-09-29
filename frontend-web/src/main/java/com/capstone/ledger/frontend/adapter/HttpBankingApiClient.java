@@ -553,11 +553,75 @@ public class HttpBankingApiClient implements BankingApiClient {
 
     @Override
     public List<ReconciliationRunView> getReconciliationRuns() {
-        return Collections.emptyList();
+        try {
+            List<ReconRunRes> responses = restClient.get()
+                    .uri("/api/recon/runs?includeResults=true")
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<ReconRunRes>>() {});
+
+            if (responses == null) {
+                return Collections.emptyList();
+            }
+
+            return responses.stream().map(this::mapReconRun).toList();
+        } catch (Exception e) {
+            log.error("Failed to fetch reconciliation runs from gateway", e);
+            return Collections.emptyList();
+        }
     }
 
     @Override
     public void triggerReconciliationRun() {
+        try {
+            restClient.post()
+                    .uri("/api/recon/runs")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("{}")
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("Triggered reconciliation run via gateway");
+        } catch (Exception e) {
+            log.error("Failed to trigger reconciliation run via gateway", e);
+            throw new RuntimeException("Failed to trigger reconciliation run: " + e.getMessage(), e);
+        }
+    }
+
+    private ReconciliationRunView mapReconRun(ReconRunRes res) {
+        ReconciliationRunView view = new ReconciliationRunView();
+        view.setRunId(res.runId() != null ? res.runId().toUpperCase() : "N/A");
+        view.setRunStatus(res.status() != null ? res.status() : "UNKNOWN");
+        view.setTotalTxnChecked(res.totalChecked());
+        view.setTotalMatched(res.totalMatched());
+        view.setTotalExceptions(res.totalExceptions());
+        view.setWindowStart(res.windowStart() != null ? res.windowStart().toLocalDateTime() : null);
+        view.setWindowEnd(res.windowEnd() != null ? res.windowEnd().toLocalDateTime() : null);
+        view.setRunStartedAt(res.startedAt() != null ? res.startedAt().toLocalDateTime() : null);
+        view.setRunCompletedAt(res.completedAt() != null ? res.completedAt().toLocalDateTime() : null);
+
+        if (res.results() != null && !res.results().isEmpty()) {
+            List<ReconciliationResultView> resultViews = res.results().stream()
+                    .map(this::mapReconResult)
+                    .toList();
+            view.setResults(resultViews);
+        }
+        return view;
+    }
+
+    private ReconciliationResultView mapReconResult(ReconResultRes res) {
+        ReconciliationResultView view = new ReconciliationResultView();
+        view.setResultId(res.resultId());
+        view.setRunId(res.runId() != null ? res.runId().toUpperCase() : "N/A");
+        view.setTxnId(res.txnId());
+        view.setAccountId(res.accountId());
+        view.setReconStatus(res.reconStatus());
+        view.setExceptionType(res.exceptionType());
+        view.setExpectedAmount(res.expectedAmount());
+        view.setActualAmount(res.actualAmount());
+        view.setVarianceAmount(res.varianceAmount() != null ? res.varianceAmount() : BigDecimal.ZERO);
+        view.setPostingLagSeconds(res.postingLagSeconds() != null ? res.postingLagSeconds() : 0);
+        view.setSeverity(res.severity() != null ? res.severity() : "LOW");
+        view.setCreatedAt(res.createdAt() != null ? res.createdAt().toLocalDateTime() : null);
+        return view;
     }
 
     private AccountView mapAccount(AccountRes res) {

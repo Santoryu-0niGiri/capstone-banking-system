@@ -10,6 +10,6 @@ import java.util.UUID;
 
 public interface OutboxAuditRepository extends JpaRepository<OutboxAudit, UUID> {
 
-    @Query("select o from OutboxAudit o where o.status = 'PENDING' order by o.createdAt asc")
+    @Query("select o from OutboxAudit o where o.sourceService = 'reconciliation-service' and o.status = 'PENDING' order by o.createdAt asc")
     List<OutboxAudit> findPendingBatch(Pageable pageable);
 }

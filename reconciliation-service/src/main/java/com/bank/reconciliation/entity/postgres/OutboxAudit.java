@@ -37,6 +37,9 @@ public class OutboxAudit {
     @Column(name = "outbox_id")
     private UUID outboxId;
 
+    @Column(name = "source_service", nullable = false, length = 50)
+    private String sourceService = "reconciliation-service";
+
     @Column(name = "aggregate_type", nullable = false, length = 30)
     private String aggregateType;
 

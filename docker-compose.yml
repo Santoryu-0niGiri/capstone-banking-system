@@ -107,6 +107,10 @@ services:
         condition: service_started
       transaction-service:
         condition: service_started
+      forex-service:
+        condition: service_started
+      reconciliation-service:
+        condition: service_started
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -271,7 +275,9 @@ services:
       - banking-net
 
   reconciliation-service:
-    build: ./reconciliation-service
+    build:
+      context: .
+      dockerfile: reconciliation-service/Dockerfile
     container_name: reconciliation-service
     ports:
       - "8086:8086"

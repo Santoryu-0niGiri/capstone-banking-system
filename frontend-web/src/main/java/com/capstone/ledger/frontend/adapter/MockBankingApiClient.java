@@ -467,6 +467,22 @@ public class MockBankingApiClient implements BankingApiClient {
                 LocalDateTime.now().minusHours(12), LocalDateTime.now(),
                 transactionsById.size(), transactionsById.size(), 0, "COMPLETED"
         );
+        for (TransactionView txn : transactionsById.values()) {
+            newRun.getResults().add(new ReconciliationResultView(
+                    "RES-" + (System.currentTimeMillis() % 100000) + "-" + txn.getTxnId(),
+                    newRun.getRunId(),
+                    txn.getTxnId(),
+                    txn.getAccountId(),
+                    "MATCHED",
+                    null,
+                    txn.getAmount(),
+                    txn.getAmount(),
+                    BigDecimal.ZERO,
+                    0,
+                    "LOW",
+                    LocalDateTime.now()
+            ));
+        }
         reconciliationRuns.add(0, newRun);
     }
 }
