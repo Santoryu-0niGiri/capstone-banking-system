@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,6 +60,7 @@ public class CustomerController {
         model.addAttribute("user", user);
         model.addAttribute("customer", customer);
         model.addAttribute("accounts", accounts);
+        model.addAttribute("totalBalanceInPhp", totalBalanceInPhp(accounts));
         model.addAttribute("recentTransactions", customerTransactions.stream().limit(8).toList());
         model.addAttribute("notifications", notifications.stream().limit(4).toList());
         model.addAttribute("unreadCount", unreadCount);
@@ -102,6 +104,17 @@ public class CustomerController {
         model.addAttribute("user", user);
         model.addAttribute("customer", customer);
         model.addAttribute("accounts", accounts);
+        model.addAttribute("totalBalanceInPhp", totalBalanceInPhp(accounts));
         return "customer/detail";
+    }
+
+    private BigDecimal totalBalanceInPhp(List<AccountView> accounts) {
+        return accounts.stream()
+                .map(account -> {
+                    BigDecimal balance = account.getBalance() != null ? account.getBalance() : BigDecimal.ZERO;
+                    BigDecimal rate = bankingClient.getExchangeRate(account.getCurrencyCode(), "PHP");
+                    return balance.multiply(rate);
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

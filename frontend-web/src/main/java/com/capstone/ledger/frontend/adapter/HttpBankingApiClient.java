@@ -22,8 +22,13 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,6 +42,7 @@ import java.util.Optional;
 public class HttpBankingApiClient implements BankingApiClient {
 
     private static final Logger log = LoggerFactory.getLogger(HttpBankingApiClient.class);
+    private static final ZoneId BANKING_ZONE = ZoneId.of("Asia/Manila");
 
     private final RestClient restClient;
     private final String gatewayUrl;
@@ -327,8 +333,17 @@ public class HttpBankingApiClient implements BankingApiClient {
                 tv.setTxnType(form.getTxnType());
                 tv.setDirection(form.getTxnType() == TransactionType.DEPOSIT ? MutationDirection.CREDIT : MutationDirection.DEBIT);
                 tv.setAmount(res.amount());
-                tv.setAuditState(AuditState.COMMITTED);
-                tv.setTimestamp(LocalDateTime.now());
+                if (res.currencyCode() != null) tv.setCurrencyCode(res.currencyCode());
+                if (res.targetCurrency() != null) tv.setDestCurrencyCode(res.targetCurrency());
+                if (res.targetAmount() != null) tv.setDestAmount(res.targetAmount());
+                if (res.exchangeRate() != null) tv.setFxRate(res.exchangeRate());
+                if (res.isCrossCurrency() != null) tv.setCrossCurrency(res.isCrossCurrency());
+                try {
+                    tv.setAuditState(AuditState.valueOf(res.txnStatus().toUpperCase()));
+                } catch (Exception ignored) {
+                    tv.setAuditState(AuditState.COMMITTED);
+                }
+                tv.setTimestamp(parseAuditTimestamp(res.timestamp()));
                 return List.of(tv);
             }
             throw new IllegalStateException("Ledger mutation failed: " + (response != null ? response.getMessage() : "Unknown error"));
@@ -353,6 +368,9 @@ public class HttpBankingApiClient implements BankingApiClient {
                     tv.setTxnId(tid);
                     tv.setMutationId("MUT-" + (tid.length() >= 8 ? tid.substring(0, 8) : tid));
                     tv.setAccountId(m.get("accountId") != null ? m.get("accountId").toString() : accountId);
+                    if (m.get("currencyCode") != null) {
+                        tv.setCurrencyCode(m.get("currencyCode").toString().trim());
+                    }
 
                     String txnTypeStr = m.get("txnType") != null ? m.get("txnType").toString() : "TRANSFER";
                     try {
@@ -369,14 +387,34 @@ public class HttpBankingApiClient implements BankingApiClient {
                     }
 
                     tv.setAuditState(AuditState.COMMITTED);
-                    tv.setTimestamp(LocalDateTime.now());
+                    tv.setTimestamp(parseAuditTimestamp(m.get("createdAt")));
                     return tv;
-                }).toList();
+                }).sorted(Comparator.comparing(TransactionView::getTimestamp).reversed()).toList();
             }
         } catch (Exception ex) {
             log.warn("Failed to fetch audits for account {}: {}", accountId, ex.getMessage());
         }
         return Collections.emptyList();
+    }
+
+    private LocalDateTime parseAuditTimestamp(Object value) {
+        if (value == null) {
+            return LocalDateTime.now();
+        }
+
+        String timestamp = value.toString();
+        try {
+            return Instant.parse(timestamp)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDateTime();
+        } catch (java.time.format.DateTimeParseException ignored) {
+            try {
+                return LocalDateTime.parse(timestamp);
+            } catch (java.time.format.DateTimeParseException invalidTimestamp) {
+                log.warn("Invalid ledger audit timestamp: {}", timestamp);
+                return LocalDateTime.now();
+            }
+        }
     }
 
     @Override
@@ -414,12 +452,22 @@ public class HttpBankingApiClient implements BankingApiClient {
 
             if (response != null && response.getData() != null && !response.getData().isEmpty()) {
                 List<Map<String, Object>> audits = response.getData();
-                Map<String, Object> first = audits.get(0);
+                Map<String, Object> first = audits.stream()
+                    .filter(audit -> "DEBIT".equalsIgnoreCase(String.valueOf(audit.get("mutationType"))))
+                    .findFirst()
+                    .orElse(audits.get(0));
+                Map<String, Object> second = audits.stream()
+                    .filter(audit -> audit != first)
+                    .findFirst()
+                    .orElse(null);
 
                 TransactionView tv = new TransactionView();
                 tv.setTxnId(first.get("txnId") != null ? first.get("txnId").toString() : txnId);
                 tv.setMutationId("MUT-" + (tv.getTxnId().length() >= 8 ? tv.getTxnId().substring(0, 8) : tv.getTxnId()));
                 tv.setAccountId(first.get("accountId") != null ? first.get("accountId").toString() : "");
+                if (first.get("currencyCode") != null) {
+                    tv.setCurrencyCode(first.get("currencyCode").toString().trim());
+                }
 
                 String txnTypeStr = first.get("txnType") != null ? first.get("txnType").toString() : "TRANSFER";
                 try {
@@ -435,9 +483,11 @@ public class HttpBankingApiClient implements BankingApiClient {
                     tv.setAmount(new BigDecimal(first.get("mutationAmount").toString()));
                 }
 
-                if (audits.size() > 1) {
-                    Map<String, Object> second = audits.get(1);
+                if (second != null) {
                     tv.setCounterpartyAccountId(second.get("accountId") != null ? second.get("accountId").toString() : null);
+                    if (second.get("currencyCode") != null) {
+                        tv.setDestCurrencyCode(second.get("currencyCode").toString().trim());
+                    }
                 }
 
                 String stateStr = first.get("auditState") != null ? first.get("auditState").toString() : "COMMITTED";
@@ -447,21 +497,21 @@ public class HttpBankingApiClient implements BankingApiClient {
                     tv.setAuditState(AuditState.COMMITTED);
                 }
 
-                tv.setTimestamp(LocalDateTime.now());
+                tv.setTimestamp(parseAuditTimestamp(first.get("createdAt")));
 
                 // Enrich with account currencies and cross-currency metadata
                 if (tv.getAccountId() != null && !tv.getAccountId().isBlank()) {
                     getAccountById(tv.getAccountId()).ifPresent(acct -> {
-                        tv.setCurrencyCode(acct.getCurrencyCode());
+                        if (tv.getCurrencyCode() == null) tv.setCurrencyCode(acct.getCurrencyCode());
                     });
                 }
                 if (tv.getCounterpartyAccountId() != null && !tv.getCounterpartyAccountId().isBlank()) {
                     getAccountById(tv.getCounterpartyAccountId()).ifPresent(destAcct -> {
-                        tv.setDestCurrencyCode(destAcct.getCurrencyCode());
+                        if (tv.getDestCurrencyCode() == null) tv.setDestCurrencyCode(destAcct.getCurrencyCode());
                         if (tv.getCurrencyCode() != null && !tv.getCurrencyCode().equalsIgnoreCase(destAcct.getCurrencyCode())) {
                             tv.setCrossCurrency(true);
-                            if (audits.size() > 1 && audits.get(1).get("mutationAmount") != null) {
-                                BigDecimal destAmt = new BigDecimal(audits.get(1).get("mutationAmount").toString());
+                            if (second != null && second.get("mutationAmount") != null) {
+                                BigDecimal destAmt = new BigDecimal(second.get("mutationAmount").toString());
                                 tv.setDestAmount(destAmt);
                                 if (tv.getAmount() != null && tv.getAmount().compareTo(BigDecimal.ZERO) > 0) {
                                     tv.setFxRate(destAmt.divide(tv.getAmount(), 6, java.math.RoundingMode.HALF_UP));
@@ -548,15 +598,17 @@ public class HttpBankingApiClient implements BankingApiClient {
     }
 
     @Override
-    public void triggerReconciliationRun() {
+        public void triggerReconciliationRun(LocalDate startDate, LocalDate endDate) {
         try {
+            OffsetDateTime windowStart = startDate.atStartOfDay(BANKING_ZONE).toOffsetDateTime();
+            OffsetDateTime windowEnd = endDate.plusDays(1).atStartOfDay(BANKING_ZONE).toOffsetDateTime();
             restClient.post()
                     .uri("/api/recon/runs")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body("{}")
+                .body(new ReconRunReq(windowStart, windowEnd))
                     .retrieve()
                     .toBodilessEntity();
-            log.info("Triggered reconciliation run via gateway");
+            log.info("Triggered reconciliation run via gateway for [{}, {})", windowStart, windowEnd);
         } catch (Exception e) {
             log.error("Failed to trigger reconciliation run via gateway", e);
             throw new RuntimeException("Failed to trigger reconciliation run: " + e.getMessage(), e);
@@ -590,8 +642,13 @@ public class HttpBankingApiClient implements BankingApiClient {
         view.setRunId(res.runId() != null ? res.runId().toUpperCase() : "N/A");
         view.setTxnId(res.txnId());
         view.setAccountId(res.accountId());
+        view.setTransactionDateTime(res.txnCompletedAt() != null ? res.txnCompletedAt().toLocalDateTime()
+            : res.ledgerPostedAt() != null ? res.ledgerPostedAt().toLocalDateTime()
+            : res.createdAt() != null ? res.createdAt().toLocalDateTime() : null);
         view.setReconStatus(res.reconStatus());
         view.setExceptionType(res.exceptionType());
+        view.setExpectedCurrencyCode(res.expectedCurrencyCode());
+        view.setActualCurrencyCode(res.actualCurrencyCode());
         view.setExpectedAmount(res.expectedAmount());
         view.setActualAmount(res.actualAmount());
         view.setVarianceAmount(res.varianceAmount() != null ? res.varianceAmount() : BigDecimal.ZERO);

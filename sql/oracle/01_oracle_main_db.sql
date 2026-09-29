@@ -112,9 +112,11 @@ CREATE TABLE transaction_master (
     debit_account_id   VARCHAR2(36),
     credit_account_id  VARCHAR2(36),
     mutation_amount    NUMBER(18,4)   NOT NULL,
+    currency_code      VARCHAR2(3)     NOT NULL,
     is_cross_currency  VARCHAR2(1)    DEFAULT 'N' NOT NULL,
     fx_rate            NUMBER(18,8),
     dest_amount        NUMBER(18,4),
+    dest_currency_code VARCHAR2(3),
     txn_status         VARCHAR2(20)   DEFAULT 'PENDING' NOT NULL,
     initiated_at       TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
     completed_at       TIMESTAMP,
@@ -132,6 +134,10 @@ CREATE TABLE transaction_master (
     -- mirrors controller-level @Positive: negative amounts are blocked
     -- before they ever reach the persistence layer.
     CONSTRAINT ck_txn_amount_positive CHECK (mutation_amount > 0),
+    CONSTRAINT ck_txn_currency_codes CHECK (
+        (txn_type = 'TRANSFER' AND dest_currency_code IS NOT NULL)
+        OR (txn_type <> 'TRANSFER' AND dest_currency_code IS NULL)
+    ),
     -- NULL-safe: if either side is null (withdrawal/deposit) this
     -- comparison evaluates to UNKNOWN, which Oracle treats as satisfied.
     -- It only actively guards against debit = credit on a TRANSFER.
@@ -182,71 +188,71 @@ CREATE INDEX ix_outbox_master_status ON outbox_master (status, created_at);
 COMMENT ON TABLE outbox_master IS
     'Transactional outbox for accounts-service mutations (account creations, balance updates, and cross-currency settlement). Polled by OutboxMasterRelayService.';
 
--- =====================================================================
--- SEED DATA (Oracle XE 21c)
--- Standard personas for immediate end-to-end testing across UI & Backend:
--- 1. Admin Persona:
---    - username: admin@ledgerbank.com
---    - password: admin123 (BCrypt hash: $2a$10$Wj5Cqd6hjqjppB6IItquHOun3MVKhJZShmIPi0SmAJUDygytdipN6)
---    - role: ADMIN
--- 2. Customer 1 (Juan Dela Cruz):
---    - username: juan.delacruz@example.com
---    - password: password123 (BCrypt hash: $2a$10$yPxSmEaD/2O6lRX.xPlL/OrFxdcv5MGklq.ExJ/IYcmOD.TA2eQB.)
---    - accounts:
---        * acct-juan-php-01 (SAVINGS, PHP, 50,000.0000)
---        * acct-juan-usd-01 (CHECKING, USD, 1,500.0000)
--- 3. Customer 2 (Maria Santos):
---    - username: maria.santos@example.com
---    - password: password123 (BCrypt hash: $2a$10$yPxSmEaD/2O6lRX.xPlL/OrFxdcv5MGklq.ExJ/IYcmOD.TA2eQB.)
---    - accounts:
---        * acct-maria-php-01 (SAVINGS, PHP, 120,000.0000)
---        * acct-maria-eur-01 (WALLET, EUR, 800.0000)
--- =====================================================================
+-- -- =====================================================================
+-- -- SEED DATA (Oracle XE 21c)
+-- -- Standard personas for immediate end-to-end testing across UI & Backend:
+-- -- 1. Admin Persona:
+-- --    - username: admin@ledgerbank.com
+-- --    - password: admin123 (BCrypt hash: $2a$10$Wj5Cqd6hjqjppB6IItquHOun3MVKhJZShmIPi0SmAJUDygytdipN6)
+-- --    - role: ADMIN
+-- -- 2. Customer 1 (Juan Dela Cruz):
+-- --    - username: juan.delacruz@example.com
+-- --    - password: password123 (BCrypt hash: $2a$10$yPxSmEaD/2O6lRX.xPlL/OrFxdcv5MGklq.ExJ/IYcmOD.TA2eQB.)
+-- --    - accounts:
+-- --        * acct-juan-php-01 (SAVINGS, PHP, 50,000.0000)
+-- --        * acct-juan-usd-01 (CHECKING, USD, 1,500.0000)
+-- -- 3. Customer 2 (Maria Santos):
+-- --    - username: maria.santos@example.com
+-- --    - password: password123 (BCrypt hash: $2a$10$yPxSmEaD/2O6lRX.xPlL/OrFxdcv5MGklq.ExJ/IYcmOD.TA2eQB.)
+-- --    - accounts:
+-- --        * acct-maria-php-01 (SAVINGS, PHP, 120,000.0000)
+-- --        * acct-maria-eur-01 (WALLET, EUR, 800.0000)
+-- -- =====================================================================
 
--- 1. Customers
-INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, created_at, created_by)
-VALUES ('cust-admin-001', 'System', 'Admin', 'admin@ledgerbank.com', '+639170000000', TO_DATE('1985-01-01', 'YYYY-MM-DD'), SYSTIMESTAMP, 'SYSTEM');
+-- -- 1. Customers
+-- INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, created_at, created_by)
+-- VALUES ('cust-admin-001', 'System', 'Admin', 'admin@ledgerbank.com', '+639170000000', TO_DATE('1985-01-01', 'YYYY-MM-DD'), SYSTIMESTAMP, 'SYSTEM');
 
-INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, created_at, created_by)
-VALUES ('cust-user-001', 'Juan', 'Dela Cruz', 'juan.delacruz@example.com', '+639171234567', TO_DATE('1990-05-15', 'YYYY-MM-DD'), SYSTIMESTAMP, 'SYSTEM');
+-- INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, created_at, created_by)
+-- VALUES ('cust-user-001', 'Juan', 'Dela Cruz', 'juan.delacruz@example.com', '+639171234567', TO_DATE('1990-05-15', 'YYYY-MM-DD'), SYSTIMESTAMP, 'SYSTEM');
 
-INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, created_at, created_by)
-VALUES ('cust-user-002', 'Maria', 'Santos', 'maria.santos@example.com', '+639189876543', TO_DATE('1992-08-20', 'YYYY-MM-DD'), SYSTIMESTAMP, 'SYSTEM');
+-- INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, created_at, created_by)
+-- VALUES ('cust-user-002', 'Maria', 'Santos', 'maria.santos@example.com', '+639189876543', TO_DATE('1992-08-20', 'YYYY-MM-DD'), SYSTIMESTAMP, 'SYSTEM');
 
--- 2. App Users (Credentials)
-INSERT INTO app_user_master (user_id, customer_id, username, password_hash, role, active_status, created_at, created_by)
-VALUES ('usr-admin-001', 'cust-admin-001', 'admin@ledgerbank.com', '$2a$10$Wj5Cqd6hjqjppB6IItquHOun3MVKhJZShmIPi0SmAJUDygytdipN6', 'ADMIN', 'ACTIVE', SYSTIMESTAMP, 'SYSTEM');
+-- -- 2. App Users (Credentials)
+-- INSERT INTO app_user_master (user_id, customer_id, username, password_hash, role, active_status, created_at, created_by)
+-- VALUES ('usr-admin-001', 'cust-admin-001', 'admin@ledgerbank.com', '$2a$10$Wj5Cqd6hjqjppB6IItquHOun3MVKhJZShmIPi0SmAJUDygytdipN6', 'ADMIN', 'ACTIVE', SYSTIMESTAMP, 'SYSTEM');
 
-INSERT INTO app_user_master (user_id, customer_id, username, password_hash, role, active_status, created_at, created_by)
-VALUES ('usr-user-001', 'cust-user-001', 'juan.delacruz@example.com', '$2a$10$yPxSmEaD/2O6lRX.xPlL/OrFxdcv5MGklq.ExJ/IYcmOD.TA2eQB.', 'CUSTOMER', 'ACTIVE', SYSTIMESTAMP, 'SYSTEM');
+-- INSERT INTO app_user_master (user_id, customer_id, username, password_hash, role, active_status, created_at, created_by)
+-- VALUES ('usr-user-001', 'cust-user-001', 'juan.delacruz@example.com', '$2a$10$yPxSmEaD/2O6lRX.xPlL/OrFxdcv5MGklq.ExJ/IYcmOD.TA2eQB.', 'CUSTOMER', 'ACTIVE', SYSTIMESTAMP, 'SYSTEM');
 
-INSERT INTO app_user_master (user_id, customer_id, username, password_hash, role, active_status, created_at, created_by)
-VALUES ('usr-user-002', 'cust-user-002', 'maria.santos@example.com', '$2a$10$yPxSmEaD/2O6lRX.xPlL/OrFxdcv5MGklq.ExJ/IYcmOD.TA2eQB.', 'CUSTOMER', 'ACTIVE', SYSTIMESTAMP, 'SYSTEM');
+-- INSERT INTO app_user_master (user_id, customer_id, username, password_hash, role, active_status, created_at, created_by)
+-- VALUES ('usr-user-002', 'cust-user-002', 'maria.santos@example.com', '$2a$10$yPxSmEaD/2O6lRX.xPlL/OrFxdcv5MGklq.ExJ/IYcmOD.TA2eQB.', 'CUSTOMER', 'ACTIVE', SYSTIMESTAMP, 'SYSTEM');
 
--- 3. Accounts
-INSERT INTO account_master (account_id, customer_id, account_type, currency_code, account_status, balance_amount, created_at, created_by)
-VALUES ('acct-juan-php-01', 'cust-user-001', 'SAVINGS', 'PHP', 'ACTIVE', 50000.0000, SYSTIMESTAMP, 'SYSTEM');
+-- -- 3. Accounts
+-- INSERT INTO account_master (account_id, customer_id, account_type, currency_code, account_status, balance_amount, created_at, created_by)
+-- VALUES ('acct-juan-php-01', 'cust-user-001', 'SAVINGS', 'PHP', 'ACTIVE', 50000.0000, SYSTIMESTAMP, 'SYSTEM');
 
-INSERT INTO account_master (account_id, customer_id, account_type, currency_code, account_status, balance_amount, created_at, created_by)
-VALUES ('acct-juan-usd-01', 'cust-user-001', 'CHECKING', 'USD', 'ACTIVE', 1500.0000, SYSTIMESTAMP, 'SYSTEM');
+-- INSERT INTO account_master (account_id, customer_id, account_type, currency_code, account_status, balance_amount, created_at, created_by)
+-- VALUES ('acct-juan-usd-01', 'cust-user-001', 'CHECKING', 'USD', 'ACTIVE', 1500.0000, SYSTIMESTAMP, 'SYSTEM');
 
-INSERT INTO account_master (account_id, customer_id, account_type, currency_code, account_status, balance_amount, created_at, created_by)
-VALUES ('acct-maria-php-01', 'cust-user-002', 'SAVINGS', 'PHP', 'ACTIVE', 120000.0000, SYSTIMESTAMP, 'SYSTEM');
+-- INSERT INTO account_master (account_id, customer_id, account_type, currency_code, account_status, balance_amount, created_at, created_by)
+-- VALUES ('acct-maria-php-01', 'cust-user-002', 'SAVINGS', 'PHP', 'ACTIVE', 120000.0000, SYSTIMESTAMP, 'SYSTEM');
 
-INSERT INTO account_master (account_id, customer_id, account_type, currency_code, account_status, balance_amount, created_at, created_by)
-VALUES ('acct-maria-eur-01', 'cust-user-002', 'WALLET', 'EUR', 'ACTIVE', 800.0000, SYSTIMESTAMP, 'SYSTEM');
+-- INSERT INTO account_master (account_id, customer_id, account_type, currency_code, account_status, balance_amount, created_at, created_by)
+-- VALUES ('acct-maria-eur-01', 'cust-user-002', 'WALLET', 'EUR', 'ACTIVE', 800.0000, SYSTIMESTAMP, 'SYSTEM');
 
--- 4. Initial Transactions (Opening Balance Deposits)
-INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, is_cross_currency, txn_status, initiated_at, completed_at, created_at, created_by)
-VALUES ('txn-init-juan-php', 'DEPOSIT', NULL, 'acct-juan-php-01', 50000.0000, 'N', 'COMMITTED', SYSTIMESTAMP, SYSTIMESTAMP, SYSTIMESTAMP, 'SYSTEM');
+-- -- 4. Initial Transactions (Opening Balance Deposits)
+-- INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, is_cross_currency, txn_status, initiated_at, completed_at, created_at, created_by)
+-- VALUES ('txn-init-juan-php', 'DEPOSIT', NULL, 'acct-juan-php-01', 50000.0000, 'N', 'COMMITTED', SYSTIMESTAMP, SYSTIMESTAMP, SYSTIMESTAMP, 'SYSTEM');
 
-INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, is_cross_currency, txn_status, initiated_at, completed_at, created_at, created_by)
-VALUES ('txn-init-juan-usd', 'DEPOSIT', NULL, 'acct-juan-usd-01', 1500.0000, 'N', 'COMMITTED', SYSTIMESTAMP, SYSTIMESTAMP, SYSTIMESTAMP, 'SYSTEM');
+-- INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, is_cross_currency, txn_status, initiated_at, completed_at, created_at, created_by)
+-- VALUES ('txn-init-juan-usd', 'DEPOSIT', NULL, 'acct-juan-usd-01', 1500.0000, 'N', 'COMMITTED', SYSTIMESTAMP, SYSTIMESTAMP, SYSTIMESTAMP, 'SYSTEM');
 
-INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, is_cross_currency, txn_status, initiated_at, completed_at, created_at, created_by)
-VALUES ('txn-init-maria-php', 'DEPOSIT', NULL, 'acct-maria-php-01', 120000.0000, 'N', 'COMMITTED', SYSTIMESTAMP, SYSTIMESTAMP, SYSTIMESTAMP, 'SYSTEM');
+-- INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, is_cross_currency, txn_status, initiated_at, completed_at, created_at, created_by)
+-- VALUES ('txn-init-maria-php', 'DEPOSIT', NULL, 'acct-maria-php-01', 120000.0000, 'N', 'COMMITTED', SYSTIMESTAMP, SYSTIMESTAMP, SYSTIMESTAMP, 'SYSTEM');
 
-INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, is_cross_currency, txn_status, initiated_at, completed_at, created_at, created_by)
-VALUES ('txn-init-maria-eur', 'DEPOSIT', NULL, 'acct-maria-eur-01', 800.0000, 'N', 'COMMITTED', SYSTIMESTAMP, SYSTIMESTAMP, SYSTIMESTAMP, 'SYSTEM');
+-- INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, is_cross_currency, txn_status, initiated_at, completed_at, created_at, created_by)
+-- VALUES ('txn-init-maria-eur', 'DEPOSIT', NULL, 'acct-maria-eur-01', 800.0000, 'N', 'COMMITTED', SYSTIMESTAMP, SYSTIMESTAMP, SYSTIMESTAMP, 'SYSTEM');
 
 COMMIT;

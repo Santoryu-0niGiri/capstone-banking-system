@@ -42,6 +42,7 @@ public class ExceptionClassifier {
         ReconResultAudit result = new ReconResultAudit();
         result.setTxnId(expected.txnId());
         result.setAccountId(expected.accountId());
+        result.setExpectedCurrencyCode(expected.currencyCode());
         result.setExpectedAmount(expected.expectedAmount());
         result.setTxnStatus(expected.txnStatus());
         result.setTxnCompletedAt(expected.completedAt());
@@ -57,6 +58,7 @@ public class ExceptionClassifier {
             result.setMutationUuid(first.getMutationUuid());
             result.setDuplicateMutationUuid(second.getMutationUuid());
             result.setActualAmount(second.getMutationAmount());
+            result.setActualCurrencyCode(second.getCurrencyCode());
             result.setLedgerAuditState(second.getAuditState());
             result.setLedgerPostedAt(second.getCreatedAt());
             return exception(result, ReconResultAudit.ExceptionType.DUPLICATE_ENTRY,
@@ -66,6 +68,7 @@ public class ExceptionClassifier {
         LedgerMutationAudit leg = legs.get(0);
         result.setMutationUuid(leg.getMutationUuid());
         result.setActualAmount(leg.getMutationAmount());
+        result.setActualCurrencyCode(leg.getCurrencyCode());
         result.setLedgerAuditState(leg.getAuditState());
         // ledger_mutation_audit has no posted_at column - created_at IS the
         // posting time, since rows are append-only from the moment they exist.
@@ -74,6 +77,12 @@ public class ExceptionClassifier {
         if (!leg.getAccountId().equals(expected.accountId())) {
             return exception(result, ReconResultAudit.ExceptionType.ACCOUNT_MISMATCH,
                     ReconResultAudit.Severity.HIGH);
+        }
+
+        if (expected.currencyCode() != null && leg.getCurrencyCode() != null
+            && !expected.currencyCode().trim().equalsIgnoreCase(leg.getCurrencyCode().trim())) {
+            return exception(result, ReconResultAudit.ExceptionType.CURRENCY_MISMATCH,
+                ReconResultAudit.Severity.HIGH);
         }
 
         BigDecimal delta = leg.getMutationAmount().subtract(expected.expectedAmount()).abs();
@@ -109,6 +118,7 @@ public class ExceptionClassifier {
         result.setAccountId(orphanLeg.getAccountId());
         result.setMutationUuid(orphanLeg.getMutationUuid());
         result.setActualAmount(orphanLeg.getMutationAmount());
+        result.setActualCurrencyCode(orphanLeg.getCurrencyCode());
         result.setLedgerAuditState(orphanLeg.getAuditState());
         result.setLedgerPostedAt(orphanLeg.getCreatedAt());
         return exception(result, ReconResultAudit.ExceptionType.ORPHAN_LEDGER_ENTRY,

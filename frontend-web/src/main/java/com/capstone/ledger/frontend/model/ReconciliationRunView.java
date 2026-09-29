@@ -1,6 +1,7 @@
 package com.capstone.ledger.frontend.model;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -58,6 +59,14 @@ public class ReconciliationRunView {
 
     public LocalDateTime getWindowEnd() { return windowEnd; }
     public void setWindowEnd(LocalDateTime windowEnd) { this.windowEnd = windowEnd; }
+    public LocalDateTime getWindowEndInclusiveForDisplay() {
+        if (windowEnd == null) return null;
+        if (windowStart != null && windowEnd.isAfter(windowStart)
+                && windowEnd.toLocalTime().equals(LocalTime.MIDNIGHT)) {
+            return windowEnd.minusDays(1);
+        }
+        return windowEnd;
+    }
 
     public int getTotalTxnChecked() { return totalTxnChecked; }
     public void setTotalTxnChecked(int totalTxnChecked) { this.totalTxnChecked = totalTxnChecked; }

@@ -98,42 +98,42 @@ VALUES ('86cabb96-61d5-462a-b33b-5a6435649eb4', '66e07d02-05c9-4deb-87d5-10e23cf
 -- ---------------------------------------------------------------------
 -- T1: DEPOSIT +2000.0000 into Juan Savings
 -- ---------------------------------------------------------------------
-INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, txn_status, initiated_at, completed_at, created_by)
+INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, currency_code, dest_currency_code, txn_status, initiated_at, completed_at, created_by)
 VALUES ('05da5006-2cc5-4dd0-87ab-aeca1f0f7ab1', 'DEPOSIT', NULL, '3722f77f-3d1b-4d55-8f83-b71bac91d095',
-        2000.0000, 'COMMITTED',
+        2000.0000, 'PHP', NULL, 'COMMITTED',
         TIMESTAMP '2026-09-27 08:00:00', TIMESTAMP '2026-09-27 08:00:03', 'seed');
 
 -- ---------------------------------------------------------------------
 -- T2: WITHDRAWAL -500.0000 from Juan Checking
 -- ---------------------------------------------------------------------
-INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, txn_status, initiated_at, completed_at, created_by)
+INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, currency_code, dest_currency_code, txn_status, initiated_at, completed_at, created_by)
 VALUES ('b314f899-2fc0-4087-80e6-09e87ece0d49', 'WITHDRAWAL', 'a86c97cc-1ea5-4767-bd5b-148968354f9c', NULL,
-        500.0000, 'COMMITTED',
+        500.0000, 'PHP', NULL, 'COMMITTED',
         TIMESTAMP '2026-09-27 09:15:00', TIMESTAMP '2026-09-27 09:15:02', 'seed');
 
 -- ---------------------------------------------------------------------
 -- T3: TRANSFER 1000.0000 from Juan Checking -> Maria Checking
 -- (2 ledger legs expected: DEBIT Juan Checking, CREDIT Maria Checking)
 -- ---------------------------------------------------------------------
-INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, txn_status, initiated_at, completed_at, created_by)
+INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, currency_code, dest_currency_code, txn_status, initiated_at, completed_at, created_by)
 VALUES ('8a2adc48-4cf1-4478-b317-57d60b9bf0ee', 'TRANSFER', 'a86c97cc-1ea5-4767-bd5b-148968354f9c', 'f95e7e52-3259-4b4d-ac66-b186a893cf66',
-        1000.0000, 'COMMITTED',
+        1000.0000, 'PHP', 'PHP', 'COMMITTED',
         TIMESTAMP '2026-09-27 10:30:00', TIMESTAMP '2026-09-27 10:30:05', 'seed');
 
 -- ---------------------------------------------------------------------
 -- T4: TRANSFER 300.0000 from Maria Wallet -> Juan Savings
 -- ---------------------------------------------------------------------
-INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, txn_status, initiated_at, completed_at, created_by)
+INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, currency_code, dest_currency_code, txn_status, initiated_at, completed_at, created_by)
 VALUES ('ffc2ea15-57a3-4d26-9840-611adf6deda6', 'TRANSFER', '86cabb96-61d5-462a-b33b-5a6435649eb4', '3722f77f-3d1b-4d55-8f83-b71bac91d095',
-        300.0000, 'COMMITTED',
+        300.0000, 'PHP', 'PHP', 'COMMITTED',
         TIMESTAMP '2026-09-27 13:45:00', TIMESTAMP '2026-09-27 13:45:04', 'seed');
 
 -- ---------------------------------------------------------------------
 -- T5: DEPOSIT +750.0000 into Maria Wallet
 -- ---------------------------------------------------------------------
-INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, txn_status, initiated_at, completed_at, created_by)
+INSERT INTO transaction_master (txn_id, txn_type, debit_account_id, credit_account_id, mutation_amount, currency_code, dest_currency_code, txn_status, initiated_at, completed_at, created_by)
 VALUES ('672898a7-a8d9-4041-8574-4fd1c4bc0743', 'DEPOSIT', NULL, '86cabb96-61d5-462a-b33b-5a6435649eb4',
-        750.0000, 'COMMITTED',
+        750.0000, 'PHP', NULL, 'COMMITTED',
         TIMESTAMP '2026-09-27 16:00:00', TIMESTAMP '2026-09-27 16:00:02', 'seed');
 
 -- ---------------------------------------------------------------------

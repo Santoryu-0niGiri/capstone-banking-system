@@ -1,20 +1,40 @@
 package com.capstone.ledger.frontend.adapter;
 
-import com.capstone.ledger.frontend.form.RegisterForm;
-import com.capstone.ledger.frontend.form.TransactionForm;
-import com.capstone.ledger.frontend.model.*;
-import com.capstone.ledger.frontend.model.enums.*;
-import jakarta.annotation.PostConstruct;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
+
+import com.capstone.ledger.frontend.form.RegisterForm;
+import com.capstone.ledger.frontend.form.TransactionForm;
+import com.capstone.ledger.frontend.model.AccountView;
+import com.capstone.ledger.frontend.model.CustomerView;
+import com.capstone.ledger.frontend.model.NotificationView;
+import com.capstone.ledger.frontend.model.ReconciliationResultView;
+import com.capstone.ledger.frontend.model.ReconciliationRunView;
+import com.capstone.ledger.frontend.model.TransactionView;
+import com.capstone.ledger.frontend.model.UserSession;
+import com.capstone.ledger.frontend.model.enums.AccountStatus;
+import com.capstone.ledger.frontend.model.enums.AccountType;
+import com.capstone.ledger.frontend.model.enums.AuditState;
+import com.capstone.ledger.frontend.model.enums.KycStatus;
+import com.capstone.ledger.frontend.model.enums.MutationDirection;
+import com.capstone.ledger.frontend.model.enums.TransactionType;
+import com.capstone.ledger.frontend.model.enums.UserRole;
+
+import jakarta.annotation.PostConstruct;
 
 /**
  * Stateful, in-memory implementation of BankingApiClient.
@@ -153,6 +173,9 @@ public class MockBankingApiClient implements BankingApiClient {
                 "POSTING_ROUNDING_DISCREPANCY", new BigDecimal("4750.00"), new BigDecimal("4750.01"),
                 new BigDecimal("0.01"), 1, "LOW", LocalDateTime.now().minusHours(5).minusMinutes(58)
         );
+        exception.setTransactionDateTime(LocalDateTime.now().minusHours(6));
+        exception.setExpectedCurrencyCode("PHP");
+        exception.setActualCurrencyCode("PHP");
         run.getResults().add(exception);
         reconciliationRuns.add(run);
     }
@@ -460,15 +483,20 @@ public class MockBankingApiClient implements BankingApiClient {
     }
 
     @Override
-    public void triggerReconciliationRun() {
+    public void triggerReconciliationRun(LocalDate startDate, LocalDate endDate) {
+        LocalDateTime windowStart = startDate.atStartOfDay();
+        LocalDateTime windowEnd = endDate.plusDays(1).atStartOfDay();
+        List<TransactionView> transactionsInWindow = transactionsById.values().stream()
+                .filter(txn -> !txn.getTimestamp().isBefore(windowStart) && txn.getTimestamp().isBefore(windowEnd))
+                .toList();
         ReconciliationRunView newRun = new ReconciliationRunView(
                 "RUN-" + System.currentTimeMillis() % 100000,
                 LocalDateTime.now().minusMinutes(2), LocalDateTime.now(),
-                LocalDateTime.now().minusHours(12), LocalDateTime.now(),
-                transactionsById.size(), transactionsById.size(), 0, "COMPLETED"
+                windowStart, windowEnd,
+                transactionsInWindow.size(), transactionsInWindow.size(), 0, "COMPLETED"
         );
-        for (TransactionView txn : transactionsById.values()) {
-            newRun.getResults().add(new ReconciliationResultView(
+        for (TransactionView txn : transactionsInWindow) {
+                ReconciliationResultView result = new ReconciliationResultView(
                     "RES-" + (System.currentTimeMillis() % 100000) + "-" + txn.getTxnId(),
                     newRun.getRunId(),
                     txn.getTxnId(),
@@ -481,7 +509,11 @@ public class MockBankingApiClient implements BankingApiClient {
                     0,
                     "LOW",
                     LocalDateTime.now()
-            ));
+                    );
+                    result.setTransactionDateTime(txn.getTimestamp());
+                    result.setExpectedCurrencyCode(txn.getCurrencyCode());
+                    result.setActualCurrencyCode(txn.getCurrencyCode());
+                    newRun.getResults().add(result);
         }
         reconciliationRuns.add(0, newRun);
     }

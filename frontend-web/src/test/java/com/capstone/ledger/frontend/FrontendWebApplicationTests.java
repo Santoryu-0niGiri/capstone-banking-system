@@ -5,6 +5,7 @@ import com.capstone.ledger.frontend.config.SessionAuthInterceptor;
 import com.capstone.ledger.frontend.form.RegisterForm;
 import com.capstone.ledger.frontend.form.TransactionForm;
 import com.capstone.ledger.frontend.model.AccountView;
+import com.capstone.ledger.frontend.model.CurrencyMoneyFormat;
 import com.capstone.ledger.frontend.model.CustomerView;
 import com.capstone.ledger.frontend.model.TransactionView;
 import com.capstone.ledger.frontend.model.UserSession;
@@ -43,6 +44,16 @@ class FrontendWebApplicationTests {
     @Test
     void contextLoads() {
         assertNotNull(bankingClient);
+    }
+
+    @Test
+    void currencyMoneyFormatUsesTheRequestedCurrency() {
+        BigDecimal amount = new BigDecimal("1234.5");
+
+        assertEquals("₱1,234.50", CurrencyMoneyFormat.format(amount, "PHP"));
+        assertEquals("$1,234.50", CurrencyMoneyFormat.format(amount, "USD"));
+        assertEquals("S$1,234.50", CurrencyMoneyFormat.format(amount, "SGD"));
+        assertEquals("¥1,234.50", CurrencyMoneyFormat.format(amount, "JPY"));
     }
 
     @Test

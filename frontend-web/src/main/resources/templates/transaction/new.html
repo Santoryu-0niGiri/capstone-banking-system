@@ -176,8 +176,8 @@ function updateFxPreview() {
     const sourceCurr = sourceOpt ? sourceOpt.getAttribute('data-currency') : 'PHP';
 
     // Update symbol prefix
-    const symbols = { 'PHP': '₱', 'USD': '$', 'EUR': '€', 'GBP': '£', 'SGD': 'S$' };
-    document.getElementById('currencyPrefix').textContent = symbols[sourceCurr] || '₱';
+    const symbols = { 'PHP': '₱', 'USD': '$', 'EUR': '€', 'GBP': '£', 'SGD': 'S$', 'JPY': '¥' };
+    document.getElementById('currencyPrefix').textContent = symbols[sourceCurr] || `${sourceCurr} `;
 
     if (!isTransfer || !destVal || amountVal <= 0) {
         fxCard.classList.add('d-none');
@@ -200,6 +200,7 @@ function updateFxPreview() {
         else if (u.includes('EUR')) destCurr = 'EUR';
         else if (u.includes('GBP')) destCurr = 'GBP';
         else if (u.includes('SGD')) destCurr = 'SGD';
+        else if (u.includes('JPY')) destCurr = 'JPY';
         else if (u.includes('PHP')) destCurr = 'PHP';
     }
 
@@ -216,7 +217,7 @@ function updateFxPreview() {
                 fxCard.classList.remove('d-none');
                 document.getElementById('fxRateText').textContent = `1 ${sourceCurr} = ${data.exchangeRate} ${destCurr}`;
                 const destAmt = (amountVal * data.exchangeRate).toFixed(2);
-                const destSymbol = symbols[destCurr] || '';
+                const destSymbol = symbols[destCurr] || `${destCurr} `;
                 document.getElementById('fxDestAmountText').textContent = `${destSymbol}${Number(destAmt).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
             } else {
                 fxCard.classList.add('d-none');
