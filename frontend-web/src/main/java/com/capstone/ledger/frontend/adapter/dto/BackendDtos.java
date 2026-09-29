@@ -89,5 +89,41 @@ public class BackendDtos {
             String contactNo,
             LocalDate birthDate
     ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record ReconRunRes(
+            String runId,
+            String status,
+            java.time.OffsetDateTime windowStart,
+            java.time.OffsetDateTime windowEnd,
+            java.time.OffsetDateTime startedAt,
+            java.time.OffsetDateTime completedAt,
+            int totalChecked,
+            int totalMatched,
+            int totalExceptions,
+            java.util.List<ReconResultRes> results
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record ReconResultRes(
+            String resultId,
+            String runId,
+            String txnId,
+            String accountId,
+            String mutationUuid,
+            String duplicateMutationUuid,
+            String reconStatus,
+            String exceptionType,
+            BigDecimal expectedAmount,
+            BigDecimal actualAmount,
+            BigDecimal varianceAmount,
+            String txnStatus,
+            String ledgerAuditState,
+            java.time.OffsetDateTime txnCompletedAt,
+            java.time.OffsetDateTime ledgerPostedAt,
+            Integer postingLagSeconds,
+            String severity,
+            java.time.OffsetDateTime createdAt
+    ) {}
 }
 

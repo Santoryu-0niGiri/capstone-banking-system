@@ -44,7 +44,10 @@ public record ExpectedLeg(
     }
 
     private static ExpectedLeg leg(TransactionMaster txn, String accountId, String mutationType) {
-        return new ExpectedLeg(txn.getTxnId(), accountId, mutationType, txn.getMutationAmount(),
+        BigDecimal amount = ("CREDIT".equals(mutationType) && txn.getDestAmount() != null)
+                ? txn.getDestAmount()
+                : txn.getMutationAmount();
+        return new ExpectedLeg(txn.getTxnId(), accountId, mutationType, amount,
                 txn.getTxnStatus(), txn.getTxnType(), txn.getCompletedAt());
     }
 
