@@ -23,7 +23,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.Comparator;
@@ -40,6 +42,7 @@ import java.util.Optional;
 public class HttpBankingApiClient implements BankingApiClient {
 
     private static final Logger log = LoggerFactory.getLogger(HttpBankingApiClient.class);
+    private static final ZoneId BANKING_ZONE = ZoneId.of("Asia/Manila");
 
     private final RestClient restClient;
     private final String gatewayUrl;
@@ -571,15 +574,17 @@ public class HttpBankingApiClient implements BankingApiClient {
     }
 
     @Override
-    public void triggerReconciliationRun() {
+        public void triggerReconciliationRun(LocalDate startDate, LocalDate endDate) {
         try {
+            OffsetDateTime windowStart = startDate.atStartOfDay(BANKING_ZONE).toOffsetDateTime();
+            OffsetDateTime windowEnd = endDate.plusDays(1).atStartOfDay(BANKING_ZONE).toOffsetDateTime();
             restClient.post()
                     .uri("/api/recon/runs")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body("{}")
+                .body(new ReconRunReq(windowStart, windowEnd))
                     .retrieve()
                     .toBodilessEntity();
-            log.info("Triggered reconciliation run via gateway");
+            log.info("Triggered reconciliation run via gateway for [{}, {})", windowStart, windowEnd);
         } catch (Exception e) {
             log.error("Failed to trigger reconciliation run via gateway", e);
             throw new RuntimeException("Failed to trigger reconciliation run: " + e.getMessage(), e);
@@ -613,6 +618,9 @@ public class HttpBankingApiClient implements BankingApiClient {
         view.setRunId(res.runId() != null ? res.runId().toUpperCase() : "N/A");
         view.setTxnId(res.txnId());
         view.setAccountId(res.accountId());
+        view.setTransactionDateTime(res.txnCompletedAt() != null ? res.txnCompletedAt().toLocalDateTime()
+            : res.ledgerPostedAt() != null ? res.ledgerPostedAt().toLocalDateTime()
+            : res.createdAt() != null ? res.createdAt().toLocalDateTime() : null);
         view.setReconStatus(res.reconStatus());
         view.setExceptionType(res.exceptionType());
         view.setExpectedAmount(res.expectedAmount());

@@ -13,6 +13,7 @@ public class ReconciliationResultView {
     private String runId;
     private String txnId;
     private String accountId;
+    private LocalDateTime transactionDateTime;
     private String reconStatus; // MATCHED, EXCEPTION
     private String exceptionType;
     private BigDecimal expectedAmount;
@@ -67,6 +68,9 @@ public class ReconciliationResultView {
 
     public String getAccountId() { return accountId; }
     public void setAccountId(String accountId) { this.accountId = accountId; }
+
+    public LocalDateTime getTransactionDateTime() { return transactionDateTime; }
+    public void setTransactionDateTime(LocalDateTime transactionDateTime) { this.transactionDateTime = transactionDateTime; }
 
     public String getReconStatus() { return reconStatus; }
     public void setReconStatus(String reconStatus) { this.reconStatus = reconStatus; }

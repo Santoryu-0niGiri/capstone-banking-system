@@ -1,15 +1,21 @@
 package com.capstone.ledger.frontend.adapter;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
 import com.capstone.ledger.frontend.form.RegisterForm;
 import com.capstone.ledger.frontend.form.TransactionForm;
-import com.capstone.ledger.frontend.model.*;
+import com.capstone.ledger.frontend.model.AccountView;
+import com.capstone.ledger.frontend.model.CustomerView;
+import com.capstone.ledger.frontend.model.NotificationView;
+import com.capstone.ledger.frontend.model.ReconciliationRunView;
+import com.capstone.ledger.frontend.model.TransactionView;
+import com.capstone.ledger.frontend.model.UserSession;
 import com.capstone.ledger.frontend.model.enums.AccountStatus;
 import com.capstone.ledger.frontend.model.enums.AccountType;
 import com.capstone.ledger.frontend.model.enums.KycStatus;
-
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Optional;
 
 /**
  * Anti-Corruption Layer (ACL) boundary interface.
@@ -52,6 +58,6 @@ public interface BankingApiClient {
 
     // --- Reconciliation & Audit ---
     List<ReconciliationRunView> getReconciliationRuns();
-    void triggerReconciliationRun();
+    void triggerReconciliationRun(LocalDate startDate, LocalDate endDate);
 }
 

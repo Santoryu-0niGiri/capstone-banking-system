@@ -1,9 +1,10 @@
 package com.capstone.ledger.frontend.adapter.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 public class BackendDtos {
 
@@ -102,6 +103,11 @@ public class BackendDtos {
             int totalMatched,
             int totalExceptions,
             java.util.List<ReconResultRes> results
+    ) {}
+
+    public record ReconRunReq(
+            java.time.OffsetDateTime windowStart,
+            java.time.OffsetDateTime windowEnd
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
