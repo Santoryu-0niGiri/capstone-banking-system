@@ -55,6 +55,9 @@ public class RegistrationService {
                 .email(request.email())
                 .contactNo(request.contactNo())        // nullable
                 .birthDate(request.birthDate())        // nullable
+                .idType(request.idType())              // nullable
+                .idNumber(request.idNumber())          // nullable
+                .residentialAddress(request.address()) // nullable
                 .createdAt(now)
                 .createdBy("SYSTEM")
                 .build();

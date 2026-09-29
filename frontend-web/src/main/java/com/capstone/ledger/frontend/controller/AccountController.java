@@ -122,9 +122,13 @@ public class AccountController {
         }
 
         AccountType type = acctType != null ? acctType : AccountType.SAVINGS;
-        AccountView newAccount = bankingClient.openAccount(user.getCustomerId(), type, currencyCode, BigDecimal.ZERO);
-
-        redirectAttributes.addFlashAttribute("successMessage", "New " + type.getDisplayName() + " opened!");
-        return "redirect:/accounts/" + newAccount.getAccountId();
+        try {
+            AccountView newAccount = bankingClient.openAccount(user.getCustomerId(), type, currencyCode, BigDecimal.ZERO);
+            redirectAttributes.addFlashAttribute("successMessage", "New " + type.getDisplayName() + " opened!");
+            return "redirect:/accounts/" + newAccount.getAccountId();
+        } catch (Exception ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage() != null ? ex.getMessage() : "Account opening failed. Please try again.");
+            return "redirect:/customer/dashboard";
+        }
     }
 }

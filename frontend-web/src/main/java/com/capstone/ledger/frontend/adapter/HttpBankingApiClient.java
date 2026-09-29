@@ -120,7 +120,8 @@ public class HttpBankingApiClient implements BankingApiClient {
         
         RegisterReq req = new RegisterReq(
                 form.getFirstName(), form.getLastName(), form.getEmail(),
-                form.getContactNo(), form.getBirthDate(), form.getPassword(), roleStr
+                form.getContactNo(), form.getBirthDate(), form.getPassword(), roleStr,
+                form.getIdType(), form.getIdNumber(), form.getAddress()
         );
 
         ApiResponseDto<RegisterRes> response = restClient.post()
@@ -166,6 +167,9 @@ public class HttpBankingApiClient implements BankingApiClient {
                 view.setEmail(c.email());
                 view.setContactNo(c.contactNo());
                 view.setBirthDate(c.birthDate());
+                view.setIdType(c.idType());
+                view.setIdNumber(c.idNumber());
+                view.setAddress(c.address());
             }
         } catch (Exception ex) {
             log.warn("Could not fetch customer profile for {}: {}", customerId, ex.getMessage());
@@ -198,6 +202,9 @@ public class HttpBankingApiClient implements BankingApiClient {
                     view.setEmail(c.email());
                     view.setContactNo(c.contactNo());
                     view.setBirthDate(c.birthDate());
+                    view.setIdType(c.idType());
+                    view.setIdNumber(c.idNumber());
+                    view.setAddress(c.address());
                     view.setKycStatus(kycStatusOverrides.getOrDefault(c.customerId(), KycStatus.VERIFIED));
                     view.setAccounts(accountsByCust.getOrDefault(c.customerId(), Collections.emptyList()));
                     return view;
@@ -268,24 +275,32 @@ public class HttpBankingApiClient implements BankingApiClient {
                 currencyCode != null ? currencyCode : "PHP"
         );
 
-        ApiResponseDto<AccountRes> response = restClient.post()
-                .uri("/api/accounts")
-                .body(req)
-                .retrieve()
-                .body(new ParameterizedTypeReference<ApiResponseDto<AccountRes>>() {});
+        try {
+            ApiResponseDto<AccountRes> response = restClient.post()
+                    .uri("/api/accounts")
+                    .body(req)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponseDto<AccountRes>>() {});
 
-        if (response != null && response.getData() != null) {
-            AccountView acct = mapAccount(response.getData());
-            if (initialDeposit != null && initialDeposit.compareTo(BigDecimal.ZERO) > 0) {
-                TransactionForm tf = new TransactionForm();
-                tf.setFromAcctNo(acct.getAccountId());
-                tf.setTxnType(TransactionType.DEPOSIT);
-                tf.setAmount(initialDeposit);
-                executeTransaction(tf);
+            if (response != null && response.getData() != null) {
+                AccountView acct = mapAccount(response.getData());
+                if (initialDeposit != null && initialDeposit.compareTo(BigDecimal.ZERO) > 0) {
+                    TransactionForm tf = new TransactionForm();
+                    tf.setFromAcctNo(acct.getAccountId());
+                    tf.setTxnType(TransactionType.DEPOSIT);
+                    tf.setAmount(initialDeposit);
+                    executeTransaction(tf);
+                }
+                return acct;
             }
-            return acct;
+            throw new IllegalStateException("Failed to create account at API gateway");
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            String detail = extractErrorDetail(ex.getResponseBodyAsString());
+            throw new IllegalArgumentException(detail != null ? detail : "Account creation failed: " + ex.getStatusText());
+        } catch (org.springframework.web.client.ResourceAccessException ex) {
+            log.error("Accounts service connection error: {}", ex.getMessage());
+            throw new IllegalStateException("Accounts service is currently unavailable or timed out. Please try again later.");
         }
-        throw new IllegalStateException("Failed to create account at API gateway");
     }
 
     @Override
@@ -333,29 +348,48 @@ public class HttpBankingApiClient implements BankingApiClient {
                 tv.setTxnType(form.getTxnType());
                 tv.setDirection(form.getTxnType() == TransactionType.DEPOSIT ? MutationDirection.CREDIT : MutationDirection.DEBIT);
                 tv.setAmount(res.amount());
-                if (res.currencyCode() != null) tv.setCurrencyCode(res.currencyCode());
-                if (res.targetCurrency() != null) tv.setDestCurrencyCode(res.targetCurrency());
-                if (res.targetAmount() != null) tv.setDestAmount(res.targetAmount());
-                if (res.exchangeRate() != null) tv.setFxRate(res.exchangeRate());
-                if (res.isCrossCurrency() != null) tv.setCrossCurrency(res.isCrossCurrency());
-                try {
-                    tv.setAuditState(AuditState.valueOf(res.txnStatus().toUpperCase()));
-                } catch (Exception ignored) {
+                if ("PENDING".equalsIgnoreCase(res.txnStatus())) {
+                    tv.setAuditState(AuditState.PENDING);
+                } else {
                     tv.setAuditState(AuditState.COMMITTED);
                 }
-                tv.setTimestamp(parseAuditTimestamp(res.timestamp()));
+                tv.setTimestamp(LocalDateTime.now());
+
+                // Populate currency & cross-currency attributes on newly initiated txn
+                if (form.getFromAcctNo() != null) {
+                    getAccountById(form.getFromAcctNo()).ifPresent(a -> tv.setCurrencyCode(a.getCurrencyCode()));
+                }
+                if (form.getToAcctNo() != null) {
+                    getAccountById(form.getToAcctNo()).ifPresent(dest -> {
+                        tv.setDestCurrencyCode(dest.getCurrencyCode());
+                        if (tv.getCurrencyCode() != null && !tv.getCurrencyCode().equalsIgnoreCase(dest.getCurrencyCode())) {
+                            tv.setCrossCurrency(true);
+                            BigDecimal rate = getExchangeRate(tv.getCurrencyCode(), dest.getCurrencyCode());
+                            tv.setFxRate(rate);
+                            if (form.getAmount() != null) {
+                                tv.setDestAmount(form.getAmount().multiply(rate).setScale(4, java.math.RoundingMode.HALF_UP));
+                            }
+                        }
+                    });
+                }
+
                 return List.of(tv);
             }
             throw new IllegalStateException("Ledger mutation failed: " + (response != null ? response.getMessage() : "Unknown error"));
         } catch (org.springframework.web.client.RestClientResponseException ex) {
             String detail = extractErrorDetail(ex.getResponseBodyAsString());
             throw new IllegalArgumentException(detail != null ? detail : "Transaction failed: " + ex.getStatusText());
+        } catch (org.springframework.web.client.ResourceAccessException ex) {
+            log.error("Transaction service connection error: {}", ex.getMessage());
+            throw new IllegalStateException("Transaction service is currently unavailable or timed out. Please try again later.");
         }
     }
 
     @Override
     public List<TransactionView> getTransactionsByAccountId(String accountId) {
         try {
+            String currency = getAccountById(accountId).map(AccountView::getCurrencyCode).orElse("PHP");
+
             ApiResponseDto<List<Map<String, Object>>> response = restClient.get()
                     .uri("/api/v1/ledger/audit/account/{accountId}", accountId)
                     .retrieve()
@@ -368,9 +402,7 @@ public class HttpBankingApiClient implements BankingApiClient {
                     tv.setTxnId(tid);
                     tv.setMutationId("MUT-" + (tid.length() >= 8 ? tid.substring(0, 8) : tid));
                     tv.setAccountId(m.get("accountId") != null ? m.get("accountId").toString() : accountId);
-                    if (m.get("currencyCode") != null) {
-                        tv.setCurrencyCode(m.get("currencyCode").toString().trim());
-                    }
+                    tv.setCurrencyCode(currency);
 
                     String txnTypeStr = m.get("txnType") != null ? m.get("txnType").toString() : "TRANSFER";
                     try {
@@ -386,8 +418,22 @@ public class HttpBankingApiClient implements BankingApiClient {
                         tv.setAmount(new BigDecimal(m.get("mutationAmount").toString()));
                     }
 
-                    tv.setAuditState(AuditState.COMMITTED);
-                    tv.setTimestamp(parseAuditTimestamp(m.get("createdAt")));
+                    String auditStateStr = m.get("auditState") != null ? m.get("auditState").toString() : "COMMITTED";
+                    try {
+                        tv.setAuditState(AuditState.valueOf(auditStateStr.toUpperCase()));
+                    } catch (Exception e) {
+                        tv.setAuditState(AuditState.COMMITTED);
+                    }
+
+                    if (m.get("createdAt") != null) {
+                        try {
+                            tv.setTimestamp(LocalDateTime.ofInstant(java.time.Instant.parse(m.get("createdAt").toString()), java.time.ZoneId.systemDefault()));
+                        } catch (Exception ignored) {
+                            tv.setTimestamp(LocalDateTime.now());
+                        }
+                    } else {
+                        tv.setTimestamp(LocalDateTime.now());
+                    }
                     return tv;
                 }).sorted(Comparator.comparing(TransactionView::getTimestamp).reversed()).toList();
             }
@@ -533,15 +579,37 @@ public class HttpBankingApiClient implements BankingApiClient {
         if (responseBody == null || responseBody.isBlank()) return null;
         try {
             com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(responseBody);
-            if (root.has("message") && !root.get("message").isNull()) {
+            if (root.has("message") && !root.get("message").isNull() && !root.get("message").asText().isBlank()) {
                 return root.get("message").asText();
             }
-            if (root.has("detail") && !root.get("detail").isNull()) {
+            if (root.has("detail") && !root.get("detail").isNull() && !root.get("detail").asText().isBlank()) {
                 return root.get("detail").asText();
             }
+            if (root.has("error") && !root.get("error").isNull() && !root.get("error").asText().isBlank()) {
+                String err = root.get("error").asText();
+                int status = root.has("status") ? root.get("status").asInt() : 500;
+                if (status >= 500 || "Internal Server Error".equalsIgnoreCase(err)) {
+                    return "The banking service is temporarily unavailable or timed out. Please try again shortly.";
+                }
+                return err;
+            }
         } catch (Exception ignored) {}
+
+        String trimmed = responseBody.trim();
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            return "The banking service encountered a processing error. Please try again later.";
+        }
         return responseBody;
     }
+
+    private static final Map<String, BigDecimal> FX_RATES_TO_PHP = Map.of(
+            "PHP", BigDecimal.ONE,
+            "USD", new BigDecimal("58.50"),
+            "EUR", new BigDecimal("63.50"),
+            "GBP", new BigDecimal("75.00"),
+            "SGD", new BigDecimal("44.50"),
+            "JPY", new BigDecimal("0.39")
+    );
 
     @Override
     public BigDecimal getExchangeRate(String fromCurrency, String toCurrency) {
@@ -563,19 +631,72 @@ public class HttpBankingApiClient implements BankingApiClient {
                 return new BigDecimal(response.get("exchangeRate").toString());
             }
         } catch (Exception e) {
-            log.error("Failed to fetch exchange rate for {} to {}", fromCurrency, toCurrency, e);
+            log.warn("Forex service unavailable for {} to {}, using cached FX rates: {}", fromCurrency, toCurrency, e.getMessage());
         }
 
-        return BigDecimal.ONE; // Fallback
+        // Resilient fallback based on FX_RATE_CACHE canonical values
+        BigDecimal fromRate = FX_RATES_TO_PHP.getOrDefault(fromCurrency.toUpperCase(), BigDecimal.ONE);
+        BigDecimal toRate = FX_RATES_TO_PHP.getOrDefault(toCurrency.toUpperCase(), BigDecimal.ONE);
+        return fromRate.divide(toRate, 6, java.math.RoundingMode.HALF_UP);
     }
 
     @Override
     public List<NotificationView> getNotificationsByCustomerId(String customerId) {
+        if (customerId == null || customerId.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        try {
+            List<AccountView> accounts = getAccountsByCustomerId(customerId);
+            List<String> accountIds = accounts.stream().map(AccountView::getAccountId).toList();
+
+            ApiResponseDto<List<NotificationRes>> response = restClient.get()
+                    .uri(uriBuilder -> {
+                        var b = uriBuilder.path("/api/notifications/{customerId}");
+                        if (!accountIds.isEmpty()) {
+                            b.queryParam("accountIds", String.join(",", accountIds));
+                        }
+                        return b.build(customerId);
+                    })
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponseDto<List<NotificationRes>>>() {});
+
+            if (response != null && response.getData() != null) {
+                return response.getData().stream().map(n -> {
+                    LocalDateTime sentAt = n.createdAt() != null
+                            ? n.createdAt().toLocalDateTime()
+                            : LocalDateTime.now();
+                    boolean isRead = "READ".equalsIgnoreCase(n.status());
+                    return new NotificationView(
+                            n.notifId(),
+                            customerId,
+                            n.message(),
+                            "SMS",
+                            n.status() != null ? n.status() : "SENT",
+                            sentAt,
+                            isRead
+                    );
+                }).toList();
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to fetch notifications for customer {}: {}", customerId, ex.getMessage());
+        }
         return Collections.emptyList();
     }
 
     @Override
     public void markNotificationAsRead(String notifId) {
+        if (notifId == null || notifId.isBlank()) {
+            return;
+        }
+        try {
+            restClient.post()
+                    .uri("/api/notifications/{id}/read", notifId)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception ex) {
+            log.warn("Failed to mark notification {} as read: {}", notifId, ex.getMessage());
+        }
     }
 
     @Override

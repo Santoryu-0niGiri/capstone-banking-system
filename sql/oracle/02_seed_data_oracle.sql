@@ -36,14 +36,14 @@ ALTER SESSION SET CURRENT_SCHEMA = LEDGER_APP;
 -- "no account" is enforced by simply not inserting into account_master
 -- for this customer_id, not by skipping customer_master.
 -- ---------------------------------------------------------------------
-INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, created_by)
-VALUES ('2d49c23b-5f65-48da-aa68-28b155dd4022', 'System', 'Administrator', 'admin@ledgerbank.com', NULL, NULL, 'seed');
+INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, id_type, id_number, residential_address, created_by)
+VALUES ('2d49c23b-5f65-48da-aa68-28b155dd4022', 'System', 'Administrator', 'admin@ledgerbank.com', NULL, NULL, NULL, NULL, NULL, 'seed');
 
-INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, created_by)
-VALUES ('7bd20304-dd6a-4e45-850b-58df8b535be4', 'Juan', 'Dela Cruz', 'juan.delacruz@example.com', '+639171234567', DATE '1995-03-14', 'seed');
+INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, id_type, id_number, residential_address, created_by)
+VALUES ('7bd20304-dd6a-4e45-850b-58df8b535be4', 'Juan', 'Dela Cruz', 'juan.delacruz@example.com', '+639171234567', DATE '1995-03-14', 'PASSPORT', 'P8291044A', '128 Pioneer St, Mandaluyong, Metro Manila', 'seed');
 
-INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, created_by)
-VALUES ('66e07d02-05c9-4deb-87d5-10e23cf5968f', 'Maria', 'Santos', 'maria.santos@example.com', '+639189876543', DATE '1998-11-02', 'seed');
+INSERT INTO customer_master (customer_id, first_name, last_name, email, contact_no, birth_date, id_type, id_number, residential_address, created_by)
+VALUES ('66e07d02-05c9-4deb-87d5-10e23cf5968f', 'Maria', 'Santos', 'maria.santos@example.com', '+639189876543', DATE '1998-11-02', 'NATIONAL_ID', 'N12345678', '45 Ayala Avenue, Makati City, Metro Manila', 'seed');
 
 -- ---------------------------------------------------------------------
 -- APP_USER_MASTER

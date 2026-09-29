@@ -9,19 +9,26 @@
 <main class="container py-4">
     <div class="receipt-card p-4 p-md-5">
         <div class="receipt-header text-center mb-4">
-            <div class="display-5 mb-2" th:classappend="${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'text-warning' : 'text-success'">
-                <i class="bi" th:classappend="${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'bi-hourglass-split' : 'bi-patch-check-fill'"></i>
+            <div class="display-5 mb-2"
+                 th:classappend="${txn.auditState != null and (txn.auditState.name() == 'FAILED' or txn.auditState.name() == 'ROLLED_BACK')} ? 'text-danger' : (${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'text-warning' : 'text-success')">
+                <i class="bi"
+                   th:classappend="${txn.auditState != null and (txn.auditState.name() == 'FAILED' or txn.auditState.name() == 'ROLLED_BACK')} ? 'bi-x-circle-fill' : (${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'bi-hourglass-split' : 'bi-patch-check-fill')"></i>
             </div>
             <h4 class="fw-bold mb-1">Transaction Voucher</h4>
             <div class="text-muted small">Core Retail Ledger &amp; Balance Mutation Engine</div>
             <div class="badge mt-2 fs-6 px-3"
-                 th:classappend="${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'bg-warning-subtle text-warning border border-warning-subtle' : 'bg-success-subtle text-success border border-success-subtle'">
-                <i class="bi" th:classappend="${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'bi-clock-history me-1' : 'bi-shield-lock me-1'"></i>
+                 th:classappend="${txn.auditState != null and (txn.auditState.name() == 'FAILED' or txn.auditState.name() == 'ROLLED_BACK')} ? 'bg-danger-subtle text-danger border border-danger-subtle' : (${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'bg-warning-subtle text-warning border border-warning-subtle' : 'bg-success-subtle text-success border border-success-subtle')">
+                <i class="bi"
+                   th:classappend="${txn.auditState != null and (txn.auditState.name() == 'FAILED' or txn.auditState.name() == 'ROLLED_BACK')} ? 'bi-exclamation-octagon me-1' : (${txn.auditState != null and txn.auditState.name() == 'PENDING'} ? 'bi-clock-history me-1' : 'bi-shield-lock me-1')"></i>
                 <span th:text="${txn.auditState}">COMMITTED</span>
             </div>
             <div th:if="${txn.auditState != null and txn.auditState.name() == 'PENDING'}" class="alert alert-warning mt-3 py-2 small text-start">
                 <i class="bi bi-info-circle-fill me-1"></i>
                 <strong>Cross-Currency Saga in Progress:</strong> This transfer is being asynchronously converted and settled across the distributed ledger. This receipt will automatically refresh when settlement commits.
+            </div>
+            <div th:if="${txn.auditState != null and (txn.auditState.name() == 'FAILED' or txn.auditState.name() == 'ROLLED_BACK')}" class="alert alert-danger mt-3 py-2 small text-start">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                <strong>Transfer Failed:</strong> The settlement could not be completed and no funds were debited from your account. Please check your alerts or retry later.
             </div>
         </div>
 
@@ -170,9 +177,23 @@
 
 <div th:replace="~{fragments/layout :: footer}"></div>
 <script th:if="${txn.auditState != null and txn.auditState.name() == 'PENDING'}">
-setTimeout(() => {
-    window.location.reload();
-}, 2500);
+let reloadCount = parseInt(sessionStorage.getItem("receipt_reload_" + '[[${txn.txnId}]]') || '0', 10);
+if (reloadCount < 8) {
+    sessionStorage.setItem("receipt_reload_" + '[[${txn.txnId}]]', (reloadCount + 1).toString());
+    setTimeout(() => {
+        window.location.reload();
+    }, 2500);
+} else {
+    sessionStorage.removeItem("receipt_reload_" + '[[${txn.txnId}]]');
+    const warningAlert = document.querySelector('.receipt-header .alert-warning');
+    if (warningAlert) {
+        warningAlert.className = 'alert alert-danger mt-3 py-2 small text-start';
+        warningAlert.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Conversion Service Delayed:</strong> The transaction is taking longer than expected. Settlement service may be currently unavailable. Please check your notifications or transactions history.';
+    }
+}
+</script>
+<script th:if="${txn.auditState != null and txn.auditState.name() != 'PENDING'}">
+sessionStorage.removeItem("receipt_reload_" + '[[${txn.txnId}]]');
 </script>
 </body>
 </html>

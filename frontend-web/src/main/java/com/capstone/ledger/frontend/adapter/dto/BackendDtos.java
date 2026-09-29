@@ -16,8 +16,15 @@ public class BackendDtos {
             String contactNo,
             LocalDate birthDate,
             String password,
-            String role
-    ) {}
+            String role,
+            String idType,
+            String idNumber,
+            String address
+    ) {
+        public RegisterReq(String firstName, String lastName, String email, String contactNo, LocalDate birthDate, String password, String role) {
+            this(firstName, lastName, email, contactNo, birthDate, password, role, null, null, null);
+        }
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record RegisterRes(
@@ -94,7 +101,10 @@ public class BackendDtos {
             String lastName,
             String email,
             String contactNo,
-            LocalDate birthDate
+            LocalDate birthDate,
+            String idType,
+            String idNumber,
+            String address
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -137,6 +147,15 @@ public class BackendDtos {
             java.time.OffsetDateTime ledgerPostedAt,
             Integer postingLagSeconds,
             String severity,
+            java.time.OffsetDateTime createdAt
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record NotificationRes(
+            String notifId,
+            String customerId,
+            String message,
+            String status,
             java.time.OffsetDateTime createdAt
     ) {}
 }

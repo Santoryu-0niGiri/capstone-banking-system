@@ -41,7 +41,16 @@ public record RegisterRequest(
         String password,
 
         // Optional role parameter (e.g. to create ADMIN)
-        String role
+        String role,
+
+        String idType,
+
+        String idNumber,
+
+        String address
 ) {
+    public RegisterRequest(String firstName, String lastName, String email, String contactNo, LocalDate birthDate, String password, String role) {
+        this(firstName, lastName, email, contactNo, birthDate, password, role, null, null, null);
+    }
 }
 
