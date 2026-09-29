@@ -22,8 +22,11 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -328,7 +331,7 @@ public class HttpBankingApiClient implements BankingApiClient {
                 tv.setDirection(form.getTxnType() == TransactionType.DEPOSIT ? MutationDirection.CREDIT : MutationDirection.DEBIT);
                 tv.setAmount(res.amount());
                 tv.setAuditState(AuditState.COMMITTED);
-                tv.setTimestamp(LocalDateTime.now());
+                tv.setTimestamp(parseAuditTimestamp(res.timestamp()));
                 return List.of(tv);
             }
             throw new IllegalStateException("Ledger mutation failed: " + (response != null ? response.getMessage() : "Unknown error"));
@@ -369,14 +372,34 @@ public class HttpBankingApiClient implements BankingApiClient {
                     }
 
                     tv.setAuditState(AuditState.COMMITTED);
-                    tv.setTimestamp(LocalDateTime.now());
+                    tv.setTimestamp(parseAuditTimestamp(m.get("createdAt")));
                     return tv;
-                }).toList();
+                }).sorted(Comparator.comparing(TransactionView::getTimestamp).reversed()).toList();
             }
         } catch (Exception ex) {
             log.warn("Failed to fetch audits for account {}: {}", accountId, ex.getMessage());
         }
         return Collections.emptyList();
+    }
+
+    private LocalDateTime parseAuditTimestamp(Object value) {
+        if (value == null) {
+            return LocalDateTime.now();
+        }
+
+        String timestamp = value.toString();
+        try {
+            return Instant.parse(timestamp)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDateTime();
+        } catch (java.time.format.DateTimeParseException ignored) {
+            try {
+                return LocalDateTime.parse(timestamp);
+            } catch (java.time.format.DateTimeParseException invalidTimestamp) {
+                log.warn("Invalid ledger audit timestamp: {}", timestamp);
+                return LocalDateTime.now();
+            }
+        }
     }
 
     @Override
@@ -447,7 +470,7 @@ public class HttpBankingApiClient implements BankingApiClient {
                     tv.setAuditState(AuditState.COMMITTED);
                 }
 
-                tv.setTimestamp(LocalDateTime.now());
+                tv.setTimestamp(parseAuditTimestamp(first.get("createdAt")));
 
                 // Enrich with account currencies and cross-currency metadata
                 if (tv.getAccountId() != null && !tv.getAccountId().isBlank()) {
