@@ -147,4 +147,46 @@ class CrossCurrencySettlementConsumerTest {
         verify(balanceCacheInvalidator).evict(srcAccountId);
         verify(balanceCacheInvalidator).evict(destAccountId);
     }
+
+    @Test
+    @DisplayName("processSettlement: duplicate event does not append audits or another notification")
+    void processSettlement_duplicateEvent_isIgnored() {
+        UUID txnId = UUID.randomUUID();
+        String txnIdString = txnId.toString();
+        CrossCurrencySettlementCompletedEvent event = new CrossCurrencySettlementCompletedEvent(
+                txnId,
+                "acct-usd",
+                "acct-php",
+                "USD",
+                "PHP",
+                new BigDecimal("100.0000"),
+                new BigDecimal("58.00000000"),
+                new BigDecimal("5800.0000"),
+                new BigDecimal("400.0000"),
+                new BigDecimal("30800.0000"),
+                Instant.now()
+        );
+        TransactionMaster pendingMaster = TransactionMaster.builder()
+                .txnId(txnIdString)
+                .txnType("TRANSFER")
+                .txnStatus("PENDING")
+                .isCrossCurrency("Y")
+                .build();
+        List<LedgerMutationAudit> existingAudits = List.of(
+                LedgerMutationAudit.builder().txnId(txnIdString).mutationType("DEBIT").build(),
+                LedgerMutationAudit.builder().txnId(txnIdString).mutationType("CREDIT").build()
+        );
+
+        when(auditRepository.findByTxnId(txnIdString)).thenReturn(existingAudits);
+        when(txnMasterRepository.findById(txnIdString)).thenReturn(Optional.of(pendingMaster));
+
+        consumer.processSettlement(event);
+
+        verify(auditRepository, never()).save(any(LedgerMutationAudit.class));
+        verify(outboxRepository, never()).save(any(TransactionOutbox.class));
+        verify(txnMasterRepository).save(pendingMaster);
+        assertThat(pendingMaster.getTxnStatus()).isEqualTo("COMMITTED");
+        verify(balanceCacheInvalidator).evict("acct-usd");
+        verify(balanceCacheInvalidator).evict("acct-php");
+    }
 }

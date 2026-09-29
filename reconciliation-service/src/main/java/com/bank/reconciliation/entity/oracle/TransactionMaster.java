@@ -38,6 +38,15 @@ public class TransactionMaster {
     @Column(name = "MUTATION_AMOUNT", precision = 18, scale = 4, nullable = false)
     private BigDecimal mutationAmount;
 
+    @Column(name = "IS_CROSS_CURRENCY", length = 1)
+    private String isCrossCurrency;
+
+    @Column(name = "FX_RATE", precision = 18, scale = 8)
+    private BigDecimal fxRate;
+
+    @Column(name = "DEST_AMOUNT", precision = 18, scale = 4)
+    private BigDecimal destAmount;
+
     @Column(name = "TXN_STATUS", length = 20, nullable = false)
     private String txnStatus; // PENDING / COMMITTED / ROLLED_BACK
 

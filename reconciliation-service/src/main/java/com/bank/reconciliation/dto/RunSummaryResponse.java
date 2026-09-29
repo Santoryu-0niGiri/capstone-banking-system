@@ -1,8 +1,11 @@
 package com.bank.reconciliation.dto;
 
+import com.bank.reconciliation.entity.postgres.ReconResultAudit;
 import com.bank.reconciliation.entity.postgres.ReconRunAudit;
 
 import java.time.OffsetDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 public record RunSummaryResponse(
@@ -14,9 +17,14 @@ public record RunSummaryResponse(
         OffsetDateTime completedAt,
         int totalChecked,
         int totalMatched,
-        int totalExceptions
+        int totalExceptions,
+        List<ReconResultAudit> results
 ) {
     public static RunSummaryResponse from(ReconRunAudit run) {
+        return from(run, Collections.emptyList());
+    }
+
+    public static RunSummaryResponse from(ReconRunAudit run, List<ReconResultAudit> results) {
         return new RunSummaryResponse(
                 run.getRunId(),
                 run.getRunStatus().name(),
@@ -26,7 +34,8 @@ public record RunSummaryResponse(
                 run.getRunCompletedAt(),
                 run.getTotalTxnChecked(),
                 run.getTotalMatched(),
-                run.getTotalExceptions()
+                run.getTotalExceptions(),
+                results != null ? results : Collections.emptyList()
         );
     }
 }

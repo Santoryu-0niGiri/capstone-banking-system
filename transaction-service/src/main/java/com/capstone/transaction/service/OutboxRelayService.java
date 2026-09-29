@@ -31,7 +31,8 @@ public class OutboxRelayService {
     @Scheduled(fixedDelay = 2000)
     @Transactional("postgresTransactionManager")
     public void processOutbox() {
-        List<TransactionOutbox> pending = outboxRepository.findByStatusOrderByCreatedAtAsc("PENDING");
+        List<TransactionOutbox> pending = outboxRepository
+            .findBySourceServiceAndStatusOrderByCreatedAtAsc("transaction-service", "PENDING");
 
         for (TransactionOutbox entry : pending) {
             try {

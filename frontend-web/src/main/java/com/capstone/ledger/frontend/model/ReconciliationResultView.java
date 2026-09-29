@@ -43,6 +43,12 @@ public class ReconciliationResultView {
         this.createdAt = createdAt;
     }
 
+    public String getStatusBadgeClass() {
+        if ("MATCHED".equalsIgnoreCase(reconStatus)) return "success";
+        if ("EXCEPTION".equalsIgnoreCase(reconStatus)) return "danger";
+        return "secondary";
+    }
+
     public String getSeverityBadgeClass() {
         if ("CRITICAL".equalsIgnoreCase(severity)) return "danger";
         if ("HIGH".equalsIgnoreCase(severity)) return "warning";

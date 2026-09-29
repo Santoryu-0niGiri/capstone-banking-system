@@ -42,12 +42,12 @@ public class ForexSettlementConsumer {
             }
 
             log.info("Received FOREX_CONVERSION_COMPLETED for txnId={}: src={} dest={} srcAmt={} destAmt={}",
-                    event.txnId(), event.sourceAccountId(), event.destAccountId(), event.sourceAmount(), event.destAmount());
+                    event.txnId(), event.sourceAccountId(), event.destAccountId(), event.sourceAmount(), event.destAmount(), "\n");
 
             accountService.settleCrossCurrency(event);
 
         } catch (Exception ex) {
-            log.error("Failed to process FOREX_CONVERSION_COMPLETED event: {}", payload, ex);
+            log.error("Failed to process FOREX_CONVERSION_COMPLETED event: {}", payload, ex, "\n");
         }
     }
 }

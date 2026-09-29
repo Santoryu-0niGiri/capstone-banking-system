@@ -41,9 +41,10 @@ public class TransactionEventProducer {
         kafkaTemplate.send(topic, key, event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
-                        log.error("Failed to publish event {} to {}", event, topic, ex);
+                        log.error("Failed to publish payload={} to topic={}", event, topic, ex, "\n");
                     } else {
-                        log.debug("Published event {} to topic {}", event, topic);
+                        log.info("Published payload={} to topic={} partition={}\n",
+                                event, topic, result.getRecordMetadata().partition());
                     }
                 });
     }
@@ -52,10 +53,12 @@ public class TransactionEventProducer {
         kafkaTemplate.send(KafkaTopics.TRANSACTION_EVENTS, key, event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
-                        log.error("Failed to publish event {} to {}", event, KafkaTopics.TRANSACTION_EVENTS, ex);
+                        log.error("Failed to publish payload={} to topic={}",
+                                event, KafkaTopics.TRANSACTION_EVENTS, ex, "\n");
                     } else {
-                        log.debug("Published event {} to partition {}",
-                                event, result.getRecordMetadata().partition());
+                        log.info("Published payload={} to topic={} partition={}\n",
+                                event, KafkaTopics.TRANSACTION_EVENTS,
+                                result.getRecordMetadata().partition());
                     }
                 });
     }
