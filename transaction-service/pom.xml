@@ -90,6 +90,17 @@
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
+
+        <!--
+          Logstash Logback Encoder — provides the LogstashEncoder used in
+          logback-spring.xml to emit structured JSON logs.  Version is pinned
+          to stay compatible with Logback 1.4.x bundled in Spring Boot 3.3.x.
+        -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>7.4</version>
+        </dependency>
     </dependencies>
 
 <build>

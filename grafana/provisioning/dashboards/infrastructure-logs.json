@@ -1,0 +1,92 @@
+{
+  "title": "System Infrastructure & Reconciliation Logs",
+  "uid": "banking-infrastructure-logs",
+  "description": "Aggregated logs for Reconciliation, Database, and Redis connection monitoring across all banking microservices. Enables troubleshooting of ledger mismatches, DB pool exhaustion, and Redis timeouts.",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "tags": [
+    "banking",
+    "infrastructure",
+    "loki",
+    "logs",
+    "reconciliation",
+    "database",
+    "redis"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "query": "label_values(service)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "\\"
+        },
+        "sort": 1
+      },
+      {
+        "name": "component",
+        "label": "Component",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "query": "label_values(component)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "\\"
+        }
+      },
+      {
+        "name": "level",
+        "label": "Log Level",
+        "type": "custom",
+        "options": [
+          {
+            "text": "All",
+            "value": ".*",
+            "selected": true
+          },
+          {
+            "text": "ERROR",
+            "value": "ERROR"
+          },
+          {
+            "text": "WARN",
+            "value": "WARN"
+          },
+          {
+            "text": "INFO",
+            "value": "INFO"
+          }
+        ],
+        "current": {
+          "text": "All",
+          "value": ".*"
+        }
+      }
+    ]
+  },
+  "panels": []
+}

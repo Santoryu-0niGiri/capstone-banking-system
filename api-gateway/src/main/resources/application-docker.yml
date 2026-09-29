@@ -7,20 +7,60 @@ spring:
           uri: http://registration-service:8081
           predicates:
             - Path=/api/auth/register/**
+
         - id: login-service
           uri: http://login-service:8082
           predicates:
             - Path=/api/auth/login/**,/api/auth/logout/**
+
         - id: accounts-service
           uri: http://accounts-service:8083
           predicates:
             - Path=/api/accounts/**
           filters:
             - JwtAuthentication
+
+        # Admin account governance (freeze/unfreeze/list) — routed to accounts-service
+        - id: admin-accounts-service
+          uri: http://accounts-service:8083
+          predicates:
+            - Path=/api/admin/accounts/**
+          filters:
+            - JwtAuthentication
+
+        # Admin customer directory — routed to registration-service
+        - id: admin-customers-service
+          uri: http://registration-service:8081
+          predicates:
+            - Path=/api/admin/customers/**
+          filters:
+            - JwtAuthentication
+
+        # Customer profile directory — routed to registration-service
+        - id: customer-profile-service
+          uri: http://registration-service:8081
+          predicates:
+            - Path=/api/customers/**
+          filters:
+            - JwtAuthentication
+
         - id: transaction-service
           uri: http://transaction-service:8084
           predicates:
-            - Path=/api/transactions/**
+            - Path=/api/v1/ledger/**
           filters:
             - JwtAuthentication
+
+        - id: forex-service
+          uri: http://forex-service:8087
+          predicates:
+            - Path=/api/v1/fx-rate,/api/v1/fx-rate/**,/api/v1/forex/**
+
+        - id: reconciliation-service
+          uri: http://reconciliation-service:8086
+          predicates:
+            - Path=/api/recon/**
+          filters:
+            - JwtAuthentication
+
 
