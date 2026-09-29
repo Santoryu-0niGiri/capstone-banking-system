@@ -402,7 +402,8 @@ public class HttpBankingApiClient implements BankingApiClient {
                     tv.setTxnId(tid);
                     tv.setMutationId("MUT-" + (tid.length() >= 8 ? tid.substring(0, 8) : tid));
                     tv.setAccountId(m.get("accountId") != null ? m.get("accountId").toString() : accountId);
-                    tv.setCurrencyCode(currency);
+                    String cur = m.get("currencyCode") != null ? m.get("currencyCode").toString().trim() : currency;
+                    tv.setCurrencyCode(cur);
 
                     String txnTypeStr = m.get("txnType") != null ? m.get("txnType").toString() : "TRANSFER";
                     try {
@@ -425,15 +426,7 @@ public class HttpBankingApiClient implements BankingApiClient {
                         tv.setAuditState(AuditState.COMMITTED);
                     }
 
-                    if (m.get("createdAt") != null) {
-                        try {
-                            tv.setTimestamp(LocalDateTime.ofInstant(java.time.Instant.parse(m.get("createdAt").toString()), java.time.ZoneId.systemDefault()));
-                        } catch (Exception ignored) {
-                            tv.setTimestamp(LocalDateTime.now());
-                        }
-                    } else {
-                        tv.setTimestamp(LocalDateTime.now());
-                    }
+                    tv.setTimestamp(parseAuditTimestamp(m.get("createdAt")));
                     return tv;
                 }).sorted(Comparator.comparing(TransactionView::getTimestamp).reversed()).toList();
             }
@@ -579,25 +572,32 @@ public class HttpBankingApiClient implements BankingApiClient {
         if (responseBody == null || responseBody.isBlank()) return null;
         try {
             com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(responseBody);
+            String candidate = null;
             if (root.has("message") && !root.get("message").isNull() && !root.get("message").asText().isBlank()) {
-                return root.get("message").asText();
+                candidate = root.get("message").asText();
+            } else if (root.has("detail") && !root.get("detail").isNull() && !root.get("detail").asText().isBlank()) {
+                candidate = root.get("detail").asText();
+            } else if (root.has("error") && !root.get("error").isNull() && !root.get("error").asText().isBlank()) {
+                candidate = root.get("error").asText();
             }
-            if (root.has("detail") && !root.get("detail").isNull() && !root.get("detail").asText().isBlank()) {
-                return root.get("detail").asText();
-            }
-            if (root.has("error") && !root.get("error").isNull() && !root.get("error").asText().isBlank()) {
-                String err = root.get("error").asText();
+
+            if (candidate != null) {
                 int status = root.has("status") ? root.get("status").asInt() : 500;
-                if (status >= 500 || "Internal Server Error".equalsIgnoreCase(err)) {
-                    return "The banking service is temporarily unavailable or timed out. Please try again shortly.";
+                if (status >= 500 || "Internal Server Error".equalsIgnoreCase(candidate)
+                        || candidate.contains("I/O error") || candidate.contains("Connection refused")
+                        || candidate.contains("http://") || candidate.contains("https://")
+                        || candidate.contains("ResourceAccessException")) {
+                    return "The accounts service is temporarily unavailable. Please try again shortly.";
                 }
-                return err;
+                return candidate;
             }
         } catch (Exception ignored) {}
 
         String trimmed = responseBody.trim();
-        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-            return "The banking service encountered a processing error. Please try again later.";
+        if ((trimmed.startsWith("{") && trimmed.endsWith("}"))
+                || trimmed.contains("I/O error") || trimmed.contains("Connection refused")
+                || trimmed.contains("http://") || trimmed.contains("https://")) {
+            return "The accounts service is temporarily unavailable. Please try again shortly.";
         }
         return responseBody;
     }

@@ -50,14 +50,14 @@
             <table class="table table-sm table-hover">
                 <thead>
                     <tr>
-                        <th>Timestamp</th>
+                        <th>Date &amp; Time</th>
                         <th>Transaction ID</th>
-                        <th>Mutation ID</th>
+                        <th>Reference No.</th>
                         <th>Type</th>
                         <th>Direction</th>
                         <th>Amount</th>
-                        <th>Audit State</th>
-                        <th>Voucher</th>
+                        <th>Status</th>
+                        <th>Receipt</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -76,8 +76,8 @@
                         <td class="fw-bold" th:classappend="${t.direction.name() == 'CREDIT'} ? 'text-success' : 'text-danger'"
                             th:text="${t.formattedAmount}"></td>
                         <td>
-                            <span class="badge bg-success-subtle text-success border border-success-subtle small"
-                                  th:text="${t.auditState}">COMMITTED</span>
+                            <span class="badge" th:classappend="${t.auditState != null and t.auditState.name() == 'COMMITTED'} ? 'bg-success' : (${t.auditState != null and t.auditState.name() == 'ROLLED_BACK'} ? 'bg-danger' : 'bg-warning')"
+                                  th:text="${t.auditState != null ? (t.auditState.name() == 'COMMITTED' ? 'Completed' : (t.auditState.name() == 'ROLLED_BACK' ? 'Rolled Back' : 'Pending')) : 'Completed'}">Completed</span>
                         </td>
                         <td>
                             <a th:href="@{/transactions/receipt/{id}(id=${t.txnId})}" class="btn btn-sm btn-outline-secondary py-0 px-2" title="View digital receipt">
@@ -88,7 +88,7 @@
                     <tr th:if="${#lists.isEmpty(transactions)}">
                         <td colspan="8" class="text-center text-muted py-4">
                             <i class="bi bi-inbox display-6 d-block mb-2"></i>
-                            No transaction ledger records recorded for this account yet.
+                            No transaction records recorded for this account yet.
                         </td>
                     </tr>
                 </tbody>
@@ -96,86 +96,6 @@
         </div>
     </div>
 </main>
-
-<button
-    type="button"
-    class="app-theme-toggle"
-    id="appThemeToggle"
-    aria-label="Toggle dark mode"
-    title="Toggle dark mode">
-
-    <i class="bi bi-moon-fill" id="appThemeIcon"></i>
-
-</button>
-
-<script>
-(function () {
-
-    const body = document.body;
-    const toggle = document.getElementById("appThemeToggle");
-    const icon = document.getElementById("appThemeIcon");
-
-    if (!toggle || !icon) {
-        return;
-    }
-
-    const savedTheme = localStorage.getItem("banking-theme");
-
-    if (savedTheme === "dark") {
-        body.classList.add("dark-mode");
-    }
-
-    function updateIcon() {
-
-        if (body.classList.contains("dark-mode")) {
-
-            icon.className = "bi bi-sun-fill";
-
-            toggle.setAttribute(
-                "aria-label",
-                "Switch to light mode"
-            );
-
-            toggle.setAttribute(
-                "title",
-                "Switch to light mode"
-            );
-
-        } else {
-
-            icon.className = "bi bi-moon-fill";
-
-            toggle.setAttribute(
-                "aria-label",
-                "Switch to dark mode"
-            );
-
-            toggle.setAttribute(
-                "title",
-                "Switch to dark mode"
-            );
-        }
-    }
-
-    updateIcon();
-
-    toggle.addEventListener("click", function () {
-
-        body.classList.toggle("dark-mode");
-
-        const isDark =
-            body.classList.contains("dark-mode");
-
-        localStorage.setItem(
-            "banking-theme",
-            isDark ? "dark" : "light"
-        );
-
-        updateIcon();
-    });
-
-})();
-</script>
 
 <div th:replace="~{fragments/layout :: footer}"></div>
 

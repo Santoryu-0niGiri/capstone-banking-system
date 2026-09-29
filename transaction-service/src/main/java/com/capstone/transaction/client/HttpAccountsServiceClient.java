@@ -93,19 +93,24 @@ public class HttpAccountsServiceClient implements AccountsServiceClient {
         String authHeader = resolveBearerToken();
         AccountMutationRequest request = new AccountMutationRequest(amount, txnId, txnType);
 
-        ApiResponse<AccountMutationResponse> response = restClient.post()
-                .uri("/api/accounts/{accountId}/debit", accountId)
-                .header("Authorization", authHeader)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(new ParameterizedTypeReference<ApiResponse<AccountMutationResponse>>() {});
+        try {
+            ApiResponse<AccountMutationResponse> response = restClient.post()
+                    .uri("/api/accounts/{accountId}/debit", accountId)
+                    .header("Authorization", authHeader)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(request)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponse<AccountMutationResponse>>() {});
 
-        if (response == null || response.data() == null) {
-            throw new IllegalStateException("Empty response from Accounts Service debit for account " + accountId);
+            if (response == null || response.data() == null) {
+                throw new IllegalStateException("Empty response from Accounts Service debit for account " + accountId);
+            }
+
+            return response.data();
+        } catch (org.springframework.web.client.ResourceAccessException ex) {
+            log.error("Unable to reach Accounts Service for debit on account {}: {}", accountId, ex.getMessage());
+            throw new IllegalStateException("Accounts service is temporarily unavailable. Please try again shortly.");
         }
-
-        return response.data();
     }
 
     @Override
@@ -113,36 +118,46 @@ public class HttpAccountsServiceClient implements AccountsServiceClient {
         String authHeader = resolveBearerToken();
         AccountMutationRequest request = new AccountMutationRequest(amount, txnId, txnType);
 
-        ApiResponse<AccountMutationResponse> response = restClient.post()
-                .uri("/api/accounts/{accountId}/credit", accountId)
-                .header("Authorization", authHeader)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(new ParameterizedTypeReference<ApiResponse<AccountMutationResponse>>() {});
+        try {
+            ApiResponse<AccountMutationResponse> response = restClient.post()
+                    .uri("/api/accounts/{accountId}/credit", accountId)
+                    .header("Authorization", authHeader)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(request)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponse<AccountMutationResponse>>() {});
 
-        if (response == null || response.data() == null) {
-            throw new IllegalStateException("Empty response from Accounts Service credit for account " + accountId);
+            if (response == null || response.data() == null) {
+                throw new IllegalStateException("Empty response from Accounts Service credit for account " + accountId);
+            }
+
+            return response.data();
+        } catch (org.springframework.web.client.ResourceAccessException ex) {
+            log.error("Unable to reach Accounts Service for credit on account {}: {}", accountId, ex.getMessage());
+            throw new IllegalStateException("Accounts service is temporarily unavailable. Please try again shortly.");
         }
-
-        return response.data();
     }
 
     @Override
     public AccountDTO getAccount(String accountId) {
         String authHeader = resolveSystemToken();
 
-        ApiResponse<AccountDTO> response = restClient.get()
-                .uri("/api/accounts/{accountId}", accountId)
-                .header("Authorization", authHeader)
-                .retrieve()
-                .body(new ParameterizedTypeReference<ApiResponse<AccountDTO>>() {});
+        try {
+            ApiResponse<AccountDTO> response = restClient.get()
+                    .uri("/api/accounts/{accountId}", accountId)
+                    .header("Authorization", authHeader)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<ApiResponse<AccountDTO>>() {});
 
-        if (response == null || response.data() == null) {
-            throw new ResourceNotFoundException("Account " + accountId + " not found");
+            if (response == null || response.data() == null) {
+                throw new ResourceNotFoundException("Account " + accountId + " not found");
+            }
+
+            return response.data();
+        } catch (org.springframework.web.client.ResourceAccessException ex) {
+            log.error("Unable to reach Accounts Service for account {}: {}", accountId, ex.getMessage());
+            throw new IllegalStateException("Accounts service is temporarily unavailable. Please try again shortly.");
         }
-
-        return response.data();
     }
 
     private String resolveSystemToken() {

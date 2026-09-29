@@ -124,10 +124,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(pd);
     }
 
+    @ExceptionHandler(org.springframework.web.client.ResourceAccessException.class)
+    public ResponseEntity<ProblemDetail> handleResourceAccess(org.springframework.web.client.ResourceAccessException ex, WebRequest request) {
+        ProblemDetail pd = build(HttpStatus.SERVICE_UNAVAILABLE, "https://capstone.bank/errors/service-unavailable",
+                "Service Unavailable", "A downstream banking service is temporarily unreachable. Please try again shortly.", request);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(pd);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGeneric(Exception ex, WebRequest request) {
+        String msg = ex.getMessage();
+        String detail;
+        if (msg == null || msg.isBlank() || msg.contains("I/O error") || msg.contains("Connection refused") || msg.contains("http://") || msg.contains("https://")) {
+            detail = "The banking service is temporarily unavailable or timed out. Please try again shortly.";
+        } else {
+            detail = "An unexpected error occurred: " + msg;
+        }
         ProblemDetail pd = build(HttpStatus.INTERNAL_SERVER_ERROR, "https://capstone.bank/errors/internal",
-                "Internal Server Error", "An unexpected error occurred: " + ex.getMessage(), request);
+                "Internal Server Error", detail, request);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(pd);
     }
 

@@ -12,8 +12,8 @@
             <div class="card p-4 p-md-5">
                 <div class="text-center mb-4">
                     <div class="display-6 text-primary mb-2"><i class="bi bi-arrow-left-right"></i></div>
-                    <h3 class="fw-bold mb-1">New Balance Mutation</h3>
-                    <p class="text-muted small">Execute deposits, withdrawals, or cross-currency transfers</p>
+                    <h3 class="fw-bold mb-1">New Transaction</h3>
+                    <p class="text-muted small">Deposit, withdraw, or transfer funds across accounts</p>
                 </div>
 
                 <form th:action="@{/transactions/new}" th:object="${transactionForm}" method="post" id="txnForm">
@@ -236,85 +236,5 @@ document.addEventListener('DOMContentLoaded', () => {
     onTypeChanged();
 });
 </script>
-<button
-    type="button"
-    class="app-theme-toggle"
-    id="appThemeToggle"
-    aria-label="Toggle dark mode"
-    title="Toggle dark mode">
-
-    <i class="bi bi-moon-fill" id="appThemeIcon"></i>
-
-</button>
-
-<script>
-(function () {
-
-    const body = document.body;
-    const toggle = document.getElementById("appThemeToggle");
-    const icon = document.getElementById("appThemeIcon");
-
-    if (!toggle || !icon) {
-        return;
-    }
-
-    const savedTheme = localStorage.getItem("banking-theme");
-
-    if (savedTheme === "dark") {
-        body.classList.add("dark-mode");
-    }
-
-    function updateIcon() {
-
-        if (body.classList.contains("dark-mode")) {
-
-            icon.className = "bi bi-sun-fill";
-
-            toggle.setAttribute(
-                "aria-label",
-                "Switch to light mode"
-            );
-
-            toggle.setAttribute(
-                "title",
-                "Switch to light mode"
-            );
-
-        } else {
-
-            icon.className = "bi bi-moon-fill";
-
-            toggle.setAttribute(
-                "aria-label",
-                "Switch to dark mode"
-            );
-
-            toggle.setAttribute(
-                "title",
-                "Switch to dark mode"
-            );
-        }
-    }
-
-    updateIcon();
-
-    toggle.addEventListener("click", function () {
-
-        body.classList.toggle("dark-mode");
-
-        const isDark =
-            body.classList.contains("dark-mode");
-
-        localStorage.setItem(
-            "banking-theme",
-            isDark ? "dark" : "light"
-        );
-
-        updateIcon();
-    });
-
-})();
-</script>
-
 </body>
 </html>

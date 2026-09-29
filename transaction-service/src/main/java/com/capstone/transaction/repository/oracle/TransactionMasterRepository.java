@@ -14,5 +14,7 @@ import java.util.List;
 public interface TransactionMasterRepository extends JpaRepository<TransactionMaster, String> {
 
     List<TransactionMaster> findByTxnStatusAndInitiatedAtBefore(String txnStatus, LocalDateTime initiatedAt);
+
+    List<TransactionMaster> findByDebitAccountIdOrCreditAccountId(String debitAccountId, String creditAccountId);
 }
 

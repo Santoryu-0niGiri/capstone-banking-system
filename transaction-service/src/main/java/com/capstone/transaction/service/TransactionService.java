@@ -162,11 +162,18 @@ public class TransactionService {
         AccountDTO srcAcct = accountsServiceClient.getAccount(request.accountId());
         AccountDTO destAcct = accountsServiceClient.getAccount(request.counterpartyAccountId());
 
-                if (srcAcct == null || destAcct == null
-                                || srcAcct.currencyCode() == null || srcAcct.currencyCode().isBlank()
-                                || destAcct.currencyCode() == null || destAcct.currencyCode().isBlank()) {
-                        throw new ResourceNotFoundException("Source or destination account currency not found");
-                }
+        if (srcAcct == null || destAcct == null
+                || srcAcct.currencyCode() == null || srcAcct.currencyCode().isBlank()
+                || destAcct.currencyCode() == null || destAcct.currencyCode().isBlank()) {
+            throw new ResourceNotFoundException("Source or destination account currency not found");
+        }
+
+        if (srcAcct.accountStatus() != null && !"ACTIVE".equalsIgnoreCase(srcAcct.accountStatus())) {
+            throw new IllegalStateException("Account " + srcAcct.accountId() + " is " + srcAcct.accountStatus());
+        }
+        if (destAcct.accountStatus() != null && !"ACTIVE".equalsIgnoreCase(destAcct.accountStatus())) {
+            throw new IllegalStateException("Account " + destAcct.accountId() + " is " + destAcct.accountStatus());
+        }
 
         if (srcAcct != null) {
             SecurityUtils.checkCustomerAccess(srcAcct.customerId(), "transfer from account " + request.accountId());
@@ -286,7 +293,73 @@ public class TransactionService {
             }
         }
 
-        return auditRepository.findByAccountId(accountId);
+        List<LedgerMutationAudit> audits = new java.util.ArrayList<>(auditRepository.findByAccountId(accountId));
+        java.util.Set<String> existingTxnIds = audits.stream()
+                .map(LedgerMutationAudit::getTxnId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+
+        try {
+            List<TransactionMaster> masters = txnMasterRepository.findByDebitAccountIdOrCreditAccountId(accountId, accountId);
+            if (masters != null) {
+                for (TransactionMaster master : masters) {
+                    if (master.getTxnId() == null) continue;
+
+                    if (existingTxnIds.contains(master.getTxnId())) {
+                        if ("ROLLED_BACK".equalsIgnoreCase(master.getTxnStatus())) {
+                            for (LedgerMutationAudit a : audits) {
+                                if (master.getTxnId().equals(a.getTxnId())) {
+                                    a.setAuditState("ROLLED_BACK");
+                                }
+                            }
+                        }
+                        continue;
+                    }
+
+                    Instant ts = master.getInitiatedAt() != null
+                            ? master.getInitiatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant()
+                            : Instant.now();
+
+                    if (accountId.equals(master.getDebitAccountId())) {
+                        audits.add(LedgerMutationAudit.builder()
+                                .mutationUuid(UUID.randomUUID())
+                                .txnId(master.getTxnId())
+                                .accountId(master.getDebitAccountId())
+                                .mutationAmount(master.getMutationAmount())
+                                .currencyCode(master.getCurrencyCode())
+                                .mutationType("DEBIT")
+                                .txnType(master.getTxnType())
+                                .auditState(master.getTxnStatus())
+                                .createdAt(ts)
+                                .build());
+                    } else if (accountId.equals(master.getCreditAccountId())) {
+                        audits.add(LedgerMutationAudit.builder()
+                                .mutationUuid(UUID.randomUUID())
+                                .txnId(master.getTxnId())
+                                .accountId(master.getCreditAccountId())
+                                .mutationAmount(master.getDestAmount() != null ? master.getDestAmount() : master.getMutationAmount())
+                                .currencyCode(master.getDestCurrencyCode() != null
+                                        ? master.getDestCurrencyCode() : master.getCurrencyCode())
+                                .mutationType("CREDIT")
+                                .txnType(master.getTxnType())
+                                .auditState(master.getTxnStatus())
+                                .createdAt(ts)
+                                .build());
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to merge Oracle transaction master records for account {}: {}", accountId, ex.getMessage());
+        }
+
+        audits.sort((a, b) -> {
+            if (a.getCreatedAt() == null && b.getCreatedAt() == null) return 0;
+            if (a.getCreatedAt() == null) return 1;
+            if (b.getCreatedAt() == null) return -1;
+            return b.getCreatedAt().compareTo(a.getCreatedAt());
+        });
+
+        return audits;
     }
 
     // ── Single-leg (WITHDRAWAL / DEPOSIT) ─────────────────────────────────────

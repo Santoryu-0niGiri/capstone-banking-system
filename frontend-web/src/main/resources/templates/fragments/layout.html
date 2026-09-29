@@ -9,37 +9,73 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
     <link rel="stylesheet" href="/css/style.css"/>
     <link rel="stylesheet" href="/css/frontend-landing.css"/>
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem("banking-theme") === "dark") {
+                    document.documentElement.classList.add("dark-mode");
+                    if (document.body) document.body.classList.add("dark-mode");
+                }
+            } catch(e) {}
+        })();
+    </script>
 </head>
 <body>
 
 <!-- Persona Quick-Switch Bar for Demos & Defense -->
-<div th:fragment="demoBar" class="demo-bar d-flex justify-content-between align-items-center">
-    <div class="d-flex align-items-center gap-2">
-        <span th:if="${backendMode == 'gateway'}" class="badge bg-success border border-light" title="Connected to Spring Cloud Gateway">
-            <i class="bi bi-broadcast-pin me-1"></i>GATEWAY MODE: <span th:text="${gatewayUrl}">http://localhost:8080</span>
+<div th:fragment="demoBar" class="demo-bar d-flex justify-content-between align-items-center px-3 py-1">
+    <div class="d-flex align-items-center gap-2 small">
+        <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2 py-1 d-inline-flex align-items-center gap-1" style="font-size: 0.72rem;">
+            <i class="bi bi-shield-check"></i>
+            <span>Verified System</span>
         </span>
-        <span th:if="${backendMode != 'gateway'}" class="badge bg-secondary border border-light" title="In-Memory Mock Backend">
-            <i class="bi bi-box me-1"></i>MOCK MODE
-        </span>
-        <span class="d-none d-sm-inline">
-            <i class="bi bi-person-badge me-1"></i>
-            <span>Active Persona:</span>
-            <strong class="text-white ms-1" th:text="${session.user != null ? session.user.fullName + ' (' + session.user.role + ')' : 'Guest'}">Guest</strong>
-        </span>
+        <span class="text-secondary small d-none d-md-inline" style="font-size: 0.75rem;">Regulated Double-Entry Banking Core</span>
     </div>
-    <div>
-        <span class="d-none d-md-inline">Quick Switch:</span>
-        <a href="/auth/switch?role=admin" class="badge bg-secondary text-decoration-none">Admin</a>
-        <a href="/auth/switch?role=juan" class="badge bg-primary text-decoration-none">Juan (Customer - PHP/USD)</a>
-        <a href="/auth/switch?role=maria" class="badge bg-info text-decoration-none">Maria (Customer - Multi-Currency)</a>
+    <div class="dropdown">
+        <button class="btn btn-sm dropdown-toggle d-flex align-items-center gap-1 rounded-pill px-3 py-0 text-white border-0"
+                type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                style="font-size: 0.75rem; background: rgba(255,255,255,0.08); height: 26px;">
+            <i class="bi bi-people-fill text-warning me-1"></i>
+            <span>Demo Personas</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 py-2 mt-1" style="min-width: 250px; font-size: 0.82rem;">
+            <li><h6 class="dropdown-header text-uppercase fw-bold text-muted small" style="font-size: 0.7rem; letter-spacing: 0.05em;">Switch User Persona</h6></li>
+            <li>
+                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/auth/switch?role=admin">
+                    <span class="badge bg-danger text-white rounded-circle p-1"><i class="bi bi-shield-lock"></i></span>
+                    <div>
+                        <div class="fw-semibold">Bank Administrator</div>
+                        <small class="text-muted" style="font-size: 0.72rem;">Full Ledger, Recon &amp; KYC</small>
+                    </div>
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/auth/switch?role=juan">
+                    <span class="badge bg-primary text-white rounded-circle p-1"><i class="bi bi-person"></i></span>
+                    <div>
+                        <div class="fw-semibold">Juan Dela Cruz</div>
+                        <small class="text-muted" style="font-size: 0.72rem;">Customer · PHP &amp; USD</small>
+                    </div>
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="/auth/switch?role=maria">
+                    <span class="badge bg-info text-white rounded-circle p-1"><i class="bi bi-globe"></i></span>
+                    <div>
+                        <div class="fw-semibold">Maria Santos</div>
+                        <small class="text-muted" style="font-size: 0.72rem;">Customer · Multi-Currency Portfolio</small>
+                    </div>
+                </a>
+            </li>
+        </ul>
     </div>
 </div>
 
 <!-- Main Application Navigation -->
 <nav th:fragment="navbar" class="navbar navbar-expand-lg navbar-dark navbar-custom px-3 py-2 sticky-top">
     <div class="container-fluid">
-        <a class="navbar-brand" th:href="${session.user != null && session.user.isAdmin() ? '/admin/dashboard' : (session.user != null ? '/customer/dashboard' : '/')}">
-            <i class="bi bi-bank2 text-primary"></i>
+        <a class="navbar-brand d-flex align-items-center gap-2" th:href="${session.user != null && session.user.isAdmin() ? '/admin/dashboard' : (session.user != null ? '/customer/dashboard' : '/')}">
+            <i class="bi bi-bank2 text-primary fs-5"></i>
             <span>Core Retail Ledger</span>
             <span th:if="${session.user != null && session.user.isAdmin()}" class="badge bg-danger ms-1 small" style="font-size: 0.65rem;">ADMIN</span>
         </a>
@@ -61,13 +97,13 @@
                         <a class="nav-link" href="/admin/customers"><i class="bi bi-people me-1"></i> Customers &amp; KYC</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/admin/accounts"><i class="bi bi-wallet2 me-1"></i> System Accounts</a>
+                        <a class="nav-link" href="/admin/accounts"><i class="bi bi-wallet2 me-1"></i> Accounts</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/transactions/new"><i class="bi bi-arrow-left-right me-1"></i> Mutate Balance</a>
+                        <a class="nav-link" href="/transactions/new"><i class="bi bi-arrow-left-right me-1"></i> Transactions</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/transactions/history"><i class="bi bi-journal-text me-1"></i> Ledger Audit Trail</a>
+                        <a class="nav-link" href="/transactions/history"><i class="bi bi-journal-text me-1"></i> Audit Trail</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/admin/reconciliation"><i class="bi bi-shield-check me-1"></i> Reconciliation</a>
@@ -83,28 +119,30 @@
                         <a class="nav-link" href="/accounts/open"><i class="bi bi-plus-circle me-1"></i> Open Account</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/transactions/new"><i class="bi bi-send me-1"></i> Transact &amp; Transfer</a>
+                        <a class="nav-link" href="/transactions/new"><i class="bi bi-send me-1"></i> Transfer &amp; Pay</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/transactions/history"><i class="bi bi-clock-history me-1"></i> My Activity</a>
+                        <a class="nav-link" href="/transactions/history"><i class="bi bi-clock-history me-1"></i> Activity</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/notifications"><i class="bi bi-bell me-1"></i> Alerts</a>
+                        <a class="nav-link" href="/notifications"><i class="bi bi-bell me-1"></i> Notifications</a>
                     </li>
                 </th:block>
             </ul>
 
             <!-- Right-aligned Profile & Session Actions -->
             <div class="d-flex align-items-center gap-2" th:if="${session.user != null}">
-                <a th:if="${session.user.isCustomer()}" href="/customer/profile" class="btn btn-sm profile-link d-flex align-items-center gap-1">
+                <a th:if="${session.user.isCustomer()}" href="/customer/profile" class="btn btn-sm profile-link d-flex align-items-center gap-2 rounded-pill px-3 py-1">
                     <i class="bi bi-person-circle"></i>
                     <span th:text="${session.user.fullName}">Customer Name</span>
+                    <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.68rem;">Customer</span>
                 </a>
-                <span th:if="${session.user.isAdmin()}" class="admin-console-label small me-2">
-                    <i class="bi bi-shield-lock text-warning me-1"></i> Admin Console
+                <span th:if="${session.user.isAdmin()}" class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill" style="background: rgba(217, 154, 36, 0.12); color: #fbbf24; font-size: 0.8rem;">
+                    <i class="bi bi-shield-lock-fill text-warning"></i>
+                    <span class="fw-semibold">Administrator</span>
                 </span>
-                <a class="btn btn-outline-danger btn-sm logout-link" href="/logout">
-                    <i class="bi bi-box-arrow-right"></i> Log out
+                <a class="btn btn-outline-danger btn-sm logout-link rounded-pill px-3" href="/logout">
+                    <i class="bi bi-box-arrow-right me-1"></i>Log out
                 </a>
             </div>
 
@@ -142,23 +180,56 @@
 </div>
 
 <!-- Reusable Footer Fragment -->
-<footer th:fragment="footer" class="py-4 mt-auto">
-    <div class="container text-center">
-        <div class="row align-items-center">
-            <div class="col-md-6 text-md-start mb-2 mb-md-0">
-                <strong>Core Retail Ledger &amp; Balance Mutation Engine</strong>
-                <div class="small text-muted">Multi-Service Banking Platform · Java 21 · Spring Boot 3 · Thymeleaf</div>
+<footer th:fragment="footer" class="py-4 mt-auto border-top" style="border-color: var(--brand-border) !important;">
+    <div class="container">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-bank2 text-primary fs-5"></i>
+                <div>
+                    <div class="fw-semibold small" style="color: var(--brand-text-primary);">Core Retail Ledger Bank</div>
+                    <div class="small text-muted">Enterprise Double-Entry Banking &amp; Mutation Engine · Regulated Core</div>
+                </div>
             </div>
-            <div class="col-md-6 text-md-end">
-                <span th:if="${backendMode == 'gateway'}" class="badge bg-success text-white border me-1"><i class="bi bi-broadcast-pin me-1"></i>Live Gateway (<span th:text="${gatewayUrl}">http://localhost:8080</span>)</span>
-                <span th:if="${backendMode != 'gateway'}" class="badge bg-secondary text-white border me-1"><i class="bi bi-box me-1"></i>Mock Backend</span>
-                <span class="badge bg-light text-dark border me-1"><i class="bi bi-database me-1"></i>Oracle XE 21c</span>
-                <span class="badge bg-light text-dark border me-1"><i class="bi bi-journal-check me-1"></i>PostgreSQL 15</span>
-                <span class="badge bg-light text-dark border"><i class="bi bi-lightning-charge me-1"></i>Kafka</span>
+            <div class="small text-muted text-center text-md-end">
+                <span>&copy; 2026 Core Retail Ledger. All rights reserved. 256-bit TLS Encryption · Member PDIC.</span>
             </div>
         </div>
     </div>
+
+    <!-- Consolidated Floating Theme Toggle -->
+    <button type="button" class="app-theme-toggle" id="appThemeToggle" aria-label="Toggle theme" title="Toggle theme">
+        <i class="bi bi-moon-fill" id="appThemeIcon"></i>
+    </button>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    (function () {
+        const toggle = document.getElementById("appThemeToggle");
+        const icon = document.getElementById("appThemeIcon");
+        if (!toggle || !icon) return;
+
+        function applyTheme(isDark) {
+            if (isDark) {
+                document.body.classList.add("dark-mode");
+                icon.className = "bi bi-sun-fill";
+                toggle.setAttribute("aria-label", "Switch to light mode");
+            } else {
+                document.body.classList.remove("dark-mode");
+                icon.className = "bi bi-moon-fill";
+                toggle.setAttribute("aria-label", "Switch to dark mode");
+            }
+        }
+
+        const isDark = document.body.classList.contains("dark-mode") || localStorage.getItem("banking-theme") === "dark";
+        applyTheme(isDark);
+
+        toggle.addEventListener("click", function () {
+            const nowDark = !document.body.classList.contains("dark-mode");
+            localStorage.setItem("banking-theme", nowDark ? "dark" : "light");
+            applyTheme(nowDark);
+        });
+    })();
+    </script>
 </footer>
 
 </body>
