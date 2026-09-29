@@ -1,11 +1,14 @@
 package com.bank.reconciliation.entity.oracle;
 
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Read-only mapping onto Oracle transaction_master, owned by
@@ -38,6 +41,9 @@ public class TransactionMaster {
     @Column(name = "MUTATION_AMOUNT", precision = 18, scale = 4, nullable = false)
     private BigDecimal mutationAmount;
 
+    @Column(name = "CURRENCY_CODE", length = 3, nullable = false)
+    private String currencyCode;
+
     @Column(name = "IS_CROSS_CURRENCY", length = 1)
     private String isCrossCurrency;
 
@@ -46,6 +52,9 @@ public class TransactionMaster {
 
     @Column(name = "DEST_AMOUNT", precision = 18, scale = 4)
     private BigDecimal destAmount;
+
+    @Column(name = "DEST_CURRENCY_CODE", length = 3)
+    private String destCurrencyCode;
 
     @Column(name = "TXN_STATUS", length = 20, nullable = false)
     private String txnStatus; // PENDING / COMMITTED / ROLLED_BACK

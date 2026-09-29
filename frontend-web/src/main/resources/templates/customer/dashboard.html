@@ -39,7 +39,7 @@
         <div class="col-md-4">
             <div class="card customer-kpi-card p-3 border-start border-primary border-4">
                 <div class="text-muted small text-uppercase fw-semibold">Consolidated Portfolio (PHP Approx)</div>
-                <div class="balance-figure mt-1" th:text="${'₱' + #numbers.formatDecimal(customer.totalBalanceInPhp, 1, 'COMMA', 2, 'POINT')}">₱0.00</div>
+                <div class="balance-figure mt-1" th:text="${'₱' + #numbers.formatDecimal(totalBalanceInPhp, 1, 'COMMA', 2, 'POINT')}">₱0.00</div>
                 <div class="text-muted small mt-1">Sum of all multi-currency accounts</div>
             </div>
         </div>

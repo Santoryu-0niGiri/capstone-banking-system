@@ -1,9 +1,10 @@
 package com.capstone.ledger.frontend.adapter.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 public class BackendDtos {
 
@@ -84,7 +85,13 @@ public class BackendDtos {
             BigDecimal amount,
             BigDecimal balanceAfter,
             String txnStatus,
-            String timestamp
+            String timestamp,
+            String targetCurrency,
+            BigDecimal exchangeRate,
+            BigDecimal targetAmount,
+            BigDecimal feeAmount,
+            Boolean isCrossCurrency,
+            String currencyCode
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -114,6 +121,11 @@ public class BackendDtos {
             java.util.List<ReconResultRes> results
     ) {}
 
+    public record ReconRunReq(
+            java.time.OffsetDateTime windowStart,
+            java.time.OffsetDateTime windowEnd
+    ) {}
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record ReconResultRes(
             String resultId,
@@ -124,6 +136,8 @@ public class BackendDtos {
             String duplicateMutationUuid,
             String reconStatus,
             String exceptionType,
+            String expectedCurrencyCode,
+            String actualCurrencyCode,
             BigDecimal expectedAmount,
             BigDecimal actualAmount,
             BigDecimal varianceAmount,

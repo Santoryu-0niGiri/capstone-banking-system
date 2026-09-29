@@ -1,15 +1,19 @@
 package com.bank.reconciliation.entity.postgres;
 
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Owned by Transaction Service in the real deployment; recon only
@@ -41,6 +45,9 @@ public class LedgerMutationAudit {
 
     @Column(name = "mutation_amount", precision = 18, scale = 4, nullable = false)
     private BigDecimal mutationAmount;
+
+    @Column(name = "currency_code", nullable = false, length = 3)
+    private String currencyCode;
 
     @Column(name = "mutation_type", nullable = false, length = 10)
     private String mutationType; // DEBIT / CREDIT

@@ -66,9 +66,11 @@ erDiagram
         string debit_account_id FK "nullable - required for WITHDRAWAL/TRANSFER"
         string credit_account_id FK "nullable - required for DEPOSIT/TRANSFER"
         decimal mutation_amount "NUMBER(18,4), > 0 - source-side amount"
+        string currency_code "source/primary amount currency"
         string is_cross_currency "Y/N"
         decimal fx_rate "NUMBER(18,8), nullable - null for same-currency txns"
         decimal dest_amount "NUMBER(18,4), nullable - converted amount"
+        string dest_currency_code "destination amount currency for transfers"
         string txn_status "PENDING, COMMITTED, ROLLED_BACK"
         datetime initiated_at
         datetime completed_at "nullable while pending"
@@ -103,6 +105,7 @@ erDiagram
         string txn_id
         string account_id
         decimal mutation_amount "NUMERIC(18,4), always positive"
+        string currency_code "currency of this ledger leg"
         string mutation_type "DEBIT, CREDIT"
         string txn_type "WITHDRAWAL, DEPOSIT, TRANSFER"
         string audit_state "PENDING, COMMITTED, ROLLED_BACK"
@@ -129,10 +132,12 @@ erDiagram
         string mutation_uuid FK "nullable"
         string duplicate_mutation_uuid FK "nullable"
         string recon_status "MATCHED, EXCEPTION"
-        string exception_type "nullable"
+        string exception_type "nullable, includes CURRENCY_MISMATCH"
+        string expected_currency_code "nullable"
+        string actual_currency_code "nullable"
         decimal expected_amount
         decimal actual_amount
-        decimal variance_amount "generated: actual - expected"
+        decimal variance_amount "generated only when currencies match"
         string txn_status
         string ledger_audit_state
         datetime txn_completed_at

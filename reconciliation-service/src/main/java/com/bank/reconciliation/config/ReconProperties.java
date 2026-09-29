@@ -13,7 +13,6 @@ import java.math.BigDecimal;
 @Setter
 public class ReconProperties {
 
-    private int windowMinutes = 60;
     private String scheduleCron = "0 */15 * * * *";
     private Topics topics = new Topics();
     private Matching matching = new Matching();

@@ -59,6 +59,9 @@ public class TransactionMaster {
     @Column(name = "mutation_amount", nullable = false, precision = 18, scale = 4)
     private BigDecimal mutationAmount;
 
+    @Column(name = "currency_code", nullable = false, length = 3)
+    private String currencyCode;
+
     @Builder.Default
     @Column(name = "is_cross_currency", length = 1, nullable = false)
     private String isCrossCurrency = "N";
@@ -68,6 +71,9 @@ public class TransactionMaster {
 
     @Column(name = "dest_amount", precision = 18, scale = 4)
     private BigDecimal destAmount;
+
+    @Column(name = "dest_currency_code", length = 3)
+    private String destCurrencyCode;
 
     // DEFAULT 'PENDING' in DDL; set to COMMITTED after dual-write succeeds
     @Column(name = "txn_status", nullable = false, length = 20)

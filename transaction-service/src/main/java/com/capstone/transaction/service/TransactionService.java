@@ -26,6 +26,7 @@ import com.capstone.common.event.TransactionCompletedEvent;
 import com.capstone.common.event.TransactionCreatedEvent;
 import com.capstone.common.event.TransactionFailedEvent;
 import com.capstone.common.exception.IdempotencyConflictException;
+import com.capstone.common.exception.ResourceNotFoundException;
 import com.capstone.common.exception.LedgerPersistenceException;
 import com.capstone.common.security.SecurityUtils;
 import com.capstone.transaction.client.AccountsServiceClient;
@@ -161,13 +162,19 @@ public class TransactionService {
         AccountDTO srcAcct = accountsServiceClient.getAccount(request.accountId());
         AccountDTO destAcct = accountsServiceClient.getAccount(request.counterpartyAccountId());
 
+                if (srcAcct == null || destAcct == null
+                                || srcAcct.currencyCode() == null || srcAcct.currencyCode().isBlank()
+                                || destAcct.currencyCode() == null || destAcct.currencyCode().isBlank()) {
+                        throw new ResourceNotFoundException("Source or destination account currency not found");
+                }
+
         if (srcAcct != null) {
             SecurityUtils.checkCustomerAccess(srcAcct.customerId(), "transfer from account " + request.accountId());
         }
 
-        boolean isCrossCurrency = srcAcct != null && destAcct != null
-                && srcAcct.currencyCode() != null && destAcct.currencyCode() != null
-                && !srcAcct.currencyCode().equalsIgnoreCase(destAcct.currencyCode());
+        String sourceCurrencyCode = srcAcct.currencyCode().trim().toUpperCase(java.util.Locale.ROOT);
+        String destCurrencyCode = destAcct.currencyCode().trim().toUpperCase(java.util.Locale.ROOT);
+        boolean isCrossCurrency = !sourceCurrencyCode.equals(destCurrencyCode);
 
         if (isCrossCurrency) {
             return executeCrossCurrencyTransfer(request, txnId, srcAcct, destAcct);
@@ -175,7 +182,9 @@ public class TransactionService {
 
         return executeTransfer(
                 request,
-                txnId.toString());
+                txnId.toString(),
+                sourceCurrencyCode,
+                destCurrencyCode);
     }
 
     /**
@@ -214,6 +223,7 @@ public class TransactionService {
                             .txnId(master.getTxnId())
                             .accountId(master.getDebitAccountId())
                             .mutationAmount(master.getMutationAmount())
+                            .currencyCode(master.getCurrencyCode())
                             .mutationType("DEBIT")
                             .txnType(master.getTxnType())
                             .auditState(master.getTxnStatus())
@@ -226,6 +236,8 @@ public class TransactionService {
                             .txnId(master.getTxnId())
                             .accountId(master.getCreditAccountId())
                             .mutationAmount(master.getDestAmount() != null ? master.getDestAmount() : master.getMutationAmount())
+                            .currencyCode(master.getDestCurrencyCode() != null
+                                    ? master.getDestCurrencyCode() : master.getCurrencyCode())
                             .mutationType("CREDIT")
                             .txnType(master.getTxnType())
                             .auditState(master.getTxnStatus())
@@ -302,6 +314,12 @@ public class TransactionService {
 
         try {
 
+                        AccountDTO account = accountsServiceClient.getAccount(request.accountId());
+                        if (account == null || account.currencyCode() == null || account.currencyCode().isBlank()) {
+                                throw new ResourceNotFoundException("Account currency not found for " + request.accountId());
+                        }
+                        String currencyCode = account.currencyCode().trim().toUpperCase(java.util.Locale.ROOT);
+
             // Phase 1: Oracle — balance mutation +
             // TRANSACTION_MASTER PENDING
             BigDecimal delta = "DEBIT".equals(mutationType)
@@ -318,7 +336,8 @@ public class TransactionService {
                             : null,
                     "CREDIT".equals(mutationType)
                             ? request.accountId()
-                            : null);
+                            : null,
+                    currencyCode);
 
             eventProducer.publishCreated(
                     new TransactionCreatedEvent(
@@ -337,6 +356,7 @@ public class TransactionService {
                     txnType,
                     mutationType,
                     request.amount(),
+                    currencyCode,
                     result);
 
             TransactionResponse response =
@@ -347,7 +367,13 @@ public class TransactionService {
                             request.amount(),
                             result.balanceAfter(),
                             "COMMITTED",
-                            Instant.now());
+                            Instant.now(),
+                            null,
+                            null,
+                            null,
+                            null,
+                            false,
+                            currencyCode);
 
             idempotencyService.storeResult(
                     request.idempotencyKey(),
@@ -388,7 +414,9 @@ public class TransactionService {
 
     private TransactionResponse executeTransfer(
         TransactionRequest request,
-        String txnId) {
+                String txnId,
+                String sourceCurrencyCode,
+                String destCurrencyCode) {
 
         Optional<TransactionResponse> cached =
                 idempotencyService.getCached(
@@ -418,7 +446,9 @@ public class TransactionService {
                             request.accountId(),
                             request.counterpartyAccountId(),
                             request.amount(),
-                            txnId);
+                            txnId,
+                            sourceCurrencyCode,
+                            destCurrencyCode);
 
             eventProducer.publishCreated(
                     new TransactionCreatedEvent(
@@ -434,7 +464,9 @@ public class TransactionService {
             persistTransferAuditOrCompensate(
                     txnId,
                     request,
-                    transferResult);
+                    transferResult,
+                    sourceCurrencyCode,
+                    destCurrencyCode);
 
             TransactionResponse response =
                     new TransactionResponse(
@@ -446,7 +478,13 @@ public class TransactionService {
                                     .sourceResult()
                                     .balanceAfter(),
                             "COMMITTED",
-                            Instant.now());
+                            Instant.now(),
+                            destCurrencyCode,
+                            BigDecimal.ONE,
+                            request.amount(),
+                            null,
+                            false,
+                            sourceCurrencyCode);
 
             idempotencyService.storeResult(
                     request.idempotencyKey(),
@@ -525,6 +563,8 @@ public class TransactionService {
                         .debitAccountId(request.accountId())
                         .creditAccountId(request.counterpartyAccountId())
                         .mutationAmount(request.amount())
+                        .currencyCode(srcAcct.currencyCode().trim().toUpperCase(java.util.Locale.ROOT))
+                        .destCurrencyCode(destAcct.currencyCode().trim().toUpperCase(java.util.Locale.ROOT))
                         .isCrossCurrency("Y")
                         .txnStatus("PENDING")
                         .initiatedAt(now)
@@ -582,7 +622,8 @@ public class TransactionService {
                     null,
                     null,
                     null,
-                    true
+                    true,
+                    srcAcct.currencyCode()
             );
 
             idempotencyService.storeResult(
@@ -616,7 +657,8 @@ public class TransactionService {
             String txnId,
             String txnType,
             String debitAccountId,
-            String creditAccountId) {
+            String creditAccountId,
+            String currencyCode) {
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -629,6 +671,7 @@ public class TransactionService {
                             .debitAccountId(debitAccountId)
                             .creditAccountId(creditAccountId)
                             .mutationAmount(delta.abs())
+                            .currencyCode(currencyCode)
                             .isCrossCurrency("N")
                             .txnStatus("PENDING")
                             .initiatedAt(now)
@@ -662,7 +705,9 @@ public class TransactionService {
             String sourceId,
             String destId,
             BigDecimal amount,
-            String txnId) {
+            String txnId,
+            String sourceCurrencyCode,
+            String destCurrencyCode) {
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -675,6 +720,8 @@ public class TransactionService {
                             .debitAccountId(sourceId)
                             .creditAccountId(destId)
                             .mutationAmount(amount)
+                            .currencyCode(sourceCurrencyCode)
+                            .destCurrencyCode(destCurrencyCode)
                             .isCrossCurrency("N")
                             .txnStatus("PENDING")
                             .initiatedAt(now)
@@ -731,6 +778,7 @@ public class TransactionService {
             String txnType,
             String mutationType,
             BigDecimal amount,
+            String currencyCode,
             MutationResult result) {
 
         try {
@@ -741,6 +789,7 @@ public class TransactionService {
                                     .txnId(txnId)
                                     .accountId(accountId)
                                     .mutationAmount(amount)
+                                    .currencyCode(currencyCode)
                                     .mutationType(mutationType)
                                     .txnType(txnType)
                                     .auditState("COMMITTED")
@@ -776,7 +825,9 @@ public class TransactionService {
     private void persistTransferAuditOrCompensate(
             String txnId,
             TransactionRequest request,
-            TransferResult result) {
+            TransferResult result,
+            String sourceCurrencyCode,
+            String destCurrencyCode) {
 
         try {
 
@@ -789,6 +840,7 @@ public class TransactionService {
                                         request.accountId())
                                 .mutationAmount(
                                         request.amount())
+                                .currencyCode(sourceCurrencyCode)
                                 .mutationType("DEBIT")
                                 .txnType("TRANSFER")
                                 .auditState("COMMITTED")
@@ -802,6 +854,7 @@ public class TransactionService {
                                         request.counterpartyAccountId())
                                 .mutationAmount(
                                         request.amount())
+                                .currencyCode(destCurrencyCode)
                                 .mutationType("CREDIT")
                                 .txnType("TRANSFER")
                                 .auditState("COMMITTED")

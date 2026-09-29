@@ -4,7 +4,6 @@ import com.capstone.ledger.frontend.model.enums.AccountStatus;
 import com.capstone.ledger.frontend.model.enums.AccountType;
 
 import java.math.BigDecimal;
-import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 
 /**
@@ -41,17 +40,11 @@ public class AccountView {
 
     // Currency symbol helper
     public String getCurrencySymbol() {
-        if ("USD".equalsIgnoreCase(currencyCode)) return "$";
-        if ("EUR".equalsIgnoreCase(currencyCode)) return "€";
-        if ("GBP".equalsIgnoreCase(currencyCode)) return "£";
-        if ("JPY".equalsIgnoreCase(currencyCode)) return "¥";
-        if ("SGD".equalsIgnoreCase(currencyCode)) return "S$";
-        return "₱"; // Default PHP
+        return CurrencyMoneyFormat.symbol(currencyCode);
     }
 
     public String getFormattedBalance() {
-        DecimalFormat df = new DecimalFormat("#,##0.00");
-        return getCurrencySymbol() + df.format(balance != null ? balance : BigDecimal.ZERO);
+        return CurrencyMoneyFormat.format(balance != null ? balance : BigDecimal.ZERO, currencyCode);
     }
 
     public boolean isActive() {

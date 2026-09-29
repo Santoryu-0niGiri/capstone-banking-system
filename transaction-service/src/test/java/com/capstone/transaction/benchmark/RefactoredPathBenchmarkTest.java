@@ -167,7 +167,8 @@ class RefactoredPathBenchmarkTest {
 
             @Override
             public AccountDTO getAccount(String accountId) {
-                return null;
+                return new AccountDTO(accountId, "customer-benchmark", "CHECKING", "ACTIVE",
+                        currentBalance.get(), "PHP", null);
             }
         };
 

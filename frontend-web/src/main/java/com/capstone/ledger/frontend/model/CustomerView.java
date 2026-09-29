@@ -74,6 +74,9 @@ public class CustomerView {
                     BigDecimal bal = a.getBalance() != null ? a.getBalance() : BigDecimal.ZERO;
                     if ("USD".equalsIgnoreCase(a.getCurrencyCode())) return bal.multiply(new BigDecimal("56.50"));
                     if ("EUR".equalsIgnoreCase(a.getCurrencyCode())) return bal.multiply(new BigDecimal("61.20"));
+                    if ("GBP".equalsIgnoreCase(a.getCurrencyCode())) return bal.multiply(new BigDecimal("72.80"));
+                    if ("SGD".equalsIgnoreCase(a.getCurrencyCode())) return bal.multiply(new BigDecimal("42.30"));
+                    if ("JPY".equalsIgnoreCase(a.getCurrencyCode())) return bal.multiply(new BigDecimal("0.38"));
                     return bal;
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

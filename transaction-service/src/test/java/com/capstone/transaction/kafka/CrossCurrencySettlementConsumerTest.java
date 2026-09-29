@@ -118,6 +118,7 @@ class CrossCurrencySettlementConsumerTest {
         assertThat(debitAudit.getAccountId()).isEqualTo(srcAccountId);
         assertThat(debitAudit.getMutationType()).isEqualTo("DEBIT");
         assertThat(debitAudit.getMutationAmount()).isEqualByComparingTo(srcAmount);
+        assertThat(debitAudit.getCurrencyCode()).isEqualTo("USD");
         assertThat(debitAudit.getAuditState()).isEqualTo("COMMITTED");
 
         LedgerMutationAudit creditAudit = savedAudits.get(1);
@@ -125,6 +126,7 @@ class CrossCurrencySettlementConsumerTest {
         assertThat(creditAudit.getAccountId()).isEqualTo(destAccountId);
         assertThat(creditAudit.getMutationType()).isEqualTo("CREDIT");
         assertThat(creditAudit.getMutationAmount()).isEqualByComparingTo(destAmount);
+        assertThat(creditAudit.getCurrencyCode()).isEqualTo("PHP");
         assertThat(creditAudit.getAuditState()).isEqualTo("COMMITTED");
 
         // Verify notification outbox record

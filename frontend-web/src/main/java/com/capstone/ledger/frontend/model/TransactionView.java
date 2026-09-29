@@ -5,7 +5,6 @@ import com.capstone.ledger.frontend.model.enums.MutationDirection;
 import com.capstone.ledger.frontend.model.enums.TransactionType;
 
 import java.math.BigDecimal;
-import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 
 /**
@@ -64,29 +63,21 @@ public class TransactionView {
     }
 
     public String getCurrencySymbol() {
-        if ("USD".equalsIgnoreCase(currencyCode)) return "$";
-        if ("EUR".equalsIgnoreCase(currencyCode)) return "€";
-        if ("GBP".equalsIgnoreCase(currencyCode)) return "£";
-        return "₱";
+        return CurrencyMoneyFormat.symbol(currencyCode);
     }
 
     public String getDestCurrencySymbol() {
-        if ("USD".equalsIgnoreCase(destCurrencyCode)) return "$";
-        if ("EUR".equalsIgnoreCase(destCurrencyCode)) return "€";
-        if ("GBP".equalsIgnoreCase(destCurrencyCode)) return "£";
-        return "₱";
+        return CurrencyMoneyFormat.symbol(destCurrencyCode);
     }
 
     public String getFormattedAmount() {
-        DecimalFormat df = new DecimalFormat("#,##0.00");
         String prefix = direction != null ? direction.getSign() : "";
-        return prefix + getCurrencySymbol() + df.format(amount);
+        return prefix + CurrencyMoneyFormat.format(amount, currencyCode);
     }
 
     public String getFormattedDestAmount() {
         if (destAmount == null) return null;
-        DecimalFormat df = new DecimalFormat("#,##0.00");
-        return getDestCurrencySymbol() + df.format(destAmount);
+        return CurrencyMoneyFormat.format(destAmount, destCurrencyCode);
     }
 
     // --- Aliases for compatibility ---
