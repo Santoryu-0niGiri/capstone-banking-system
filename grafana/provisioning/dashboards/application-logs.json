@@ -21,7 +21,7 @@
           "type": "loki",
           "uid": "loki"
         },
-        "query": "label_values(service)",
+        "query": "label_values({job=\"banking-services\"}, service)",
         "refresh": 2,
         "multi": true,
         "includeAll": true,
@@ -359,7 +359,7 @@
     {
       "id": 6,
       "title": "Failed Transaction Logs",
-      "description": "Log lines where txnStatus=FAILED.",
+      "description": "Log lines from transaction failures — insufficient balance, validation errors, or rejected mutations. Matches TransactionFailedEvent log entries and HTTP 422 responses.",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -386,7 +386,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{service=~\"$service\"} | json | txnStatus =~ \"(?i)FAILED\"",
+          "expr": "{service=~\"$service\"} |~ \"(?i)FAILED|insufficient|TransactionFailed|rejected|CLIENT_ERROR\"",
           "legendFormat": "",
           "refId": "A",
           "maxLines": 200

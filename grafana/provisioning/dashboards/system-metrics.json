@@ -74,8 +74,8 @@
     },
     {
       "id": 3,
-      "title": "HTTP 5xx Error Rate (errors/s)",
-      "description": "5xx responses per second by service. Any sustained value above zero warrants investigation.",
+      "title": "HTTP Error Rate — 4xx Business Failures + 5xx Server Errors (errors/s)",
+      "description": "4xx (422 rejected transactions, 403 auth failures, 404 not found) and 5xx server errors per second by service. 422 = failed transaction or validation error. 5xx = unhandled server crash.",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "options": {
@@ -89,8 +89,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[1m])) by (job) or vector(0)",
-          "legendFormat": "{{job}} 5xx",
+          "expr": "sum(rate(http_server_requests_seconds_count{status=~\"4..|5..\"}[1m])) by (job, status) or vector(0)",
+          "legendFormat": "{{job}} HTTP {{status}}",
           "refId": "A"
         }
       ],
@@ -98,7 +98,7 @@
         "defaults": {
           "unit": "reqps",
           "min": 0,
-          "color": { "fixedColor": "red", "mode": "fixed" },
+          "color": { "mode": "palette-classic" },
           "thresholds": {
             "mode": "absolute",
             "steps": [

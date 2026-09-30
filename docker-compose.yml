@@ -6,6 +6,7 @@ volumes:
   oracle-data:
   postgres-data:
   loki-data:
+  promtail-positions:
 
 services:
   oracle-db:
@@ -298,6 +299,7 @@ services:
     environment:
       BANKING_BACKEND_MODE: gateway
       BANKING_GATEWAY_URL: http://api-gateway:8080
+      SPRING_PROFILES_ACTIVE: docker
     labels:
       banking.service: "true"
     networks:
@@ -370,14 +372,18 @@ services:
   # Reads Docker container logs via the Docker socket and ships them to Loki.
   # /var/lib/docker/containers is mounted read-only for log file access.
   # /var/run/docker.sock is mounted for Docker SD (service discovery).
+  # promtail-positions volume persists read offsets across Promtail restarts so
+  # logs are not re-ingested from the beginning each time Promtail is restarted.
   promtail:
     image: grafana/promtail:2.9.0
     container_name: promtail
+    restart: unless-stopped
     command: -config.file=/etc/promtail/promtail-config.yml
     volumes:
       - ./promtail:/etc/promtail
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock
+      - promtail-positions:/promtail-positions
     depends_on:
       loki:
         condition: service_healthy

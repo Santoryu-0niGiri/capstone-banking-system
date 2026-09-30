@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logback configuration for notification-service.
+  - default/local profile : plain-text console (human-readable for local dev)
+  - docker/prod profile   : structured JSON via LogstashEncoder (Promtail → Loki)
+-->
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <springProperty scope="context" name="appName"
+                    source="spring.application.name"
+                    defaultValue="notification-service"/>
+
+    <!-- ── Plain text console (default / local dev) ──────────────────────── -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ── Structured JSON console (docker profile — picked up by Promtail) ─ -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Service name embedded in every log line for Loki label compatibility -->
+            <customFields>{"service":"${appName}"}</customFields>
+            <!-- MDC fields written by the application -->
+            <includeMdcKeyName>transactionId</includeMdcKeyName>
+            <includeMdcKeyName>txnType</includeMdcKeyName>
+            <includeMdcKeyName>txnStatus</includeMdcKeyName>
+            <includeMdcKeyName>reason</includeMdcKeyName>
+            <includeMdcKeyName>component</includeMdcKeyName>
+            <includeMdcKeyName>event_type</includeMdcKeyName>
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerCause>10</maxDepthPerCause>
+                <rootCauseFirst>true</rootCauseFirst>
+            </throwableConverter>
+        </encoder>
+    </appender>
+
+    <!-- ── Async wrapper (prevents I/O blocking application threads) ─────── -->
+    <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="JSON_CONSOLE"/>
+        <queueSize>4096</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>false</includeCallerData>
+    </appender>
+
+    <!-- ── Logger tuning ─────────────────────────────────────────────────── -->
+    <logger name="org.hibernate"            level="WARN"/>
+    <logger name="com.zaxxer.hikari"        level="WARN"/>
+    <logger name="org.springframework.kafka" level="WARN"/>
+    <logger name="org.apache.kafka"         level="WARN"/>
+    <logger name="org.springframework.web"  level="WARN"/>
+    <logger name="org.springframework.security" level="WARN"/>
+    <logger name="com.capstone"             level="INFO"/>
+
+    <!-- ── Active profiles ───────────────────────────────────────────────── -->
+    <springProfile name="default,local,test">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="docker,prod">
+        <root level="INFO">
+            <appender-ref ref="ASYNC_JSON"/>
+        </root>
+    </springProfile>
+
+</configuration>

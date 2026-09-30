@@ -1,164 +1,119 @@
 server:
   http_listen_port: 9080
   grpc_listen_port: 0
-  log_level: warn
+  log_level: info
 
-# ── Positions file ─────────────────────────────────────────────────────────────
-# Promtail persists the last-read offset for each log file here.
-# Mounting this into a volume ensures it survives container restarts so logs
-# are not re-ingested from the beginning after a restart.
 positions:
-  filename: /tmp/positions.yaml
+  filename: /promtail-positions/positions.yaml
 
-# ── Loki push target ───────────────────────────────────────────────────────────
 clients:
   - url: http://loki:3100/loki/api/v1/push
-    # Back-pressure: if Loki is unavailable, buffer up to 10 000 entries.
     batchwait: 1s
-    batchsize: 1048576   # 1 MiB per batch
+    batchsize: 1048576
     timeout: 10s
 
-# ── Scrape configs ─────────────────────────────────────────────────────────────
 scrape_configs:
 
-  # ── Docker container logs ────────────────────────────────────────────────────
-  # Promtail discovers containers via the Docker socket and reads their stdout/
-  # stderr log files from /var/lib/docker/containers on the host.
-  # Each log entry is labelled with:
-  #   container_name  — the Docker container name (matches our service names)
-  #   service         — extracted from the Docker label or container name
-  #   level           — parsed from the JSON log field "level" (when JSON logging)
+  # ── Banking service logs via filesystem glob ───────────────────────────────
+  # docker_sd_configs is NOT used. Promtail 2.9.0 crashes when any container
+  # label value contains colons or equals signs (Docker Compose dependency labels).
+  # Static glob over /var/lib/docker/containers is the correct workaround.
   #
-  # SENSITIVE DATA POLICY:
-  #   - Promtail does NOT filter log content here; that responsibility belongs
-  #     to the application (BankingMetricsService / logback-spring.xml).
-  #   - We never log passwords, JWT tokens, auth headers, or raw credentials.
-  #   - Promtail drops the raw Docker metadata labels that expose internal IDs.
-  - job_name: docker-containers
-    docker_sd_configs:
-      - host: unix:///var/run/docker.sock
-        refresh_interval: 10s
-        filters:
-          # Only collect logs from containers on the banking-net network.
-          # This excludes Loki/Promtail/Prometheus/Grafana infrastructure
-          # containers themselves from polluting the application log streams.
-          - name: label
-            values: ["banking.service=true"]
-
-    relabel_configs:
-      # Use the container name as the primary stream identifier.
-      - source_labels: [__meta_docker_container_name]
-        regex: /(.*)
-        target_label: container_name
-
-      # Derive a clean 'service' label from the container name.
-      # e.g. /transaction-service → transaction-service
-      - source_labels: [__meta_docker_container_name]
-        regex: /(.*)
-        target_label: service
-
-      # Preserve the Docker image name for debugging.
-      - source_labels: [__meta_docker_container_image_name]
-        target_label: image
-
-      # Drop noisy internal Docker metadata labels.
-      - regex: __meta_docker_container_label_com_docker.*
-        action: labeldrop
-      - regex: __meta_docker_container_label_org_opencontainers.*
-        action: labeldrop
-
-    pipeline_stages:
-      # ── Attempt JSON parsing (transaction-service docker profile) ───────────
-      # If the log line is valid JSON (LogstashEncoder output), extract fields.
-      - json:
-          expressions:
-            level:          level
-            logger:         logger_name
-            message:        message
-            txnType:        txnType
-            txnStatus:      txnStatus
-            transactionId:  transactionId
-            reason:         reason
-            service_field:  service
-            component:      component
-            event_type:     event_type
-
-      # Promote 'level', 'component', and 'event_type' to Loki stream labels so dashboards can filter by them.
-      - labels:
-          level:
-          service_field:
-          component:
-          event_type:
-
-      # ── Fallback: plain-text log level extraction ────────────────────────────
-      # For services still emitting plain text (non-docker profile), extract
-      # the level from the standard Spring Boot log pattern:
-      #   2026-09-28 10:00:00.000 [thread] LEVEL  logger - message
-      - match:
-          selector: '{level=""}'
-          stages:
-            - regex:
-                expression: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\s+\[.*?\]\s+(?P<level>TRACE|DEBUG|INFO|WARN|ERROR)\s+'
-            - labels:
-                level:
-
-      # ── Timestamp ────────────────────────────────────────────────────────────
-      # Use the log event's own timestamp when available (JSON field "@timestamp").
-      - json:
-          expressions:
-            ts: "@timestamp"
-      - timestamp:
-          source: ts
-          format: RFC3339Nano
-          action_on_failure: skip
-
-      # ── Drop health-check noise ───────────────────────────────────────────────
-      # Actuator /actuator/health polls every few seconds from Prometheus.
-      # These produce no useful signal in Loki.
-      - drop:
-          expression: '.*GET /actuator/health.*'
-          drop_counter_reason: health_check_noise
-
-      # ── Drop Prometheus scrape noise ─────────────────────────────────────────
-      - drop:
-          expression: '.*GET /actuator/prometheus.*'
-          drop_counter_reason: prometheus_scrape_noise
-
-  # ── Fallback: static file collection for containers without Docker labels ────
-  # Collects logs for all banking services by container name pattern so that
-  # services without the banking.service=true Docker label are still captured.
-  - job_name: banking-services-fallback
+  # Pipeline flow:
+  #   1. Docker json-file envelope  -> extract inner log line + docker timestamp
+  #   2. Regex on inner log string  -> extract service name BEFORE output stage
+  #   3. output stage               -> set current line to inner log content
+  #   4. json stage                 -> parse inner JSON for level + other fields
+  #   5. labels stage               -> promote service + level to Loki labels
+  #   6. drop stage                 -> discard lines from non-banking containers
+  - job_name: banking-services
     static_configs:
       - targets:
           - localhost
         labels:
-          job: banking-fallback
+          job: banking-services
+          service: unknown
           __path__: /var/lib/docker/containers/*/*-json.log
 
     pipeline_stages:
+
+      # ── Step 1: unwrap the Docker json-file envelope ──────────────────────
+      # Each line on disk:
+      #   {"log":"{\"@timestamp\":...\"service\":\"api-gateway\"}\n","stream":"stdout","time":"..."}
+      # Extract the inner log string, stream, and Docker timestamp.
       - json:
           expressions:
-            log:    log
-            stream: stream
-            time:   time
+            output:    log
+            stream:    stream
+            docker_ts: time
 
+      # Use Docker's envelope timestamp (accurate to nanosecond).
       - timestamp:
-          source: time
+          source: docker_ts
           format: RFC3339Nano
           action_on_failure: skip
 
-      - output:
-          source: log
+      # ── Step 2: extract service name via regex BEFORE output stage ─────────
+      # The 'output' extracted value holds the inner log string (still with
+      # trailing \n). We extract service_name from it with a regex so we can
+      # use it even if the json stage later fails.
+      # This matches all services using LogstashEncoder (docker profile).
+      - regex:
+          source: output
+          expression: '"service"\s*:\s*"(?P<service_name>[^"]+)"'
 
+      # ── Step 3: extract log level via regex (also from the inner string) ───
+      # Same approach for level - extract before output stage.
+      - regex:
+          source: output
+          expression: '"level"\s*:\s*"(?P<level>[^"]+)"'
+
+      # ── Step 4: promote service + level to Loki stream labels ─────────────
+      # service_name and level are now in the extracted map from the regex stages.
+      - labels:
+          service: service_name
+          level:
+
+      # ── Step 5: drop lines from non-banking containers ────────────────────
+      # Infra containers (loki, grafana, postgres, redis, kafka etc.) don't
+      # emit JSON with a "service" field, so service_name stays empty → drop.
+      - drop:
+          source: service_name
+          expression: "^$"
+          drop_counter_reason: non_banking_container
+
+      # ── Step 6: set current line to inner log content ─────────────────────
+      # Only runs for lines that passed the drop filter above.
+      - output:
+          source: output
+
+      # ── Step 7: full json parse of the inner log for queryable fields ──────
+      # This gives Grafana/Loki the structured JSON fields for | json queries.
+      # The trailing \n on the log string is fine here because Loki's json
+      # parser is tolerant of trailing whitespace, unlike Promtail's extractor.
       - json:
           expressions:
-            level:   level
-            service: service
+            txnType:       txnType
+            txnStatus:     txnStatus
+            transactionId: transactionId
+            reason:        reason
+            component:     component
+            event_type:    event_type
 
-      - labels:
-          level:
-          service:
+      # ── Step 8: plain-text level fallback ─────────────────────────────────
+      # For services not yet on JSON logging (level label will be empty).
+      - match:
+          selector: '{level=""}'
+          stages:
+            - regex:
+                expression: '^\s*\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[\.,]\d+\s+(?P<level>TRACE|DEBUG|INFO|WARN|ERROR)\s+'
+            - labels:
+                level:
 
+      # ── Step 9: drop actuator noise ───────────────────────────────────────
       - drop:
-          expression: '.*GET /actuator/(health|prometheus).*'
-          drop_counter_reason: infra_noise
+          expression: '.*GET /actuator/health.*'
+          drop_counter_reason: health_check_noise
+      - drop:
+          expression: '.*GET /actuator/prometheus.*'
+          drop_counter_reason: prometheus_scrape_noise

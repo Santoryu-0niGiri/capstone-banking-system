@@ -32,12 +32,12 @@
     },
     {
       "id": 3,
-      "title": "HTTP 5xx Error Rate (errors/s)",
+      "title": "HTTP Error Rate — 4xx + 5xx (errors/s)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[1m])) by (job) or vector(0)", "legendFormat": "{{job}} 5xx" }],
-      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "fixedColor": "red", "mode": "fixed" } } }
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_server_requests_seconds_count{status=~\"4..|5..\"}[1m])) by (job, status) or vector(0)", "legendFormat": "{{job}} HTTP {{status}}" }],
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } } }
     },
     {
       "id": 4,

@@ -10,6 +10,7 @@ info:
     - Customer onboarding
     - BCrypt credential verification
     - JWT-based authentication
+    - JWT-based authentication
     - JWT revocation through Redis
     - Multi-currency bank account management
     - Atomic balance mutations
