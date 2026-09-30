@@ -238,7 +238,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{service=~\"$service\"} | json | level =~ \"(?i)ERROR\" |~ \"(?i)$search\"",
+          "expr": "{service=~\"$service\"} | json | level =~ \"(?i)FAILED|insufficient|TransactionFailed|rejected|CLIENT_ERROR\" |~ \"(?i)$search\"",
           "legendFormat": "",
           "refId": "A",
           "maxLines": 200
