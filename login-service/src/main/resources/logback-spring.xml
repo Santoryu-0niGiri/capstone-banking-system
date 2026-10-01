@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Standard Logback configuration for microservices.
+  - Console appender: plain text for local development.
+  - JSON appender: structured JSON via logstash-logback-encoder for Docker / Loki ingestion.
+  Active profile is driven by Spring's <springProfile>.
+  MDC keys: transactionId, txnType, txnStatus, reason, component, event_type, service
+-->
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <springProperty scope="context" name="appName"
+                    source="spring.application.name"
+                    defaultValue="banking-service"/>
+
+    <!-- ── Plain text console (default / local dev) ──────────────────────── -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ── Structured JSON console (docker profile — picked up by Promtail) ─ -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Always include the Spring app name as a top-level field -->
+            <customFields>{"service":"${appName}"}</customFields>
+            <!-- Include MDC fields -->
+            <includeMdcKeyName>transactionId</includeMdcKeyName>
+            <includeMdcKeyName>txnType</includeMdcKeyName>
+            <includeMdcKeyName>txnStatus</includeMdcKeyName>
+            <includeMdcKeyName>reason</includeMdcKeyName>
+            <includeMdcKeyName>component</includeMdcKeyName>
+            <includeMdcKeyName>event_type</includeMdcKeyName>
+            
+            <!-- Suppress verbose Spring internals from the JSON log -->
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerCause>10</maxDepthPerCause>
+                <rootCauseFirst>true</rootCauseFirst>
+            </throwableConverter>
+        </encoder>
+    </appender>
+
+    <!-- ── Async wrapper ─ -->
+    <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="JSON_CONSOLE"/>
+        <queueSize>4096</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>false</includeCallerData>
+    </appender>
+
+    <!-- ── Logger configuration ──────────────────────────────────────────── -->
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <logger name="org.springframework.kafka" level="WARN"/>
+    <logger name="org.apache.kafka" level="WARN"/>
+    <logger name="org.springframework.web" level="WARN"/>
+    <logger name="org.springframework.security" level="WARN"/>
+
+    <logger name="com.capstone" level="INFO"/>
+
+    <!-- ── Active profiles ───────────────────────────────────────────────── -->
+    <springProfile name="default,local,test">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="docker,prod">
+        <root level="INFO">
+            <appender-ref ref="ASYNC_JSON"/>
+        </root>
+    </springProfile>
+
+</configuration>

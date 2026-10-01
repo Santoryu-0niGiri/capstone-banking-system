@@ -15,6 +15,9 @@ import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepositor
 import com.capstone.transaction.service.BalanceCacheInvalidator;
 import com.capstone.transaction.service.IdempotencyService;
 import com.capstone.transaction.service.TransactionService;
+import com.capstone.transaction.metrics.BankingMetricsService;
+import org.mockito.Mockito;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -180,7 +183,8 @@ class RefactoredPathBenchmarkTest {
                 txManager,
                 idempotencyService,
                 eventProducer,
-                balanceCacheInvalidator
+                balanceCacheInvalidator,
+                Mockito.mock(BankingMetricsService.class)
         );
     }
 

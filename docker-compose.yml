@@ -5,6 +5,8 @@ networks:
 volumes:
   oracle-data:
   postgres-data:
+  loki-data:
+  promtail-positions:
 
 services:
   oracle-db:
@@ -89,6 +91,10 @@ services:
     networks:
       - banking-net
 
+  # ── Application services ────────────────────────────────────────────────────
+  # Each service carries the Docker label 'banking.service=true' so that
+  # Promtail's Docker SD filter picks up its logs automatically.
+
   api-gateway:
     build:
       context: .
@@ -115,6 +121,9 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+      SPRING_PROFILES_ACTIVE: docker
+    labels:
+      banking.service: "true"
     networks:
       - banking-net
 
@@ -134,6 +143,9 @@ services:
       ORACLE_PASSWORD: LedgerAppPass123
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+      SPRING_PROFILES_ACTIVE: docker
+    labels:
+      banking.service: "true"
     networks:
       - banking-net
 
@@ -154,6 +166,9 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+      SPRING_PROFILES_ACTIVE: docker
+    labels:
+      banking.service: "true"
     networks:
       - banking-net
 
@@ -177,6 +192,9 @@ services:
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+      SPRING_PROFILES_ACTIVE: docker
+    labels:
+      banking.service: "true"
     networks:
       - banking-net
 
@@ -208,6 +226,10 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       ACCOUNTS_SERVICE_URL: http://accounts-service:8083
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+      # Activates the 'docker' Spring profile → JSON logging for Loki ingestion
+      SPRING_PROFILES_ACTIVE: docker
+    labels:
+      banking.service: "true"
     networks:
       - banking-net
 
@@ -233,6 +255,9 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+      SPRING_PROFILES_ACTIVE: docker
+    labels:
+      banking.service: "true"
     networks:
       - banking-net
 
@@ -256,6 +281,9 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+      SPRING_PROFILES_ACTIVE: docker
+    labels:
+      banking.service: "true"
     networks:
       - banking-net
 
@@ -271,6 +299,9 @@ services:
     environment:
       BANKING_BACKEND_MODE: gateway
       BANKING_GATEWAY_URL: http://api-gateway:8080
+      SPRING_PROFILES_ACTIVE: docker
+    labels:
+      banking.service: "true"
     networks:
       - banking-net
 
@@ -298,8 +329,13 @@ services:
       POSTGRES_PASSWORD: LedgerAuditPass123
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
+      SPRING_PROFILES_ACTIVE: docker
+    labels:
+      banking.service: "true"
     networks:
       - banking-net
+
+  # ── Observability infrastructure ────────────────────────────────────────────
 
   prometheus:
     image: prom/prometheus:v2.53.1
@@ -311,6 +347,52 @@ services:
     networks:
       - banking-net
 
+  # ── Loki — centralised log aggregation ──────────────────────────────────────
+  # Single-binary mode with filesystem storage.
+  # Data persisted in the named volume 'loki-data' so logs survive restarts.
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./loki:/etc/loki
+      - loki-data:/loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - banking-net
+
+  # ── Promtail — log collector / shipper ──────────────────────────────────────
+  # Reads Docker container logs via the Docker socket and ships them to Loki.
+  # /var/lib/docker/containers is mounted read-only for log file access.
+  # /var/run/docker.sock is mounted for Docker SD (service discovery).
+  # promtail-positions volume persists read offsets across Promtail restarts so
+  # logs are not re-ingested from the beginning each time Promtail is restarted.
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./promtail:/etc/promtail
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - promtail-positions:/promtail-positions
+    depends_on:
+      loki:
+        condition: service_healthy
+    networks:
+      - banking-net
+
+  # ── Grafana — dashboards and visualisation ──────────────────────────────────
+  # Datasources (Prometheus + Loki) and dashboards are provisioned automatically
+  # from grafana/provisioning/ — no manual configuration required.
   grafana:
     image: grafana/grafana:11.1.0
     container_name: grafana
@@ -320,7 +402,12 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      # Allow Grafana to load unsigned plugins if needed in future
+      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=
+      # Increase default query timeout for Loki log range queries
+      - GF_DATAPROXY_TIMEOUT=60
     networks:
       - banking-net
     depends_on:
       - prometheus
+      - loki

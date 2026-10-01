@@ -44,3 +44,9 @@ management:
       show-details: always
     prometheus:
       enabled: true
+  metrics:
+    tags:
+      service: accounts-service
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true

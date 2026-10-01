@@ -7,6 +7,7 @@ import com.capstone.transaction.entity.postgres.LedgerMutationAudit;
 import com.capstone.transaction.kafka.TransactionEventProducer;
 import com.capstone.transaction.repository.oracle.TransactionMasterRepository;
 import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepository;
+import com.capstone.transaction.metrics.BankingMetricsService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -34,6 +35,7 @@ public class CrossCurrencyTimeoutService {
     private final TransactionMasterRepository txnMasterRepository;
     private final LedgerMutationAuditRepository auditRepository;
     private final TransactionEventProducer eventProducer;
+    private final BankingMetricsService metricsService;
     private final TransactionTemplate oracleTx;
     private final TransactionTemplate postgresTx;
 
@@ -41,11 +43,13 @@ public class CrossCurrencyTimeoutService {
             TransactionMasterRepository txnMasterRepository,
             LedgerMutationAuditRepository auditRepository,
             TransactionEventProducer eventProducer,
+            BankingMetricsService metricsService,
             @Qualifier("oracleTransactionManager") PlatformTransactionManager oracleTxManager,
             @Qualifier("postgresTransactionManager") PlatformTransactionManager postgresTxManager) {
         this.txnMasterRepository = txnMasterRepository;
         this.auditRepository = auditRepository;
         this.eventProducer = eventProducer;
+        this.metricsService = metricsService;
         this.oracleTx = new TransactionTemplate(oracleTxManager);
         this.postgresTx = new TransactionTemplate(postgresTxManager);
     }
@@ -107,6 +111,8 @@ public class CrossCurrencyTimeoutService {
                 );
 
                 eventProducer.publishFailed(failedEvent);
+
+                metricsService.recordFailure("TRANSFER", txnId, "Cross-currency settlement timed out: ForEx service is unavailable");
 
                 log.warn("Marked cross-currency txnId={} as ROLLED_BACK due to ForEx service timeout; notified customer", txnId);
 

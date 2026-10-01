@@ -94,6 +94,14 @@ public class ReconciliationEngine {
             } else {
                 exceptions++;
                 publishDiscrepancy(result);
+                org.slf4j.MDC.put("component", "reconciliation");
+                org.slf4j.MDC.put("event_type", "LEDGER_MISMATCH");
+                org.slf4j.MDC.put("transactionId", result.getTxnId());
+                log.error("{} mismatch detected for transaction {}. Expected: {} {}, Actual: {} {}", 
+                        result.getExceptionType(), result.getTxnId(),
+                        result.getExpectedAmount(), result.getExpectedCurrencyCode(),
+                        result.getActualAmount(), result.getActualCurrencyCode());
+                org.slf4j.MDC.clear();
             }
         }
 
@@ -103,6 +111,12 @@ public class ReconciliationEngine {
             reconResultAuditRepository.save(result);
             exceptions++;
             publishDiscrepancy(result);
+            org.slf4j.MDC.put("component", "reconciliation");
+            org.slf4j.MDC.put("event_type", "LEDGER_MISMATCH");
+            org.slf4j.MDC.put("transactionId", result.getTxnId());
+            log.error("{} orphan ledger entry detected for transaction {}.", 
+                    result.getExceptionType(), result.getTxnId());
+            org.slf4j.MDC.clear();
         }
 
         int totalChecked = windowData.candidates().size() + windowData.orphanLedgerLegs().size();

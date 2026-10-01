@@ -19,6 +19,7 @@ import com.capstone.transaction.service.BalanceCacheInvalidator;
 import com.capstone.transaction.service.IdempotencyService;
 import com.capstone.transaction.service.OutboxRelayService;
 import com.capstone.transaction.service.TransactionService;
+import com.capstone.transaction.metrics.BankingMetricsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -76,6 +77,9 @@ class CrossCurrencySagaAsyncTest {
 
     @Mock
     private BalanceCacheInvalidator balanceCacheInvalidator;
+    @Mock
+    private BankingMetricsService metricsService;
+
 
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
@@ -102,7 +106,8 @@ class CrossCurrencySagaAsyncTest {
                 eventProducer,
                 balanceCacheInvalidator,
                 outboxRepository,
-                objectMapper
+                objectMapper,
+                metricsService
         );
 
         outboxRelayService = new OutboxRelayService(
@@ -116,6 +121,7 @@ class CrossCurrencySagaAsyncTest {
                 txnMasterRepository,
                 outboxRepository,
                 balanceCacheInvalidator,
+                metricsService,
                 oracleTxManager,
                 postgresTxManager,
                 objectMapper
@@ -224,6 +230,9 @@ class CrossCurrencySagaAsyncTest {
 
         // When CrossCurrencySettlementConsumer processes message
         settlementConsumer.processSettlement(settlementEvent);
+
+        // Verify metrics
+        verify(metricsService).recordSuccess("TRANSFER", txnId.toString());
 
         // Verify double-entry ledger mutation audit written to PostgreSQL
         ArgumentCaptor<LedgerMutationAudit> ledgerCaptor = ArgumentCaptor.forClass(LedgerMutationAudit.class);

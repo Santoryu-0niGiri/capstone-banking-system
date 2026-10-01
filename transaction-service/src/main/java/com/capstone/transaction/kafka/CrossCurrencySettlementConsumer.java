@@ -10,6 +10,7 @@ import com.capstone.transaction.repository.oracle.TransactionMasterRepository;
 import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepository;
 import com.capstone.transaction.repository.postgres.TransactionOutboxRepository;
 import com.capstone.transaction.service.BalanceCacheInvalidator;
+import com.capstone.transaction.metrics.BankingMetricsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -37,6 +38,7 @@ public class CrossCurrencySettlementConsumer {
     private final TransactionMasterRepository txnMasterRepository;
     private final TransactionOutboxRepository outboxRepository;
     private final BalanceCacheInvalidator balanceCacheInvalidator;
+    private final BankingMetricsService metricsService;
     private final TransactionTemplate oracleTx;
     private final TransactionTemplate postgresTx;
     private final ObjectMapper objectMapper;
@@ -46,6 +48,7 @@ public class CrossCurrencySettlementConsumer {
             TransactionMasterRepository txnMasterRepository,
             TransactionOutboxRepository outboxRepository,
             BalanceCacheInvalidator balanceCacheInvalidator,
+            BankingMetricsService metricsService,
             @Qualifier("oracleTransactionManager") PlatformTransactionManager oracleTxManager,
             @Qualifier("postgresTransactionManager") PlatformTransactionManager postgresTxManager,
             ObjectMapper objectMapper) {
@@ -53,6 +56,7 @@ public class CrossCurrencySettlementConsumer {
         this.txnMasterRepository = txnMasterRepository;
         this.outboxRepository = outboxRepository;
         this.balanceCacheInvalidator = balanceCacheInvalidator;
+        this.metricsService = metricsService;
         this.oracleTx = new TransactionTemplate(oracleTxManager);
         this.postgresTx = new TransactionTemplate(postgresTxManager);
         this.objectMapper = objectMapper;
@@ -182,6 +186,8 @@ public class CrossCurrencySettlementConsumer {
         // 3. Cache eviction
         balanceCacheInvalidator.evict(event.sourceAccountId());
         balanceCacheInvalidator.evict(event.destAccountId());
+
+        metricsService.recordSuccess("TRANSFER", txnId);
 
         log.info("Cross-currency transfer completed and committed for txnId={}", txnId);
     }

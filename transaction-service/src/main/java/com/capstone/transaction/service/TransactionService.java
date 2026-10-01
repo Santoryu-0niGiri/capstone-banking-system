@@ -34,13 +34,13 @@ import com.capstone.transaction.entity.oracle.TransactionMaster;
 import com.capstone.transaction.entity.postgres.LedgerMutationAudit;
 import com.capstone.transaction.entity.postgres.TransactionOutbox;
 import com.capstone.transaction.kafka.TransactionEventProducer;
+import com.capstone.transaction.metrics.BankingMetricsService;
 import com.capstone.transaction.model.MutationResult;
 import com.capstone.transaction.model.TransferResult;
 import com.capstone.transaction.repository.oracle.TransactionMasterRepository;
 import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepository;
 import com.capstone.transaction.repository.postgres.TransactionOutboxRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,6 +54,8 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @Slf4j
 public class TransactionService {
+
+    private final BankingMetricsService metricsService;
 
     private final AccountsServiceClient accountsServiceClient;
     private final TransactionMasterRepository txnMasterRepository;
@@ -81,7 +83,8 @@ public class TransactionService {
             @org.springframework.beans.factory.annotation.Autowired(required = false)
             TransactionOutboxRepository outboxRepository,
             @org.springframework.beans.factory.annotation.Autowired(required = false)
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            BankingMetricsService metricsService) {
 
         this.accountsServiceClient = accountsServiceClient;
         this.txnMasterRepository = txnMasterRepository;
@@ -93,6 +96,7 @@ public class TransactionService {
         this.balanceCacheInvalidator = balanceCacheInvalidator;
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper().findAndRegisterModules();
+        this.metricsService = metricsService;
     }
 
     public TransactionService(
@@ -105,10 +109,11 @@ public class TransactionService {
             PlatformTransactionManager postgresTxManager,
             IdempotencyService idempotencyService,
             TransactionEventProducer eventProducer,
-            BalanceCacheInvalidator balanceCacheInvalidator) {
+            BalanceCacheInvalidator balanceCacheInvalidator,
+            BankingMetricsService metricsService) {
 
         this(accountsServiceClient, txnMasterRepository, auditRepository, oracleTxManager, postgresTxManager,
-                idempotencyService, eventProducer, balanceCacheInvalidator, null, null);
+                idempotencyService, eventProducer, balanceCacheInvalidator, null, null, metricsService);
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -305,6 +310,7 @@ public class TransactionService {
         }
 
         if (!idempotencyService.tryLock(request.idempotencyKey())) {
+            metricsService.recordIdempotencyConflict();
             throw new IdempotencyConflictException(
                     "Request with idempotency key '"
                             + request.idempotencyKey()
@@ -379,6 +385,8 @@ public class TransactionService {
                     request.idempotencyKey(),
                     response);
 
+            metricsService.recordSuccess(txnType, txnId);
+
             eventProducer.publishCompleted(
                     new TransactionCompletedEvent(
                             UUID.fromString(txnId),
@@ -405,8 +413,11 @@ public class TransactionService {
                             request.amount(),
                             ex.getMessage(),
                             Instant.now()));
+            metricsService.recordFailure(txnType, txnId, ex.getMessage());
 
             throw ex;
+        } finally {
+            metricsService.clearMdc();
         }
     }
 
@@ -428,14 +439,13 @@ public class TransactionService {
 
         if (!idempotencyService.tryLock(
                 request.idempotencyKey())) {
-
+            metricsService.recordIdempotencyConflict();
             throw new IdempotencyConflictException(
                     "Request with idempotency key '"
                             + request.idempotencyKey()
                             + "' is already being processed");
         }
 
-       
 
         try {
 
@@ -490,6 +500,8 @@ public class TransactionService {
                     request.idempotencyKey(),
                     response);
 
+            metricsService.recordSuccess("TRANSFER", txnId);
+
             eventProducer.publishCompleted(
                     new TransactionCompletedEvent(
                             UUID.fromString(txnId),
@@ -518,8 +530,11 @@ public class TransactionService {
                             request.amount(),
                             ex.getMessage(),
                             Instant.now()));
+            metricsService.recordFailure("TRANSFER", txnId, ex.getMessage());
 
             throw ex;
+        } finally {
+            metricsService.clearMdc();
         }
     }
 
@@ -732,12 +747,13 @@ public class TransactionService {
             txnMasterRepository.save(txnMaster);
         });
 
-        // Phase 1b: Debit source account via Accounts Service REST
+                // Phase 1b: Debit source account via Accounts Service REST
         AccountMutationResponse sourceResponse;
         try {
             sourceResponse = accountsServiceClient.debit(sourceId, amount, txnId, "TRANSFER");
         } catch (RuntimeException ex) {
             rollbackTxnStatus(txnId);
+            metricsService.recordFailure("TRANSFER", txnId, ex.getMessage());
             throw ex;
         }
 
@@ -756,6 +772,7 @@ public class TransactionService {
                         sourceId, txnId, compEx);
             }
             rollbackTxnStatus(txnId);
+            metricsService.recordFailure("TRANSFER", txnId, ex.getMessage());
             throw ex;
         }
 

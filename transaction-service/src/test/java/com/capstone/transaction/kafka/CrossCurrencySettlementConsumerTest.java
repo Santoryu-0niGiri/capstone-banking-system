@@ -8,6 +8,7 @@ import com.capstone.transaction.repository.oracle.TransactionMasterRepository;
 import com.capstone.transaction.repository.postgres.LedgerMutationAuditRepository;
 import com.capstone.transaction.repository.postgres.TransactionOutboxRepository;
 import com.capstone.transaction.service.BalanceCacheInvalidator;
+import com.capstone.transaction.metrics.BankingMetricsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,6 +46,9 @@ class CrossCurrencySettlementConsumerTest {
     private BalanceCacheInvalidator balanceCacheInvalidator;
 
     @Mock
+    private BankingMetricsService metricsService;
+
+    @Mock
     private PlatformTransactionManager oracleTxManager;
 
     @Mock
@@ -65,6 +69,7 @@ class CrossCurrencySettlementConsumerTest {
                 txnMasterRepository,
                 outboxRepository,
                 balanceCacheInvalidator,
+                metricsService,
                 oracleTxManager,
                 postgresTxManager,
                 objectMapper

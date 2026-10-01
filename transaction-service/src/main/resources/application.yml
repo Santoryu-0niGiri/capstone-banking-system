@@ -48,6 +48,7 @@ spring:
 jwt:
   secret: ${JWT_SECRET:CapstoneBankingSuperSecretSigningKeyMustBe256BitsLong!}
 
+# ── Actuator / Micrometer / Prometheus ─────────────────────────────────────────
 management:
   endpoints:
     web:
@@ -58,3 +59,26 @@ management:
       show-details: always
     prometheus:
       enabled: true
+
+  # Add a common 'service' tag to every metric emitted by this service.
+  # This lets Grafana filter/group by service name alongside the Prometheus 'job' label.
+  metrics:
+    tags:
+      service: transaction-service
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+# ── Logging ────────────────────────────────────────────────────────────────────
+# Logback profile switching is handled in logback-spring.xml via <springProfile>.
+# These properties set the root level and suppress noisy framework packages
+# at the Spring property level (works in both profiles).
+logging:
+  level:
+    root: INFO
+    com.capstone: INFO
+    org.hibernate.SQL: WARN
+    com.zaxxer.hikari: WARN
+    org.apache.kafka: WARN
+    org.springframework.kafka: WARN
+    org.springframework.security: WARN

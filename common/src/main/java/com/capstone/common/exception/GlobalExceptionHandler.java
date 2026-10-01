@@ -23,6 +23,53 @@ import java.util.Map;
 
 /**
  * RFC 7807 problem+json error handler shared by every WebMVC service in the
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(org.springframework.dao.CannotAcquireLockException.class)
+    public ResponseEntity<ProblemDetail> handleDeadlock(org.springframework.dao.CannotAcquireLockException ex, WebRequest request) {
+        org.slf4j.MDC.put("component", "database");
+        org.slf4j.MDC.put("event_type", "DB_DEADLOCK");
+        log.error("Database deadlock or lock wait timeout detected", ex);
+        org.slf4j.MDC.clear();
+
+        ProblemDetail pd = build(HttpStatus.CONFLICT, "https://capstone.bank/errors/deadlock",
+                "Database Lock Conflict", ex.getMessage(), request);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(pd);
+    }
+
+    @ExceptionHandler({
+        org.springframework.data.redis.RedisConnectionFailureException.class,
+        org.springframework.data.redis.RedisSystemException.class,
+        io.lettuce.core.RedisCommandTimeoutException.class
+    })
+    public ResponseEntity<ProblemDetail> handleRedisConnectionFailure(Exception ex, WebRequest request) {
+        org.slf4j.MDC.put("component", "redis");
+        org.slf4j.MDC.put("event_type", "REDIS_CONNECTION_TIMEOUT");
+        log.error("Redis connection or command timeout", ex);
+        org.slf4j.MDC.clear();
+
+        ProblemDetail pd = build(HttpStatus.SERVICE_UNAVAILABLE, "https://capstone.bank/errors/redis-unavailable",
+                "Cache Service Unavailable", ex.getMessage(), request);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(pd);
+    }
+
+    @ExceptionHandler({
+        org.springframework.dao.DataAccessResourceFailureException.class,
+        org.springframework.transaction.CannotCreateTransactionException.class,
+        java.sql.SQLTransientConnectionException.class
+    })
+    public ResponseEntity<ProblemDetail> handleDatabaseConnectionFailure(Exception ex, WebRequest request) {
+        org.slf4j.MDC.put("component", "database");
+        org.slf4j.MDC.put("event_type", "DB_CONNECTION_TIMEOUT");
+        log.error("Database connection pool exhaustion or timeout", ex);
+        org.slf4j.MDC.clear();
+
+        ProblemDetail pd = build(HttpStatus.SERVICE_UNAVAILABLE, "https://capstone.bank/errors/db-unavailable",
+                "Database Service Unavailable", ex.getMessage(), request);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(pd);
+    }
+
  * system. Each service's @SpringBootApplication component-scans
  * com.capstone.common so this advice is picked up automatically.
  */

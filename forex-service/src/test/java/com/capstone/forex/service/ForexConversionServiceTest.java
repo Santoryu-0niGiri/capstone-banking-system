@@ -7,6 +7,7 @@ import com.capstone.forex.entity.ForexOutbox;
 import com.capstone.forex.entity.FxConversionAudit;
 import com.capstone.forex.repository.ForexOutboxRepository;
 import com.capstone.forex.repository.FxConversionAuditRepository;
+import com.capstone.forex.metrics.ForexMetricsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +35,8 @@ class ForexConversionServiceTest {
     private FxConversionAuditRepository auditRepository;
     @Mock
     private ForexOutboxRepository outboxRepository;
+    @Mock
+    private ForexMetricsService metricsService;
 
     private ForexConversionService conversionService;
     private ObjectMapper objectMapper;
@@ -45,6 +48,7 @@ class ForexConversionServiceTest {
                 fxRateService,
                 auditRepository,
                 outboxRepository,
+                metricsService,
                 objectMapper
         );
     }
@@ -96,5 +100,9 @@ class ForexConversionServiceTest {
         assertThat(outboxCaptor.getValue().getSourceService()).isEqualTo("forex-service");
         assertThat(outboxCaptor.getValue().getEventType()).isEqualTo(KafkaTopics.FOREX_CONVERSION_COMPLETED);
         assertThat(outboxCaptor.getValue().getStatus()).isEqualTo("PENDING");
+
+        // Verify metrics
+        verify(metricsService).recordSuccess(txnId.toString(), "PHP", "USD");
+        verify(metricsService).clearMdc();
     }
 }

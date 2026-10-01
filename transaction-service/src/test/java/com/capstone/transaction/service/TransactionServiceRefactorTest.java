@@ -37,6 +37,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import com.capstone.transaction.metrics.BankingMetricsService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -74,6 +75,9 @@ class TransactionServiceRefactorTest {
     @Mock
     private TransactionOutboxRepository outboxRepository;
 
+    @Mock
+    private BankingMetricsService metricsService;
+
     private ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     private TransactionService transactionService;
@@ -97,7 +101,8 @@ class TransactionServiceRefactorTest {
                 eventProducer,
                 balanceCacheInvalidator,
                 outboxRepository,
-                objectMapper
+                objectMapper,
+                metricsService
         );
     }
 
